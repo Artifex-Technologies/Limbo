@@ -1,0 +1,25 @@
+{
+  "manifest": {
+    "name": "template",
+    "os": "linux",
+    "image": {
+      "path": "/var/lib/limbo/images/chymaera-validate.qcow2",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "cpus": 2,
+    "memory_mb": 4096,
+    "network": {
+      "mode": "allowlist",
+      "allow": [
+        { "addr": "203.0.113.10", "port": 443, "proto": "tcp" }
+      ]
+    },
+    "disposable": true,
+    "access": { "user": "analyst", "sudo": true },
+    "app": { "name": "validate", "exec": "true" },
+    "provision": { "ssh_public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIREPLACEME validation@host" }
+  },
+  "ssh_identity": "/etc/limbo/keys/validation",
+  "max_seconds": 900,
+  "max_output_bytes": 65536
+}

@@ -1,0 +1,71 @@
+# Maintainer: Matthew Gregory <gregoma@pm.me>
+#
+# Limbo ships as a small package of its own (one static binary, a unit, docs).
+# Its heavy runtime (libvirt, QEMU, dnsmasq, ...) is deliberately NOT in
+# depends=(): an image can carry Limbo "packaged and ready" without every system
+# also carrying a hypervisor stack it may never use. `sudo limbo setup` installs
+# the runtime on first use; `limbo doctor` says what is missing. The list below
+# must match internal/deps (a test pins that they agree).
+pkgname=limbo-git
+pkgver=0.1.0.r0.g0000000
+pkgrel=1
+pkgdesc="Limbo -- run Windows and Linux guest apps as sandboxed host windows, with quarantine and validation runs"
+arch=('x86_64')
+url="https://github.com/Artifex-Technologies/Limbo"
+license=('MPL-2.0')
+depends=('glibc')
+makedepends=('go' 'git')
+optdepends=(
+	'libvirt: manages guests (installed by `limbo setup`)'
+	'qemu-base: the hypervisor (installed by `limbo setup`)'
+	'dnsmasq: DHCP/DNS on each guest network (installed by `limbo setup`)'
+	'nftables: each guest firewall (installed by `limbo setup`)'
+	'openssh: validation runs (installed by `limbo setup`)'
+	'libisoburn: builds the cloud-init seed disk (installed by `limbo setup`)'
+	'waypipe: seamless windows for Linux guests'
+	'freerdp: seamless windows for Windows guests (RemoteApp)'
+)
+provides=('limbo')
+conflicts=('limbo')
+backup=()
+options=('!debug')
+install=limbo.install
+source=("git+https://github.com/Artifex-Technologies/Limbo.git")
+sha256sums=('SKIP')
+
+pkgver() {
+	cd "$srcdir/Limbo"
+	printf "0.1.0.r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+build() {
+	cd "$srcdir/Limbo"
+	export CGO_ENABLED=0
+	go build -trimpath -ldflags "-s -w" -o limbo ./cmd/limbo
+}
+
+check() {
+	cd "$srcdir/Limbo"
+	# Unit tests only: the integration scripts need a hypervisor and root.
+	go test ./...
+}
+
+package() {
+	cd "$srcdir/Limbo"
+
+	install -Dm755 limbo "$pkgdir/usr/bin/limbo"
+	install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+	install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+	install -Dm644 docs/QUARANTINE.md "$pkgdir/usr/share/doc/$pkgname/QUARANTINE.md"
+	install -Dm644 docs/EVENTS.md "$pkgdir/usr/share/doc/$pkgname/EVENTS.md"
+	install -Dm644 packaging/arch/limbo.service "$pkgdir/usr/lib/systemd/system/limbo.service"
+	install -Dm644 packaging/arch/limbo.sysusers "$pkgdir/usr/lib/sysusers.d/limbo.conf"
+	install -Dm644 examples/validation-profile.json "$pkgdir/usr/share/doc/$pkgname/examples/validation-profile.json"
+	install -Dm644 examples/analysis-linux.json "$pkgdir/usr/share/doc/$pkgname/examples/analysis-linux.json"
+
+	# Validation profiles define what a validation run may do, so the directory
+	# is root-only writable (limbo serve refuses to load profiles from anywhere
+	# else). Keys for those profiles live in a root-only directory.
+	install -dm755 "$pkgdir/etc/limbo/validation"
+	install -dm700 "$pkgdir/etc/limbo/keys"
+}

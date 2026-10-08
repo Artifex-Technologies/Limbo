@@ -1,0 +1,5 @@
+# Groups that gate Limbo's sockets (docs/QUARANTINE.md). Membership IS the
+# access control: add Heimdall's service user to limbo-sentry and
+# Sarina's to limbo-agent, and nobody else.
+g limbo-sentry - -
+g limbo-agent  - -

@@ -1,0 +1,12 @@
+post_install() {
+	echo "==> Limbo is installed, but its runtime (libvirt, QEMU, ...) is not."
+	echo "    Check what is missing:   limbo doctor"
+	echo "    Install and enable it:   sudo limbo setup"
+	echo "    (If pacman reports a stale database, run: sudo pacman -Syu  first.)"
+}
+
+post_upgrade() {
+	if ! command -v virsh >/dev/null 2>&1; then
+		post_install
+	fi
+}

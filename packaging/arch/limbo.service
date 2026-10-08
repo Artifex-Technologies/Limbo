@@ -1,0 +1,27 @@
+[Unit]
+Description=Limbo control API (quarantine, verdicts, validation runs)
+Documentation=https://github.com/Artifex-Technologies/Limbo
+After=libvirtd.service virtqemud.socket virtnetworkd.socket nftables.service
+Wants=virtqemud.socket virtnetworkd.socket
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/limbo serve --state-dir /var/lib/limbo/state --run-dir /run/limbo --profile-dir /etc/limbo/validation
+# The sockets are created by limbo itself with their final modes and groups.
+RuntimeDirectory=limbo
+RuntimeDirectoryMode=0755
+StateDirectory=limbo
+Restart=on-failure
+RestartSec=2
+# It manages libvirt and nftables, so it is root; narrow what that root can do.
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -4,13 +4,13 @@ Run Windows and Linux guest applications on a Linux host as seamless,
 native-looking windows, each inside a sandbox you control. Built first for
 **network and infrastructure security analysis and reporting**: run
 Windows-only and untrusted-input tooling without exposing the host. Part of the
-Chymaera ecosystem — designed to ship in Chymaera Linux and be watched by
-Chymaera Sentry.
+Chymaera ecosystem — designed to ship in Chymaera OS and be watched by
+Heimdall.
 
 **Status: working for Linux guests, verified against real guests; Windows
 guests are written but have never run.** Linux guests boot under libvirt/KVM with
 per-guest firewalls that were tested from inside the guest; quarantine, human
-verdicts, validation runs and the Sentry/Sarina integrations were tested with a
+verdicts, validation runs and the Heimdall/Sarina integrations were tested with a
 real daemon, real sockets, real unprivileged users and real systemd units. See
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) section 12 for exactly what is and
 is not verified.
@@ -38,8 +38,8 @@ limbo report --since 7d --out report.md      # Markdown evidence report
   license only allows macOS VMs on Apple hardware.
 - CAD/3D workloads are deferred.
 - Deny-by-default network, filesystem, clipboard and devices, configured per app.
-- **Quarantine.** Sentry watches Limbo's audit log and, when a guest runs outside
-  its safety rules, asks Limbo to cut its network. Sentry can only *restrict*:
+- **Quarantine.** Heimdall watches Limbo's audit log and, when a guest runs outside
+  its safety rules, asks Limbo to cut its network. Heimdall can only *restrict*:
   the socket it uses has no route to release a guest. A **human** gives the
   verdict (safe or dangerous). Sarina adds an advisory opinion that is untrusted
   and changes nothing. Details: [`docs/QUARANTINE.md`](docs/QUARANTINE.md).
@@ -59,7 +59,7 @@ does nothing, and its code is marked unverified until it has run for real.
 
 Each is a design reference, not a dependency. Limbo borrows ideas and writes its
 own implementations; no code is copied (Bottles and Prism are GPL-3.0; Limbo is
-MIT, so nothing may be copied from them). What is adopted is recorded here.
+MPL-2.0, so nothing may be copied from them). What is adopted is recorded here.
 
 | Project | What it is | What Limbo takes from it |
 | --- | --- | --- |
@@ -77,4 +77,4 @@ verifies them against current source.
 
 ## License
 
-MIT. See [`LICENSE`](LICENSE).
+MPL 2.0. See [`LICENSE`](LICENSE).
