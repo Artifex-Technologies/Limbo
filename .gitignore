@@ -6,3 +6,6 @@
 events.jsonl
 *.key
 *.pem
+
+# Local progress notes
+PROGRESS.md
