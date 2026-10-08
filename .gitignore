@@ -1,0 +1,8 @@
+/limbo
+/limbo.exe
+*.qcow2
+*.iso
+*.img
+events.jsonl
+*.key
+*.pem
