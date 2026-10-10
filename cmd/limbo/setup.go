@@ -53,7 +53,7 @@ func realSetupEnv() setupEnv {
 			return strings.HasPrefix(strings.ToLower(strings.TrimSpace(line)), "y")
 		},
 		groupsOK: func() bool {
-			return exec.Command("getent", "group", "limbo-sentry").Run() == nil &&
+			return exec.Command("getent", "group", "limbo-heimdall").Run() == nil &&
 				exec.Command("getent", "group", "limbo-agent").Run() == nil
 		},
 		skippedProfiles: func() []runs.SkippedProfile {
@@ -91,8 +91,8 @@ func doctor(env setupEnv) bool {
 	}
 	check(env.exists("/dev/kvm"), "/dev/kvm (hardware virtualization is available)",
 		"/dev/kvm: no hardware virtualization here (enable VT-x/AMD-V, or nested virtualization in a VM)")
-	check(env.groupsOK(), "groups limbo-sentry and limbo-agent exist",
-		"groups limbo-sentry / limbo-agent: run `sudo limbo setup` (or install the package so sysusers creates them)")
+	check(env.groupsOK(), "groups limbo-heimdall and limbo-agent exist",
+		"groups limbo-heimdall / limbo-agent: run `sudo limbo setup` (or install the package so sysusers creates them)")
 	if env.skippedProfiles != nil {
 		if sk := env.skippedProfiles(); len(sk) > 0 {
 			fmt.Fprintln(env.out, "\nValidation profiles that exist but are not offered:")
@@ -138,7 +138,7 @@ func setup(ctx context.Context, env setupEnv, o setupOpts) error {
 		fmt.Fprintln(env.out, "  - install nothing: every runtime dependency is already present")
 	}
 	fmt.Fprintf(env.out, "  - enable libvirt's socket-activated daemons (%s)\n", strings.Join(libvirtSockets, ", "))
-	fmt.Fprintln(env.out, "  - create the limbo-sentry and limbo-agent groups, if the package's sysusers file is present")
+	fmt.Fprintln(env.out, "  - create the limbo-heimdall and limbo-agent groups, if the package's sysusers file is present")
 	if o.enableService {
 		fmt.Fprintln(env.out, "  - enable and start limbo.service (the control API)")
 	}

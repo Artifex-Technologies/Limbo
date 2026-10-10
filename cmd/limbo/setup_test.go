@@ -206,7 +206,7 @@ func TestDoctorFlagsMissingKVMAndGroups(t *testing.T) {
 	if doctor(f.env) {
 		t.Fatal("no /dev/kvm and no groups must not be ready")
 	}
-	if !strings.Contains(f.out.String(), "/dev/kvm: no hardware virtualization") || !strings.Contains(f.out.String(), "limbo-sentry") {
+	if !strings.Contains(f.out.String(), "/dev/kvm: no hardware virtualization") || !strings.Contains(f.out.String(), "limbo-heimdall") {
 		t.Errorf("\n%s", f.out)
 	}
 }

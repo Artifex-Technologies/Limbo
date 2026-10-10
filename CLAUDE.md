@@ -44,7 +44,7 @@ The real-guest tests, each of which has caught defects unit tests could not:
 | --- | --- |
 | `scripts/integration-linux-guest.sh` | boot in each network mode, what the firewall allows, two guests cannot reach each other, teardown |
 | `scripts/integration-quarantine.sh` | `limbo serve`, socket permissions with real unprivileged users, quarantine lifecycle, verdicts, validation runs |
-| `scripts/integration-chain.sh` | real guest + real daemon + real `sentryd` (unprivileged) + Sarina's real service behind a fake model |
+| `scripts/integration-chain.sh` | real guest + real daemon + real `heimdalld` (unprivileged) + Sarina's real service behind a fake model |
 | `scripts/integration-sarina.sh` | Sarina's real agent loop and real service (fake model that issues scripted tool calls) driving real validation runs: tool schema, permission gate, allowlist, untrusted labelling of results |
 | `scripts/integration-systemd.sh` | the real unit files and their hardening, as the packages install them (installs and removes files; test machine only) |
 
@@ -111,6 +111,14 @@ narrow exception; Limbo quarantine actions need an explicit decision there
 first.
 
 ## Coordination Log (newest first)
+
+### 2026-10-10 — Sentry renamed to Heimdall
+- Chymaera_Sentry is now Heimdall. Group `limbo-sentry` -> `limbo-heimdall`
+  (`limbo.sysusers`, `setup`, `serve`), flag `--sentry-group` -> `--heimdall-group`,
+  binary `sentryd` -> `heimdalld`, service/user `chymaera-sentry` -> `heimdall` in the
+  integration scripts. Test source strings follow Heimdall's `heimdall:<detector>`.
+- Existing hosts need the group renamed (`groupmod -n limbo-heimdall limbo-sentry`).
+— Signed: Limbo / Claude Sonnet 5.5
 
 ### 2026-10-06 (2) — An invalid profile is no longer silently absent
 - `GET /v1/profiles` keeps `profiles` (names) and `details`, and gains

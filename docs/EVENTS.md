@@ -4,7 +4,7 @@ Path: `<state-dir>/events.jsonl` (default `~/.local/state/limbo/`; under
 `limbo serve`, `/var/lib/limbo/state/`). Append-only, one JSON object per line,
 synced after every write. Heimdall reads it and must never write to it.
 
-Permissions under `limbo serve`: mode `0640`, group `limbo-sentry`, with the
+Permissions under `limbo serve`: mode `0640`, group `limbo-heimdall`, with the
 state directory traversable (`x`) but not listable, so Heimdall can open the file
 by its exact path and read nothing else. Everything else under the state
 directory (quarantine records, manifest copies, evidence) stays root-only.

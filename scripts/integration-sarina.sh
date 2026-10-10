@@ -33,7 +33,7 @@ chmod 755 "$WORK" "$WORK/bin" "$WORK/bin/limbo"
 LIMBO="$WORK/bin/limbo"
 [ -f "$WORK/key" ] || ssh-keygen -q -t ed25519 -N '' -f "$WORK/key"
 SHA=$(sha256sum "$BASE" | cut -d' ' -f1)
-groupadd -f limbo-sentry; groupadd -f limbo-agent
+groupadd -f limbo-heimdall; groupadd -f limbo-agent
 id its-sarina >/dev/null 2>&1 || useradd -M -s /usr/bin/nologin -G limbo-agent its-sarina
 chown -R its-sarina "$WORK/sarina"
 

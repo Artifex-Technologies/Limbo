@@ -4,13 +4,13 @@
 # PrivateTmp ...) routinely break a service in ways unit tests cannot see.
 #
 # It installs files into /usr/bin, /usr/lib/systemd/system, /usr/lib/sysusers.d and
-# /etc/limbo, /etc/chymaera-sentry, and removes them again on exit. Use a test
+# /etc/limbo, /etc/heimdall, and removes them again on exit. Use a test
 # machine. Needs systemd, libvirt, the Arch cloud image, and the Heimdall repo.
 #   sudo scripts/integration-systemd.sh
 set -u
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-SENTRY_REPO="${SENTRY_REPO:-$(cd "$REPO/.." && pwd)/Heimdall}"
+HEIMDALL_REPO="${HEIMDALL_REPO:-$(cd "$REPO/.." && pwd)/Heimdall}"
 BASE="${LIMBO_IT_IMAGE:-/var/lib/limbo/images/arch-cloudimg.qcow2}"
 WORK=/var/lib/limbo-itsd-scratch
 PASS=0; FAIL=0
@@ -24,36 +24,36 @@ STATE=/var/lib/limbo/state
 mkdir -p "$WORK"
 
 cleanup() {
-  systemctl stop chymaera-sentry.service limbo.service 2>/dev/null
-  rm -f /usr/bin/limbo /usr/bin/sentryd \
-        /usr/lib/systemd/system/limbo.service /usr/lib/systemd/system/chymaera-sentry.service \
-        /usr/lib/sysusers.d/limbo.conf /usr/lib/sysusers.d/chymaera-sentry.conf
-  rm -rf /etc/systemd/system/chymaera-sentry.service.d /etc/limbo /etc/chymaera-sentry "$STATE" /var/lib/chymaera-sentry "$WORK"
+  systemctl stop heimdall.service limbo.service 2>/dev/null
+  rm -f /usr/bin/limbo /usr/bin/heimdalld \
+        /usr/lib/systemd/system/limbo.service /usr/lib/systemd/system/heimdall.service \
+        /usr/lib/sysusers.d/limbo.conf /usr/lib/sysusers.d/heimdall.conf
+  rm -rf /etc/systemd/system/heimdall.service.d /etc/limbo /etc/heimdall "$STATE" /var/lib/heimdall "$WORK"
   systemctl daemon-reload
-  userdel chymaera-sentry 2>/dev/null
+  userdel heimdall 2>/dev/null
 }
 trap cleanup EXIT
 
 echo "== install exactly what the packages install"
 ( cd "$REPO" && go build -o /usr/bin/limbo ./cmd/limbo ) || { echo "limbo build failed"; exit 2; }
-( cd "$SENTRY_REPO" && go build -o /usr/bin/sentryd ./cmd/sentryd ) || { echo "sentryd build failed"; exit 2; }
+( cd "$HEIMDALL_REPO" && go build -o /usr/bin/heimdalld ./cmd/heimdalld ) || { echo "heimdalld build failed"; exit 2; }
 install -Dm644 "$REPO/packaging/arch/limbo.service" /usr/lib/systemd/system/limbo.service
 install -Dm644 "$REPO/packaging/arch/limbo.sysusers" /usr/lib/sysusers.d/limbo.conf
-install -Dm644 "$SENTRY_REPO/packaging/arch/chymaera-sentry.service" /usr/lib/systemd/system/chymaera-sentry.service
-install -Dm644 "$SENTRY_REPO/packaging/arch/chymaera-sentry.sysusers" /usr/lib/sysusers.d/chymaera-sentry.conf
-install -Dm644 "$SENTRY_REPO/packaging/arch/limbo-integration.conf.example" /etc/systemd/system/chymaera-sentry.service.d/limbo.conf
+install -Dm644 "$HEIMDALL_REPO/packaging/arch/heimdall.service" /usr/lib/systemd/system/heimdall.service
+install -Dm644 "$HEIMDALL_REPO/packaging/arch/heimdall.sysusers" /usr/lib/sysusers.d/heimdall.conf
+install -Dm644 "$HEIMDALL_REPO/packaging/arch/limbo-integration.conf.example" /etc/systemd/system/heimdall.service.d/limbo.conf
 install -dm755 /etc/limbo/validation; install -dm700 /etc/limbo/keys
-systemd-sysusers /usr/lib/sysusers.d/limbo.conf /usr/lib/sysusers.d/chymaera-sentry.conf 2>&1 | grep -v setlocale
+systemd-sysusers /usr/lib/sysusers.d/limbo.conf /usr/lib/sysusers.d/heimdall.conf 2>&1 | grep -v setlocale
 systemctl daemon-reload
-id -nG chymaera-sentry | grep -qw limbo-sentry && bad "the Heimdall user is already in limbo-sentry; this test would not exercise the drop-in" || ok "the Heimdall user starts WITHOUT the group (the drop-in must be what grants it)"
-getent group limbo-sentry >/dev/null && getent group limbo-agent >/dev/null && ok "sysusers created the limbo-sentry and limbo-agent groups" || bad "groups missing"
+id -nG heimdall | grep -qw limbo-heimdall && bad "the Heimdall user is already in limbo-heimdall; this test would not exercise the drop-in" || ok "the Heimdall user starts WITHOUT the group (the drop-in must be what grants it)"
+getent group limbo-heimdall >/dev/null && getent group limbo-agent >/dev/null && ok "sysusers created the limbo-heimdall and limbo-agent groups" || bad "groups missing"
 
 echo "== limbo.service under its hardening"
 systemctl start limbo.service
 waitfor 20 systemctl is-active --quiet limbo.service && ok "limbo.service is active" || { bad "limbo.service failed"; journalctl -u limbo.service --no-pager | tail -15; }
 waitfor 10 test -S /run/limbo/admin.sock && ok "sockets created under /run/limbo (RuntimeDirectory)" || bad "no sockets"
-[ "$(stat -c '%a' /run/limbo/admin.sock)" = 600 ] && [ "$(stat -c '%a %G' /run/limbo/control.sock)" = "660 limbo-sentry" ] && [ "$(stat -c '%a %G' /run/limbo/agent.sock)" = "660 limbo-agent" ] && ok "socket modes and groups are right under the unit" || bad "socket perms: $(stat -c '%n %a %G' /run/limbo/*.sock | tr '\n' ' ')"
-[ "$(stat -c '%a %G' $STATE/events.jsonl)" = "640 limbo-sentry" ] && ok "audit log is 640 limbo-sentry" || bad "log perms $(stat -c '%a %G' $STATE/events.jsonl 2>&1)"
+[ "$(stat -c '%a' /run/limbo/admin.sock)" = 600 ] && [ "$(stat -c '%a %G' /run/limbo/control.sock)" = "660 limbo-heimdall" ] && [ "$(stat -c '%a %G' /run/limbo/agent.sock)" = "660 limbo-agent" ] && ok "socket modes and groups are right under the unit" || bad "socket perms: $(stat -c '%n %a %G' /run/limbo/*.sock | tr '\n' ' ')"
+[ "$(stat -c '%a %G' $STATE/events.jsonl)" = "640 limbo-heimdall" ] && ok "audit log is 640 limbo-heimdall" || bad "log perms $(stat -c '%a %G' $STATE/events.jsonl 2>&1)"
 limbo quarantine list >/dev/null 2>&1 && ok "'limbo quarantine list' works as root against the service" || bad "admin CLI failed"
 
 echo "== a validation run through the service (qemu-img, virsh, xorriso, ssh under the sandbox)"
@@ -77,35 +77,35 @@ for _ in $(seq 1 60); do
 done
 [ "$(echo "$R" | jget "['status']")" = done ] && echo "$R" | jget "['stdout']" | grep -q from-the-service && ok "a validation run completes under the unit's sandbox" || bad "run under the unit: $(echo "$R" | head -c 600)"
 
-echo "== chymaera-sentry.service under ITS hardening, using Limbo"
-install -dm755 /etc/chymaera-sentry
-cat >/etc/chymaera-sentry/config.json <<EOF
+echo "== heimdall.service under ITS hardening, using Limbo"
+install -dm755 /etc/heimdall
+cat >/etc/heimdall/config.json <<EOF
 { "limbo_event_log": "$STATE/events.jsonl",
   "limbo_control_socket": "/run/limbo/control.sock",
-  "limbo_state_path": "/var/lib/chymaera-sentry/limbo-offset",
+  "limbo_state_path": "/var/lib/heimdall/limbo-offset",
   "limbo_poll_interval_seconds": 1, "api_addr": "", "net_ports": [], "telemetry_interval_seconds": 3600 }
 EOF
-chmod 644 /etc/chymaera-sentry/config.json
-systemctl start chymaera-sentry.service
-waitfor 15 systemctl is-active --quiet chymaera-sentry.service && ok "chymaera-sentry.service is active with the drop-in" || { bad "sentry service failed"; journalctl -u chymaera-sentry.service --no-pager | tail -15; }
+chmod 644 /etc/heimdall/config.json
+systemctl start heimdall.service
+waitfor 15 systemctl is-active --quiet heimdall.service && ok "heimdall.service is active with the drop-in" || { bad "heimdall service failed"; journalctl -u heimdall.service --no-pager | tail -15; }
 sleep 3
-journalctl -u chymaera-sentry.service --no-pager | grep -q "watching Limbo event log" && ok "Heimdall (sandboxed, unprivileged) opened Limbo's log" || bad "Heimdall did not start watching: $(journalctl -u chymaera-sentry.service --no-pager | tail -5)"
+journalctl -u heimdall.service --no-pager | grep -q "watching Limbo event log" && ok "Heimdall (sandboxed, unprivileged) opened Limbo's log" || bad "Heimdall did not start watching: $(journalctl -u heimdall.service --no-pager | tail -5)"
 # A synthetic event for a guest Limbo never started. Heimdall should reach the control
 # socket (through its sandbox) and be told no such guest exists: proof of connectivity
 # and permission without touching a real guest.
 printf '{"time":"%s","kind":"policy.remove","guest":"ghost","detail":{}}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >>"$STATE/events.jsonl"
 printf '{"time":"%s","kind":"guest.start","guest":"ghost","detail":{}}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >>"$STATE/events.jsonl"
-waitfor 20 sh -c "journalctl -u chymaera-sentry.service --no-pager | grep -q 'no record of a running guest'" \
+waitfor 20 sh -c "journalctl -u heimdall.service --no-pager | grep -q 'no record of a running guest'" \
   && ok "Heimdall reached control.sock from inside its sandbox (Limbo answered: no such guest)" \
-  || bad "Heimdall could not reach control.sock: $(journalctl -u chymaera-sentry.service --no-pager | grep -i -E 'quarantine|limbo' | tail -4)"
-[ -f /var/lib/chymaera-sentry/limbo-offset ] && ok "Heimdall persisted its read offset under its own state directory" || bad "no offset file"
+  || bad "Heimdall could not reach control.sock: $(journalctl -u heimdall.service --no-pager | grep -i -E 'quarantine|limbo' | tail -4)"
+[ -f /var/lib/heimdall/limbo-offset ] && ok "Heimdall persisted its read offset under its own state directory" || bad "no offset file"
 # With the group Heimdall's service has, it must be able to READ the log and not WRITE it.
-if systemd-run --quiet --pipe --wait -p User=chymaera-sentry -p SupplementaryGroups=limbo-sentry sh -c "echo x >> $STATE/events.jsonl" 2>/dev/null; then
+if systemd-run --quiet --pipe --wait -p User=heimdall -p SupplementaryGroups=limbo-heimdall sh -c "echo x >> $STATE/events.jsonl" 2>/dev/null; then
   bad "a process with Heimdall's user and group could WRITE Limbo's audit log"
 else
   ok "with Heimdall's user and group, Limbo's audit log is not writable"
 fi
-systemd-run --quiet --pipe --wait -p User=chymaera-sentry -p SupplementaryGroups=limbo-sentry head -c 1 "$STATE/events.jsonl" >/dev/null 2>&1 \
+systemd-run --quiet --pipe --wait -p User=heimdall -p SupplementaryGroups=limbo-heimdall head -c 1 "$STATE/events.jsonl" >/dev/null 2>&1 \
   && ok "...but it is readable" || bad "the log is not readable with the Heimdall group"
 
 echo

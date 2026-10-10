@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Full-chain test with every real component: a real guest, a real `limbo serve`,
-# the real `sentryd` run as an unprivileged user, and Sarina's real service
+# the real `heimdalld` run as an unprivileged user, and Sarina's real service
 # (backed by a fake model that records what it was asked).
 #
 # The one synthetic piece is the trigger: Limbo does not itself emit
@@ -15,7 +15,7 @@ set -u
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 GH="$(cd "$REPO/.." && pwd)"
-SENTRY_REPO="${SENTRY_REPO:-$GH/Heimdall}"
+HEIMDALL_REPO="${HEIMDALL_REPO:-$GH/Heimdall}"
 SARINA_REPO="${SARINA_REPO:-$GH/Sarina}"
 WORK="${LIMBO_IT_DIR:-/var/lib/limbo/itc}"
 BASE="${LIMBO_IT_IMAGE:-/var/lib/limbo/images/arch-cloudimg.qcow2}"
@@ -31,18 +31,18 @@ expect() { want=$1; desc=$2; shift 2
 waitfor() { # waitfor <seconds> <command...>
   n=$1; shift; for _ in $(seq 1 "$n"); do "$@" >/dev/null 2>&1 && return 0; sleep 1; done; return 1; }
 
-rm -rf "$WORK/state" "$WORK/sentry" "$WORK/model.jsonl" "$WORK/sarina-sessions"
-mkdir -p "$WORK/bin" "$WORK/state" "$WORK/profiles" "$WORK/sarina-cwd" "$WORK/sarina-sessions" "$WORK/sentry"
+rm -rf "$WORK/state" "$WORK/heimdall" "$WORK/model.jsonl" "$WORK/sarina-sessions"
+mkdir -p "$WORK/bin" "$WORK/state" "$WORK/profiles" "$WORK/sarina-cwd" "$WORK/sarina-sessions" "$WORK/heimdall"
 cd "$REPO" && go build -o "$WORK/bin/limbo" ./cmd/limbo || { echo "limbo build failed"; exit 2; }
-( cd "$SENTRY_REPO" && go build -o "$WORK/bin/sentryd" ./cmd/sentryd ) || { echo "sentryd build failed"; exit 2; }
-chmod 755 "$WORK" "$WORK/bin" "$WORK/bin/limbo" "$WORK/bin/sentryd"
+( cd "$HEIMDALL_REPO" && go build -o "$WORK/bin/heimdalld" ./cmd/heimdalld ) || { echo "heimdalld build failed"; exit 2; }
+chmod 755 "$WORK" "$WORK/bin" "$WORK/bin/limbo" "$WORK/bin/heimdalld"
 LIMBO="$WORK/bin/limbo"
 [ -f "$WORK/key" ] || ssh-keygen -q -t ed25519 -N '' -f "$WORK/key"
 SHA=$(sha256sum "$BASE" | cut -d' ' -f1)
 
-groupadd -f limbo-sentry; groupadd -f limbo-agent
-id itq-sentry >/dev/null 2>&1 || useradd -M -s /usr/bin/nologin -G limbo-sentry itq-sentry
-chown itq-sentry "$WORK/sentry"
+groupadd -f limbo-heimdall; groupadd -f limbo-agent
+id itq-heimdall >/dev/null 2>&1 || useradd -M -s /usr/bin/nologin -G limbo-heimdall itq-heimdall
+chown itq-heimdall "$WORK/heimdall"
 as() { u=$1; shift; (cd / && runuser -u "$u" -- "$@"); }
 jget() { python3 -c "import sys,json; d=json.load(sys.stdin); print(eval('d'+sys.argv[1]))" "$1"; }
 
@@ -90,12 +90,12 @@ python3 -m http.server 8000 --bind 0.0.0.0 >/dev/null 2>&1 & PIDS="$PIDS $!"
 
 echo "== setup"
 waitfor 30 curl -s -o /dev/null http://127.0.0.1:8899/healthz && ok "Sarina's real service is up (fake model behind it)" || bad "sarina-service did not start: $(tail -3 "$WORK/sarina.log")"
-stat -c '%a %G' "$LIMBO_STATE_DIR/events.jsonl" | grep -q '^640 limbo-sentry$' && ok "event log is 640 group limbo-sentry (Heimdall can read, not write)" || bad "event log perms: $(stat -c '%a %G' "$LIMBO_STATE_DIR/events.jsonl")"
+stat -c '%a %G' "$LIMBO_STATE_DIR/events.jsonl" | grep -q '^640 limbo-heimdall$' && ok "event log is 640 group limbo-heimdall (Heimdall can read, not write)" || bad "event log perms: $(stat -c '%a %G' "$LIMBO_STATE_DIR/events.jsonl")"
 
-# --- sentryd, as an unprivileged user ----------------------------------------------
-cat >"$WORK/sentry.json" <<EOF
+# --- heimdalld, as an unprivileged user ----------------------------------------------
+cat >"$WORK/heimdall.json" <<EOF
 { "limbo_event_log": "$LIMBO_STATE_DIR/events.jsonl",
-  "limbo_state_path": "$WORK/sentry/offset",
+  "limbo_state_path": "$WORK/heimdall/offset",
   "limbo_poll_interval_seconds": 1,
   "limbo_control_socket": "$RUN/control.sock",
   "sarina_url": "http://127.0.0.1:8899",
@@ -104,10 +104,10 @@ cat >"$WORK/sentry.json" <<EOF
   "api_addr": "", "telemetry_interval_seconds": 3600,
   "net_ports": [], "ring_size": 100 }
 EOF
-chmod 644 "$WORK/sentry.json"
-as itq-sentry "$WORK/bin/sentryd" run --config "$WORK/sentry.json" >"$WORK/sentry.out" 2>"$WORK/sentry.err" &
-SENTRY=$!; PIDS="$PIDS $SENTRY"
-waitfor 15 grep -q "Limbo quarantine response enabled" "$WORK/sentry.err" && ok "sentryd (unprivileged) started with the response enabled" || bad "sentryd: $(cat "$WORK/sentry.err" | head -5)"
+chmod 644 "$WORK/heimdall.json"
+as itq-heimdall "$WORK/bin/heimdalld" run --config "$WORK/heimdall.json" >"$WORK/heimdall.out" 2>"$WORK/heimdall.err" &
+HEIMDALL=$!; PIDS="$PIDS $HEIMDALL"
+waitfor 15 grep -q "Limbo quarantine response enabled" "$WORK/heimdall.err" && ok "heimdalld (unprivileged) started with the response enabled" || bad "heimdalld: $(cat "$WORK/heimdall.err" | head -5)"
 
 echo "== a healthy guest start must NOT trigger anything"
 "$LIMBO" seed --iso "$WORK/seed.iso" "$WORK/$GUEST.json" "$WORK/seed" >/dev/null
@@ -116,7 +116,7 @@ waitfor 90 gssh true && ok "guest booted" || { bad "guest never booted"; echo "p
 sleep 4
 expect pass "guest reaches the internet (healthy)" gtcp 1.1.1.1 443
 expect fail "guest cannot reach the host service (healthy)" gtcp "$GW" 8000
-[ ! -s "$WORK/sentry.out" ] && ok "Heimdall raised no alerts for a normal start (no false positive)" || bad "false alert: $(head -c 300 "$WORK/sentry.out")"
+[ ! -s "$WORK/heimdall.out" ] && ok "Heimdall raised no alerts for a normal start (no false positive)" || bad "false alert: $(head -c 300 "$WORK/heimdall.out")"
 "$LIMBO" quarantine --socket "$RUN/admin.sock" list | grep -q "$GUEST" && bad "a healthy guest was quarantined" || ok "no quarantine was opened"
 
 echo "== tamper: the firewall is removed under the running guest"
@@ -132,13 +132,13 @@ nft list table inet "limbo_$GUEST" >/dev/null 2>&1 && ok "the missing firewall t
 
 echo "== the record"
 LIST=$("$LIMBO" quarantine --socket "$RUN/admin.sock" list)
-echo "$LIST" | grep -q "$GUEST.*open.*restrict.*sentry:limbo-guest" && ok "quarantine is open at 'restrict', opened by sentry:limbo-guest" || bad "record: $LIST"
+echo "$LIST" | grep -q "$GUEST.*open.*restrict.*heimdall:limbo-guest" && ok "quarantine is open at 'restrict', opened by heimdall:limbo-guest" || bad "record: $LIST"
 QID=$(echo "$LIST" | awk -v g="$GUEST" '$2==g {print $1; exit}')
-grep -q "quarantined (" "$WORK/sentry.err" && ok "Heimdall logged the quarantine" || bad "no quarantine log line: $(cat "$WORK/sentry.err")"
-grep -q '"detector_id":"limbo-guest"' "$WORK/sentry.out" && ok "Heimdall still wrote its own alert" || bad "alert not written"
+grep -q "quarantined (" "$WORK/heimdall.err" && ok "Heimdall logged the quarantine" || bad "no quarantine log line: $(cat "$WORK/heimdall.err")"
+grep -q '"detector_id":"limbo-guest"' "$WORK/heimdall.out" && ok "Heimdall still wrote its own alert" || bad "alert not written"
 
 echo "== Sarina's advisory"
-waitfor 40 sh -c "$LIMBO quarantine --socket $RUN/admin.sock show $QID | grep -q 'ADVISORY from sarina'" && ok "an advisory from Sarina was attached" || bad "no advisory: $(tail -5 "$WORK/sentry.err")"
+waitfor 40 sh -c "$LIMBO quarantine --socket $RUN/admin.sock show $QID | grep -q 'ADVISORY from sarina'" && ok "an advisory from Sarina was attached" || bad "no advisory: $(tail -5 "$WORK/heimdall.err")"
 SHOW=$("$LIMBO" quarantine --socket "$RUN/admin.sock" show "$QID")
 echo "$SHOW" | grep -qi "untrusted" && ok "the human sees it labelled untrusted" || bad "advisory not labelled"
 echo "$SHOW" | grep -q "IGNORE PREVIOUS INSTRUCTIONS" && ok "the hostile text in the advisory is shown, not obeyed" || bad "advisory text missing"
@@ -169,11 +169,11 @@ expect fail "safe: the host service is still blocked by the restored policy" gtc
 
 echo "== Limbo outage: Heimdall must keep alerting"
 kill "$SERVE"; sleep 1
-BEFORE=$(wc -l <"$WORK/sentry.out")
+BEFORE=$(wc -l <"$WORK/heimdall.out")
 printf '{"time":"%s","kind":"policy.remove","guest":"%s","detail":{"note":"second synthetic trigger, limbo is down"}}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$GUEST" >>"$LIMBO_STATE_DIR/events.jsonl"
-waitfor 15 sh -c "[ \$(wc -l <$WORK/sentry.out) -gt $BEFORE ]" && ok "Heimdall still raised the alert while Limbo was unreachable" || bad "alert lost during Limbo outage"
-kill -0 "$SENTRY" 2>/dev/null && ok "sentryd is still running" || bad "sentryd died"
-grep -q "could not quarantine" "$WORK/sentry.err" && ok "the failed quarantine attempt was reported" || bad "failure not logged"
+waitfor 15 sh -c "[ \$(wc -l <$WORK/heimdall.out) -gt $BEFORE ]" && ok "Heimdall still raised the alert while Limbo was unreachable" || bad "alert lost during Limbo outage"
+kill -0 "$HEIMDALL" 2>/dev/null && ok "heimdalld is still running" || bad "heimdalld died"
+grep -q "could not quarantine" "$WORK/heimdall.err" && ok "the failed quarantine attempt was reported" || bad "failure not logged"
 
 echo
 echo "passed=$PASS failed=$FAIL"

@@ -30,7 +30,7 @@ func serve(args []string) error {
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
 	state := fs.String("state-dir", defaultStateDir(), "directory for the event log, quarantine records and generated definitions")
 	runDir := fs.String("run-dir", "/run/limbo", "directory for the sockets")
-	sentryGroup := fs.String("sentry-group", "limbo-sentry", "group that may use control.sock (Heimdall)")
+	heimdallGroup := fs.String("heimdall-group", "limbo-heimdall", "group that may use control.sock (Heimdall)")
 	agentGroup := fs.String("agent-group", "limbo-agent", "group that may use agent.sock (Sarina)")
 	profiles := fs.String("profile-dir", "/etc/limbo/validation", "directory of validation profiles (must be root-writable only)")
 	if err := fs.Parse(args); err != nil {
@@ -51,7 +51,7 @@ func serve(args []string) error {
 		return err
 	}
 	defer log.Close()
-	if err := shareEventLog(*state, filepath.Join(*state, "events.jsonl"), *sentryGroup); err != nil {
+	if err := shareEventLog(*state, filepath.Join(*state, "events.jsonl"), *heimdallGroup); err != nil {
 		return err
 	}
 	store, err := quarantine.Open(filepath.Join(*state, "quarantine"))
@@ -82,7 +82,7 @@ func serve(args []string) error {
 	}
 	socks := []sock{
 		{"admin.sock", api.Admin, 0o600, ""},
-		{"control.sock", api.Control, 0o660, *sentryGroup},
+		{"control.sock", api.Control, 0o660, *heimdallGroup},
 		{"agent.sock", api.Agent, 0o660, *agentGroup},
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

@@ -287,7 +287,7 @@ been verified:
 | `internal/provision` | cloud-init seed for Linux guests | unit tests; booted (Arch cloud image) |
 | `internal/license` | Windows gate | unit tests |
 | `internal/image` | SHA-256 verify of base image | unit tests; base image confirmed unmodified after many guest sessions |
-| `internal/events` | JSONL audit log (Heimdall contract, `docs/EVENTS.md`) | unit tests; real logs consumed by the real `sentryd` |
+| `internal/events` | JSONL audit log (Heimdall contract, `docs/EVENTS.md`) | unit tests; real logs consumed by the real `heimdalld` |
 | `internal/launch` | waypipe / FreeRDP RemoteApp argv | unit tests only. **Neither client has been run** |
 | `cmd/limbo` | CLI: up/down/plan/seed/launch/serve/quarantine/report | everything except `launch` exercised for real |
 | `packaging/arch` | PKGBUILD, systemd unit, sysusers | `makepkg` builds it (with `check()`); the real units run under their hardening |
@@ -309,7 +309,7 @@ and from real unprivileged users:
   and refuses to start it again; validation runs complete, are capped, time out,
   tear down, hold their network policy, survive a short command timeout during a
   slow boot, and have `sudo` only when their profile asks for it. 63 checks.
-- **The full chain** (real guest, real `limbo serve`, real `sentryd` as an
+- **The full chain** (real guest, real `limbo serve`, real `heimdalld` as an
   unprivileged user, Sarina's real service behind a fake model): a healthy start
   raises nothing; deleting the firewall under a running guest makes the guest
   reach a host service, Heimdall detects it, restricts the guest and *recreates the
@@ -362,7 +362,7 @@ hypervisor stack.
 - `limbo doctor` reports what is installed and what is missing; it changes nothing.
 - `sudo limbo setup` shows its plan, asks (unless `--yes`), installs only what is
   missing with `pacman -S --needed`, enables libvirt's socket-activated daemons
-  and creates the `limbo-sentry` / `limbo-agent` groups. `--upgrade` does a full
+  and creates the `limbo-heimdall` / `limbo-agent` groups. `--upgrade` does a full
   system upgrade first; `--enable-service` also starts the control API.
 - `up`, `down` and `serve` fail with "Run: sudo limbo setup" instead of an `exec`
   error when the runtime is absent.
@@ -384,7 +384,7 @@ What remains, and why it was not done here:
   `limbo-git` PKGBUILD modelled on `sarina-git`), and its CI token
   (`SARINA_REPO_TOKEN`) must be able to read the Limbo repo too.
 - **Heimdall is not in the ISO yet**, so Limbo's quarantine response is
-  dormant there until it is packaged and added to `limbo-sentry`.
+  dormant there until it is packaged and added to `limbo-heimdall`.
 - Enabling `limbo.service` on the live medium needs the distro's symlink handling
   (its CLAUDE.md explains the Windows `core.symlinks` trap). It is not enabled by
   default; the sockets and API only matter once a guest is running.

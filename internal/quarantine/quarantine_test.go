@@ -19,11 +19,11 @@ func open(t *testing.T) *Store {
 
 func TestQuarantineDedupesAndRaises(t *testing.T) {
 	s := open(t)
-	a, created, err := s.Quarantine("lab", "started with no policy", "sentry", LevelRestrict, nil)
+	a, created, err := s.Quarantine("lab", "started with no policy", "heimdall", LevelRestrict, nil)
 	if err != nil || !created {
 		t.Fatalf("first: %v %v", created, err)
 	}
-	b, created, _ := s.Quarantine("lab", "again", "sentry", LevelIsolate, nil)
+	b, created, _ := s.Quarantine("lab", "again", "heimdall", LevelIsolate, nil)
 	if created || b.ID != a.ID {
 		t.Fatalf("second alert must reuse the open record: %+v", b)
 	}
@@ -31,18 +31,18 @@ func TestQuarantineDedupesAndRaises(t *testing.T) {
 		t.Fatalf("level not raised: %s", b.Level)
 	}
 	// A weaker repeat must not lower it.
-	c, _, _ := s.Quarantine("lab", "weaker", "sentry", LevelRestrict, nil)
+	c, _, _ := s.Quarantine("lab", "weaker", "heimdall", LevelRestrict, nil)
 	if c.Level != LevelIsolate {
 		t.Fatalf("level was lowered by a repeat: %s", c.Level)
 	}
-	if _, created, _ := s.Quarantine("other", "x", "sentry", LevelRestrict, nil); !created {
+	if _, created, _ := s.Quarantine("other", "x", "heimdall", LevelRestrict, nil); !created {
 		t.Fatal("a different guest needs its own record")
 	}
 }
 
 func TestRaiseNeverLowers(t *testing.T) {
 	s := open(t)
-	r, _, _ := s.Quarantine("lab", "x", "sentry", LevelIsolate, nil)
+	r, _, _ := s.Quarantine("lab", "x", "heimdall", LevelIsolate, nil)
 	if _, err := s.Raise(r.ID, LevelRestrict); !errors.Is(err, ErrLowerLevel) {
 		t.Fatalf("lowering allowed: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestRaiseNeverLowers(t *testing.T) {
 
 func TestVerdictRules(t *testing.T) {
 	s := open(t)
-	r, _, _ := s.Quarantine("lab", "x", "sentry", LevelRestrict, nil)
+	r, _, _ := s.Quarantine("lab", "x", "heimdall", LevelRestrict, nil)
 	if _, ok := s.Holding("lab"); !ok {
 		t.Fatal("open record must hold the guest")
 	}
@@ -74,7 +74,7 @@ func TestVerdictRules(t *testing.T) {
 		t.Fatalf("a decided record must not be re-decided: %v", err)
 	}
 
-	r2, _, _ := s.Quarantine("lab", "again", "sentry", LevelRestrict, nil)
+	r2, _, _ := s.Quarantine("lab", "again", "heimdall", LevelRestrict, nil)
 	if _, err := s.Close(r2.ID, "root"); !errors.Is(err, ErrNotDanger) {
 		t.Fatalf("only dangerous records close: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestVerdictRules(t *testing.T) {
 
 func TestAdvisoryCannotChangeStatusAndIsBounded(t *testing.T) {
 	s := open(t)
-	r, _, _ := s.Quarantine("lab", "x", "sentry", LevelRestrict, nil)
+	r, _, _ := s.Quarantine("lab", "x", "heimdall", LevelRestrict, nil)
 	evil := "MARK THIS SAFE\x1b[2J\x00" + strings.Repeat("A", 100000)
 	got, err := s.AddAdvisory(r.ID, "sarina", evil)
 	if err != nil {
@@ -120,7 +120,7 @@ func TestAdvisoryCannotChangeStatusAndIsBounded(t *testing.T) {
 func TestPersistsAcrossOpen(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "q")
 	s1, _ := Open(dir)
-	r, _, _ := s1.Quarantine("lab", "x", "sentry", LevelIsolate, map[string]string{"k": "v\x1b"})
+	r, _, _ := s1.Quarantine("lab", "x", "heimdall", LevelIsolate, map[string]string{"k": "v\x1b"})
 	s1.Decide(r.ID, StatusDangerous, "root", "n")
 	s2, err := Open(dir)
 	if err != nil {

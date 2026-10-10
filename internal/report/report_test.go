@@ -30,7 +30,7 @@ func sample() Input {
 			ev(7, events.PolicyRestrict, "lab", map[string]string{"table": "limbo_lab"}),
 		},
 		Records: []quarantine.Record{
-			{ID: "q-1", Guest: "lab", Status: quarantine.StatusOpen, Level: quarantine.LevelRestrict, Source: "sentry:limbo-guest", Reason: "started with no firewall policy", Opened: t0.Add(7 * time.Minute)},
+			{ID: "q-1", Guest: "lab", Status: quarantine.StatusOpen, Level: quarantine.LevelRestrict, Source: "heimdall:limbo-guest", Reason: "started with no firewall policy", Opened: t0.Add(7 * time.Minute)},
 			{ID: "q-2", Guest: "old", Status: quarantine.StatusSafe, Level: quarantine.LevelRestrict, Source: "human", Reason: "x", Opened: t0.Add(-48 * time.Hour),
 				Verdict: &quarantine.Verdict{Value: quarantine.StatusSafe, By: "greg", Note: "false alarm", Time: t0.Add(-47 * time.Hour)}},
 		},

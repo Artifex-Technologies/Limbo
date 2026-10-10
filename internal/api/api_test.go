@@ -139,7 +139,7 @@ func TestRouteTablesPerPrincipal(t *testing.T) {
 func TestOpenAppliesHoldAndReassertsOnRepeat(t *testing.T) {
 	s, a, e := newServer(t)
 	h := s.Handler(Control)
-	code, out := call(t, h, "POST", "/v1/quarantine", `{"guest":"lab","reason":"started with no policy","source":"sentry"}`)
+	code, out := call(t, h, "POST", "/v1/quarantine", `{"guest":"lab","reason":"started with no policy","source":"heimdall"}`)
 	if code != 200 || out["applied"] != true || out["created"] != true {
 		t.Fatalf("%d %v", code, out)
 	}

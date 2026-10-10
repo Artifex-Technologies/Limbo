@@ -25,7 +25,7 @@ Sarina still cannot release anything.
 | Socket | Mode / group | Caller | May do | May **not** do |
 | --- | --- | --- | --- | --- |
 | `admin.sock` | `0600` root | the human (`limbo quarantine ...`, via sudo) | everything below, plus **verdicts**, clear, destroy | — |
-| `control.sock` | `0660` group `limbo-sentry` | Heimdall | open a quarantine, raise its level, attach an advisory, list | verdicts, lowering a level, releasing, starting/stopping guests |
+| `control.sock` | `0660` group `limbo-heimdall` | Heimdall | open a quarantine, raise its level, attach an advisory, list | verdicts, lowering a level, releasing, starting/stopping guests |
 | `agent.sock` | `0660` group `limbo-agent` | Sarina | start validation runs, read their results, list validation profiles | touch quarantines, touch any guest not created by a run, choose a manifest |
 
 The server records the peer's uid/pid (`SO_PEERCRED`) in the audit log for every
