@@ -108,6 +108,7 @@ type Manager struct {
 	results map[string]*Result
 	order   []string
 	active  int
+	devHeld map[string][]string // run id -> passthrough devices it holds
 
 	scanMu sync.Mutex        // serializes profile scans (and the image hashing they do)
 	seen   map[string]string // profile file -> code last logged, so a failure is logged once
@@ -144,10 +145,11 @@ func SeedISO(ctx context.Context, r engine.Runner, m *manifest.Manifest, workDir
 // plan (does it have root? a network? how long may a command run?), and nothing
 // that lets it change the profile.
 type ProfileInfo struct {
-	Name       string `json:"name"`
-	Network    string `json:"network"` // none | allowlist | internet-only
-	Sudo       bool   `json:"sudo"`
-	MaxSeconds int    `json:"max_seconds"`
+	Name        string `json:"name"`
+	Network     string `json:"network"` // none | allowlist | internet-only
+	Sudo        bool   `json:"sudo"`
+	Passthrough bool   `json:"passthrough"` // the guest gets a real host device (driver testing)
+	MaxSeconds  int    `json:"max_seconds"`
 }
 
 func (m *Manager) loadProfile(name string) (*Profile, error) {
@@ -214,6 +216,14 @@ func (m *Manager) start(ctx context.Context, profile, command string, timeoutSec
 	if _, err := os.Stat(p.Manifest.Image.Path); err != nil {
 		return "", newErr(CodeImageMissing, "ask the operator to restore the profile's base image", "the base image for profile %q is missing or unreadable", profile)
 	}
+	// Checked here, not only in Engine.Up, so a refusal is immediate and the
+	// operator-facing reason reaches the audit log; Up checks again regardless.
+	for _, check := range []func(*manifest.Manifest) error{m.Engine.CheckHardware, m.Engine.ReadyHardware} {
+		if err := check(&p.Manifest); err != nil {
+			_ = m.Events.Emit(events.GateBlocked, profile, map[string]string{"reason": err.Error()})
+			return "", hardwareErr(err)
+		}
+	}
 	if command == "" || len(command) > maxCommand || strings.ContainsRune(command, 0) {
 		return "", newErr(CodeBadRequest, "send a non-empty command without NUL bytes", "command must be 1-%d bytes", maxCommand)
 	}
@@ -229,8 +239,25 @@ func (m *Manager) start(ctx context.Context, profile, command string, timeoutSec
 		m.mu.Unlock()
 		return "", newErr(CodeBusy, "wait about a minute and retry", "%d validation runs are already in progress", maxConcurrent)
 	}
+	// A passed-through device belongs to one guest at a time.
+	for _, d := range p.Manifest.Devices.PCI {
+		for _, held := range m.devHeld {
+			for _, h := range held {
+				if h == d {
+					m.mu.Unlock()
+					return "", newErr(CodeBusy, "wait for the run using the device to finish, then retry", "a device this profile needs is in use by another run")
+				}
+			}
+		}
+	}
 	m.active++
 	id := newRunID()
+	if len(p.Manifest.Devices.PCI) > 0 {
+		if m.devHeld == nil {
+			m.devHeld = map[string][]string{}
+		}
+		m.devHeld[id] = p.Manifest.Devices.PCI
+	}
 	res := &Result{ID: id, Profile: profile, Status: Running, Started: time.Now().UTC()}
 	m.results[id] = res
 	m.order = append(m.order, id)
@@ -264,6 +291,7 @@ func (m *Manager) finish(id string, mut func(*Result)) {
 		r.Ended = time.Now().UTC()
 	}
 	m.active--
+	delete(m.devHeld, id) // teardown has already run: the device is back with the host
 }
 
 func (m *Manager) execute(ctx context.Context, id string, p *Profile, command string, limit time.Duration) {

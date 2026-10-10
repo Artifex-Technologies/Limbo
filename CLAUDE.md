@@ -88,7 +88,20 @@ Commit per logical section, with the Co-Authored-By trailer.
   Windows code paths require a user-supplied ISO and license, no-op without
   them, and are labelled unverified until run for real. Build and test against
   Linux guests first.
-- **CAD/GPU is deferred.** Don't start it, and don't claim it works untested.
+- **CAD/GPU for desktop use is deferred.** Don't start it, and don't claim it works untested.
+  The one exception (owner's decision, 2026-10-10) is **PCI passthrough for driver
+  testing**: `manifest.devices.pci`, disposable Linux guests only, set by a
+  root-owned profile (never by a caller). The host decides, not the profile:
+  `internal/hostpolicy` refuses on Chymaera OS unconditionally (hard-coded), and
+  allows on Labyrinth OS only for devices in the root-owned
+  `/etc/limbo/host-policy.json` `pci_allow`. Any other OS, or any read error, is a
+  refusal. Each test window also needs a human: `sudo limbo passthrough approve` (terminal,
+  typed "yes", time-limited, refused while host apps use the device; a failed
+  rebind blocks passthrough until reboot). That command writes a root file; it
+  has no socket route and must never get one. Never add a way for
+  `agent.sock`/`control.sock` to choose a device or approve a window.
+  **Unverified**: no real VFIO device has been passed through yet. Labyrinth
+  (CachyOS-based) must ship `ID=labyrinth` in its os-release; it does not yet.
 - **Write our own implementations of what the references do.** Owner's
   decision (2026-10-04): the references are for ideas, not code. Limbo is MPL-2.0
   (owner's decision, 2026-10-05); Bottles and Prism Launcher are GPL-3.0, so copy

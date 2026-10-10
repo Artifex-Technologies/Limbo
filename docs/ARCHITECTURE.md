@@ -108,6 +108,60 @@ Not part of the current scope. Kept so the work is not redone later. Honest stat
 When this is picked up, GPU mode becomes a per-VM setting
 (`none | passthrough | sriov | virtio`). Until then every guest runs with `none`.
 
+### 4.1 Built: PCI passthrough for driver testing (unverified)
+
+Narrow scope, separate from the CAD work above: Sarina (or one of her agents)
+validates Labyrinth OS driver updates inside a disposable guest that owns the
+real GPU.
+
+- **Request vs grant.** A profile asks with `manifest.devices.pci` (addresses like
+  `0000:03:00.0`); it is only valid on a disposable Linux guest, max 4 devices.
+  The host grants, in `internal/hostpolicy`, checked in `Engine.Up` (the single
+  start path) and again when a run starts or profiles are scanned.
+- **Host-OS switch.** `ID=` from `/etc/os-release`: `chymaera` is refused with no
+  override (hard-coded); `labyrinth` is allowed subject to the rest; anything
+  else, or an unreadable file, is refused. No engine wired to a policy refuses too.
+- **Per-device checks (Labyrinth).** The device must be in `pci_allow` of the
+  root-owned `/etc/limbo/host-policy.json` (`limbo serve` refuses to start if that
+  file is not root-owned or is group/world-writable), must exist, must not be the
+  boot display, and its IOMMU group may hold only requested devices and PCI bridges.
+- **Agents cannot widen it.** The device list lives in the profile, in the
+  root-only profile directory; `agent.sock` can name a profile, nothing more. A
+  profile the host refuses is listed in `skipped` with code `hardware_denied`, and
+  `profiles[].passthrough` tells the caller which profiles use a device.
+- **One guest at a time per device**: a second run needing a held device gets `busy`.
+- **A person approves each window.** Eligible is not the same as approved:
+  `sudo limbo passthrough approve [--minutes N] ADDR...` (terminal only, max 2 h)
+  shows what can go wrong, asks for a typed "yes", and only then writes a root-only
+  approval file. There is no socket route for it, so Sarina and Heimdall cannot
+  approve; a run without one fails with `approval_required` and the remedy tells
+  Sarina to ask the user. `status`, `revoke` and `clear` are the other subcommands.
+- **Apps must be closed.** Approval is refused, and again every run, while any host
+  process holds the device open (its DRM nodes, `/dev/nvidia*` for an NVIDIA card,
+  its sound card). The person is told which processes (`firefox (4242)`); a model is
+  only told `hardware_busy`.
+- **The reset problem.** Before a run Limbo records each device's host driver; after
+  teardown it checks the device is back under it. If not (libvirt could not hand it
+  back, or the card did not reset), it emits `hardware.stuck` and writes a marker in
+  `/run/limbo`, a tmpfs, so every later passthrough run gets `reboot_required` until
+  the host reboots (`limbo passthrough clear` if you recovered it by hand). This only
+  catches a failed rebind; a card that rebinds but is wedged internally is not detected.
+- **Audit.** `guest.define` gains `pci`; refusals are `gate.blocked` with the reason;
+  new events `passthrough.approve`, `passthrough.revoke`, `hardware.stuck`.
+- **Not done / unverified.** No real device has been passed through, and none of the
+  Linux-side code (the `/proc` scan, sysfs reads, libvirt `managed='yes'`) has run on
+  real hardware; tests use a fake filesystem. Labyrinth must ship its own
+  `/etc/os-release` with `ID=labyrinth`: it is CachyOS-based and defines none yet, so
+  today it would report `cachyos` and be refused. The planned Labyrinth target keeps
+  its display on the Intel iGPU, so the boot-display check passes for the 2080 Ti,
+  but a compositor can still hold the NVIDIA render node; the busy check catches that.
+
+Example `/etc/limbo/host-policy.json`:
+
+```json
+{ "pci_allow": ["0000:03:00.0", "0000:03:00.1"] }
+```
+
 ## 5. Sandbox model
 
 The VM boundary is the strongest layer, and it only helps if the host side is

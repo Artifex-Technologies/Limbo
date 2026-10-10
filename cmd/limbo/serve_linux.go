@@ -18,6 +18,7 @@ import (
 	"github.com/Artifex-Technologies/Limbo/internal/api"
 	"github.com/Artifex-Technologies/Limbo/internal/engine"
 	"github.com/Artifex-Technologies/Limbo/internal/events"
+	"github.com/Artifex-Technologies/Limbo/internal/hostpolicy"
 	"github.com/Artifex-Technologies/Limbo/internal/quarantine"
 	"github.com/Artifex-Technologies/Limbo/internal/runner"
 	"github.com/Artifex-Technologies/Limbo/internal/runs"
@@ -58,7 +59,10 @@ func serve(args []string) error {
 	if err != nil {
 		return err
 	}
-	e := &engine.Engine{Runner: runner.Exec{}, Events: log, StateDir: *state, Holds: store}
+	if err := checkHostPolicy(hostpolicy.DefaultConfig); err != nil {
+		return err
+	}
+	e := &engine.Engine{Runner: runner.Exec{}, Events: log, StateDir: *state, Holds: store, Hardware: &hostpolicy.Policy{StateDir: *state, RunDir: *runDir}}
 	mgr := runs.NewManager(*profiles, *state, e, runs.SSH{}, log)
 	// A previous Limbo that died mid-run left guests behind; destroy them now.
 	if n := mgr.ReapOrphans(context.Background()); n > 0 {
@@ -132,6 +136,26 @@ func shareEventLog(stateDir, logPath, group string) error {
 		return err
 	}
 	return os.Chmod(logPath, 0o640)
+}
+
+// checkHostPolicy refuses to start if the passthrough device list could have been
+// written by a non-root user: it decides which host hardware a guest may take.
+// A missing file is fine (passthrough is then simply denied).
+func checkHostPolicy(file string) error {
+	fi, err := os.Stat(file)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	if fi.Mode().Perm()&0o022 != 0 {
+		return fmt.Errorf("serve: %s is group- or world-writable; refusing to start", file)
+	}
+	if st, ok := fi.Sys().(*syscall.Stat_t); ok && st.Uid != 0 {
+		return fmt.Errorf("serve: %s is not owned by root; refusing to start", file)
+	}
+	return nil
 }
 
 // checkProfileDir refuses to serve profiles from a directory a non-root user

@@ -73,6 +73,8 @@ func (m *Manager) scan() ([]scanned, []SkippedProfile) {
 			sk = skipFor(n, err)
 		} else if err := m.checkImage(p); err != nil {
 			sk = skipFor(n, err)
+		} else if err := m.Engine.CheckHardware(&p.Manifest); err != nil {
+			sk = skipFor(n, hardwareErr(err))
 		} else {
 			ok = append(ok, scanned{n, p})
 			continue
@@ -155,7 +157,7 @@ func (m *Manager) Details() any {
 	ok, _ := m.scan()
 	out := []ProfileInfo{}
 	for _, s := range ok {
-		out = append(out, ProfileInfo{Name: s.name, Network: s.profile.Manifest.Network.Mode, Sudo: s.profile.Manifest.Access.Sudo, MaxSeconds: s.profile.MaxSeconds})
+		out = append(out, ProfileInfo{Name: s.name, Network: s.profile.Manifest.Network.Mode, Sudo: s.profile.Manifest.Access.Sudo, Passthrough: len(s.profile.Manifest.Devices.PCI) > 0, MaxSeconds: s.profile.MaxSeconds})
 	}
 	return out
 }

@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 
 	"github.com/Artifex-Technologies/Limbo/internal/events"
 	"github.com/Artifex-Technologies/Limbo/internal/image"
@@ -39,6 +41,55 @@ type Engine struct {
 	StateDir string // where generated XML is written (mode 0700)
 	// Holds, if set, is consulted by Up: a held guest is not started.
 	Holds Holder
+	// Hardware decides whether a guest may be given host devices. Nil means no
+	// guest may: a manifest that asks for a device is refused.
+	Hardware Hardware
+
+	before sync.Map // guest name -> driver bindings recorded at Up, checked at teardown
+}
+
+// Hardware is the host's policy on device passthrough. *hostpolicy.Policy satisfies it.
+type Hardware interface {
+	// Check says whether the host may ever give these devices (static).
+	Check(m *manifest.Manifest) error
+	// Ready says whether it is safe right now: approved, unused, no earlier damage.
+	Ready(m *manifest.Manifest) error
+	// Before records the devices' host drivers; After verifies them once the guest is gone.
+	Before(m *manifest.Manifest) map[string]string
+	After(m *manifest.Manifest, before map[string]string) error
+}
+
+// ErrHardwareDenied is returned when a guest asks for a device the host will not give.
+var ErrHardwareDenied = errors.New("engine: hardware passthrough denied")
+
+// CheckHardware applies the host policy to a guest's device request. A guest that
+// asks for nothing always passes; one that asks while no policy is set never does.
+func (e *Engine) CheckHardware(m *manifest.Manifest) error {
+	if len(m.Devices.PCI) == 0 {
+		return nil
+	}
+	if e == nil || e.Hardware == nil { // nil Engine: `limbo doctor` scans profiles without one
+		return fmt.Errorf("%w: no host policy is configured", ErrHardwareDenied)
+	}
+	if err := e.Hardware.Check(m); err != nil {
+		return fmt.Errorf("%w: %w", ErrHardwareDenied, err)
+	}
+	return nil
+}
+
+// ReadyHardware asks whether handing the guest its devices right now is safe. The
+// error wraps the policy's own type (approval needed, device busy, reboot needed).
+func (e *Engine) ReadyHardware(m *manifest.Manifest) error {
+	if len(m.Devices.PCI) == 0 {
+		return nil
+	}
+	if e == nil || e.Hardware == nil {
+		return fmt.Errorf("%w: no host policy is configured", ErrHardwareDenied)
+	}
+	if err := e.Hardware.Ready(m); err != nil {
+		return fmt.Errorf("%w: %w", ErrHardwareDenied, err)
+	}
+	return nil
 }
 
 const connect = "qemu:///system"
@@ -59,6 +110,15 @@ func (e *Engine) Up(ctx context.Context, m *manifest.Manifest) (err error) {
 			_ = e.Events.Emit(events.GateBlocked, g, map[string]string{"reason": reason})
 			return fmt.Errorf("%w: %s", ErrQuarantined, reason)
 		}
+	}
+	for _, check := range []func(*manifest.Manifest) error{e.CheckHardware, e.ReadyHardware} {
+		if err := check(m); err != nil {
+			_ = e.Events.Emit(events.GateBlocked, g, map[string]string{"reason": err.Error(), "pci": strings.Join(m.Devices.PCI, ",")})
+			return err
+		}
+	}
+	if len(m.Devices.PCI) > 0 {
+		e.before.Store(g, e.Hardware.Before(m))
 	}
 	if err := license.Check(m); err != nil {
 		_ = e.Events.Emit(events.GateBlocked, g, map[string]string{"reason": err.Error()})
@@ -104,7 +164,11 @@ func (e *Engine) Up(ctx context.Context, m *manifest.Manifest) (err error) {
 		return err
 	}
 
-	if err := e.Events.Emit(events.GuestDefine, g, map[string]string{"os": m.OS, "network": m.Network.Mode}); err != nil {
+	define := map[string]string{"os": m.OS, "network": m.Network.Mode}
+	if len(m.Devices.PCI) > 0 {
+		define["pci"] = strings.Join(m.Devices.PCI, ",") // additive: hardware handed to this guest
+	}
+	if err := e.Events.Emit(events.GuestDefine, g, define); err != nil {
 		return err
 	}
 	// From here on, undo whatever was set up if anything fails.
@@ -156,6 +220,22 @@ func (e *Engine) Down(ctx context.Context, m *manifest.Manifest) error {
 	return e.teardown(ctx, m)
 }
 
+// settleHardware checks that a passthrough device came back to the host. A device
+// that did not is not an error of the teardown (the guest is gone); it is recorded
+// so the next passthrough run is refused until the host is rebooted.
+func (e *Engine) settleHardware(m *manifest.Manifest) {
+	if len(m.Devices.PCI) == 0 || e.Hardware == nil {
+		return
+	}
+	var before map[string]string // nil for a guest left by a crash: After then checks vfio-pci only
+	if v, ok := e.before.LoadAndDelete(m.Name); ok {
+		before = v.(map[string]string)
+	}
+	if err := e.Hardware.After(m, before); err != nil {
+		_ = e.Events.Emit(events.HardwareStuck, m.Name, map[string]string{"reason": err.Error(), "pci": strings.Join(m.Devices.PCI, ",")})
+	}
+}
+
 func (e *Engine) teardown(ctx context.Context, m *manifest.Manifest) error {
 	steps := [][]string{
 		{"destroy", virt.DomainName(m)},
@@ -180,6 +260,7 @@ func (e *Engine) teardown(ctx context.Context, m *manifest.Manifest) error {
 	if err := e.Runner.Run(ctx, "", "nft", "delete", "table", "inet", policy.TableName(m)); err != nil {
 		errs = append(errs, err)
 	}
+	e.settleHardware(m)
 	if err := e.Events.Emit(events.PolicyRemove, m.Name, nil); err != nil {
 		errs = append(errs, err)
 	}

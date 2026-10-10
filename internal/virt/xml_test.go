@@ -99,3 +99,27 @@ func TestConsoleLogIsFileBackedOutputOnly(t *testing.T) {
 		t.Errorf("serial file device missing:\n%s", s)
 	}
 }
+
+func TestHostdevOnlyWhenRequested(t *testing.T) {
+	off, _ := DomainXML(parse(t, ""), "/x.qcow2")
+	if strings.Contains(string(off), "hostdev") {
+		t.Fatalf("no device was requested but a hostdev appeared: %s", off)
+	}
+	out, err := DomainXML(parse(t, `"disposable":true,"devices":{"pci":["0000:03:00.0","0000:03:00.1"]},`), "/x.qcow2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(out)
+	if err := xml.Unmarshal(out, new(struct{ XMLName xml.Name })); err != nil {
+		t.Fatalf("not well-formed: %v", err)
+	}
+	for _, want := range []string{
+		`<hostdev mode="subsystem" type="pci" managed="yes">`,
+		`<address domain="0x0000" bus="0x03" slot="0x00" function="0x0">`,
+		`<address domain="0x0000" bus="0x03" slot="0x00" function="0x1">`,
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("missing %s in: %s", want, s)
+		}
+	}
+}

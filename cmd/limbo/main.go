@@ -27,6 +27,7 @@ import (
 
 	"github.com/Artifex-Technologies/Limbo/internal/engine"
 	"github.com/Artifex-Technologies/Limbo/internal/events"
+	"github.com/Artifex-Technologies/Limbo/internal/hostpolicy"
 	"github.com/Artifex-Technologies/Limbo/internal/launch"
 	"github.com/Artifex-Technologies/Limbo/internal/license"
 	"github.com/Artifex-Technologies/Limbo/internal/manifest"
@@ -48,7 +49,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: limbo <validate|plan|seed|up|launch|down|version> <manifest> [args] | limbo serve | limbo quarantine ... | limbo report | limbo doctor | limbo setup")
+		return errors.New("usage: limbo <validate|plan|seed|up|launch|down|version> <manifest> [args] | limbo serve | limbo quarantine ... | limbo report | limbo doctor | limbo setup | limbo passthrough ...")
 	}
 	cmd, rest := args[0], args[1:]
 	switch cmd {
@@ -65,6 +66,8 @@ func run(args []string) error {
 		return doctorCmd(rest)
 	case "setup":
 		return setupCmd(rest)
+	case "passthrough":
+		return passthroughCmd(rest)
 	}
 
 	fs := flag.NewFlagSet(cmd, flag.ContinueOnError)
@@ -190,7 +193,7 @@ func act(cmd string, m *manifest.Manifest, state string) error {
 	if err != nil {
 		return err
 	}
-	e := &engine.Engine{Runner: runner.Exec{}, Events: log, StateDir: state, Holds: store}
+	e := &engine.Engine{Runner: runner.Exec{}, Events: log, StateDir: state, Holds: store, Hardware: &hostpolicy.Policy{StateDir: state}}
 
 	switch cmd {
 	case "up":

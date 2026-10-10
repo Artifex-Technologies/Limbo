@@ -61,7 +61,23 @@ type Manifest struct {
 	App        App       `json:"app"`
 	Provision  Provision `json:"provision"`
 	Windows    Windows   `json:"windows"`
+	Devices    Devices   `json:"devices"`
 }
+
+// Devices is host hardware handed to the guest. Empty by default, and even when a
+// profile names a device the host's own policy (package hostpolicy) decides
+// whether it may be used: this section is a request, not a grant.
+type Devices struct {
+	// PCI lists whole host PCI devices passed through with VFIO, by address
+	// ("0000:03:00.0"). Meant for driver testing only: the guest gets direct DMA-capable
+	// access to the device, so it is limited to disposable Linux guests.
+	PCI []string `json:"pci"`
+}
+
+// maxPCI bounds how many devices one guest may take; a GPU and its audio function is the usual need.
+const maxPCI = 4
+
+var pciRe = regexp.MustCompile(`^[0-9a-f]{4}:[0-9a-f]{2}:[0-1][0-9a-f]\.[0-7]$`)
 
 // Image is the base disk. SHA256 is mandatory so a swapped or corrupted image
 // is caught before it boots, mirroring the checksum file the reference build
@@ -209,7 +225,33 @@ func (m *Manifest) Validate() error {
 		// The path is embedded in FreeRDP's comma-separated /app option.
 		return fmt.Errorf("manifest: app.exec may not contain commas for Windows guests")
 	}
+	if err := m.Devices.validate(m); err != nil {
+		return err
+	}
 	return m.Network.Validate()
+}
+
+func (d Devices) validate(m *Manifest) error {
+	if len(d.PCI) == 0 {
+		return nil
+	}
+	if !m.Disposable || m.OS != OSLinux {
+		return fmt.Errorf("manifest: devices.pci requires a disposable Linux guest")
+	}
+	if len(d.PCI) > maxPCI {
+		return fmt.Errorf("manifest: devices.pci lists more than %d devices", maxPCI)
+	}
+	seen := map[string]bool{}
+	for _, a := range d.PCI {
+		if !pciRe.MatchString(a) {
+			return fmt.Errorf("manifest: devices.pci %q is not a PCI address like 0000:03:00.0 (lowercase)", a)
+		}
+		if seen[a] {
+			return fmt.Errorf("manifest: devices.pci lists %q twice", a)
+		}
+		seen[a] = true
+	}
+	return nil
 }
 
 // ValidateName checks the guest name alone. It is exported because the name is

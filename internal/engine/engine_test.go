@@ -174,3 +174,80 @@ func TestPersistentGuestBootsBaseDirectly(t *testing.T) {
 		t.Fatalf("persistent guest must not get an overlay: %v", r.calls)
 	}
 }
+
+type fakeHardware struct{ err, ready, after error }
+
+func (f fakeHardware) Check(*manifest.Manifest) error { return f.err }
+func (f fakeHardware) Ready(*manifest.Manifest) error { return f.ready }
+func (f fakeHardware) Before(*manifest.Manifest) map[string]string {
+	return map[string]string{"x": "nvidia"}
+}
+func (f fakeHardware) After(*manifest.Manifest, map[string]string) error {
+	return f.after
+}
+
+func TestUpRefusesDevicesUnlessHostAllows(t *testing.T) {
+	cases := map[string]Hardware{
+		"no policy":    nil,
+		"host denies":  fakeHardware{err: errors.New("nope")},
+		"not approved": fakeHardware{ready: errors.New("no approval")},
+	}
+	for name, hw := range cases {
+		t.Run(name, func(t *testing.T) {
+			m, e, r, ev := fixture(t, "linux")
+			m.Disposable = true
+			m.Devices.PCI = []string{"0000:03:00.0"}
+			e.Hardware = hw
+			err := e.Up(context.Background(), m)
+			if !errors.Is(err, ErrHardwareDenied) {
+				t.Fatalf("want ErrHardwareDenied, got %v", err)
+			}
+			if len(r.calls) != 0 {
+				t.Fatalf("a refused guest must not touch the host: %v", r.calls)
+			}
+			if len(ev.kinds) != 1 || ev.kinds[0] != events.GateBlocked {
+				t.Fatalf("refusal must be audited: %v", ev.kinds)
+			}
+		})
+	}
+}
+
+func TestUpAllowsDevicesWhenHostAllows(t *testing.T) {
+	m, e, r, _ := fixture(t, "linux")
+	m.Disposable = true
+	m.Devices.PCI = []string{"0000:03:00.0"}
+	e.Hardware = fakeHardware{}
+	if err := e.Up(context.Background(), m); err != nil {
+		t.Fatal(err)
+	}
+	if index(r.calls, "qemu:///system start") < 0 {
+		t.Fatalf("guest did not start: %v", r.calls)
+	}
+}
+
+func TestGuestWithoutDevicesNeedsNoPolicy(t *testing.T) {
+	m, e, _, _ := fixture(t, "linux")
+	if err := e.Up(context.Background(), m); err != nil { // Hardware is nil
+		t.Fatal(err)
+	}
+}
+
+func TestStuckDeviceAfterTeardownIsAudited(t *testing.T) {
+	m, e, _, ev := fixture(t, "linux")
+	m.Disposable = true
+	m.Devices.PCI = []string{"0000:03:00.0"}
+	e.Hardware = fakeHardware{after: errors.New("still vfio-pci")}
+	if err := e.Up(context.Background(), m); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Down(context.Background(), m); err != nil {
+		t.Fatalf("a stuck device must not turn teardown into a failure: %v", err)
+	}
+	found := false
+	for _, k := range ev.kinds {
+		found = found || k == events.HardwareStuck
+	}
+	if !found {
+		t.Fatalf("hardware.stuck not audited: %v", ev.kinds)
+	}
+}

@@ -42,6 +42,11 @@ const (
 	RunStart           = "run.start"
 	RunEnd             = "run.end"
 	RunError           = "run.error" // a run was refused or failed; detail.code is the stable code
+
+	// Hardware passthrough (docs/ARCHITECTURE.md section 4.1).
+	PassthroughApprove = "passthrough.approve" // a person approved a time-limited window at a terminal
+	PassthroughRevoke  = "passthrough.revoke"
+	HardwareStuck      = "hardware.stuck" // a device did not return to the host; reboot needed
 )
 
 // Event is one line of the log. Detail holds kind-specific string fields; it is

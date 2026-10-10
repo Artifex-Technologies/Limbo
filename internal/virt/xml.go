@@ -77,7 +77,39 @@ type devices struct {
 	Video      struct {
 		Model attrs `xml:"model"`
 	} `xml:"video"`
-	MemBalloon attrs `xml:"memballoon"`
+	MemBalloon attrs     `xml:"memballoon"`
+	Hostdev    []hostdev `xml:"hostdev"`
+}
+
+// hostdev is a whole host PCI device given to the guest through VFIO. managed=yes
+// has libvirt unbind it from its host driver at start and rebind it at teardown.
+type hostdev struct {
+	Mode    string `xml:"mode,attr"`
+	Type    string `xml:"type,attr"`
+	Managed string `xml:"managed,attr"`
+	Source  struct {
+		Address struct {
+			Domain   string `xml:"domain,attr"`
+			Bus      string `xml:"bus,attr"`
+			Slot     string `xml:"slot,attr"`
+			Function string `xml:"function,attr"`
+		} `xml:"address"`
+	} `xml:"source"`
+}
+
+// pciHostdev turns "0000:03:00.0" into a hostdev. The address was validated by the
+// manifest; it is re-split here rather than spliced into the XML as one string.
+func pciHostdev(addr string) (hostdev, error) {
+	var h hostdev
+	var dom, bus, slot, fn string
+	if len(addr) != 12 || addr[4] != ':' || addr[7] != ':' || addr[10] != '.' {
+		return h, fmt.Errorf("virt: bad PCI address %q", addr)
+	}
+	dom, bus, slot, fn = addr[0:4], addr[5:7], addr[8:10], addr[11:12]
+	h.Mode, h.Type, h.Managed = "subsystem", "pci", "yes"
+	a := &h.Source.Address
+	a.Domain, a.Bus, a.Slot, a.Function = "0x"+dom, "0x"+bus, "0x"+slot, "0x"+fn
+	return h, nil
 }
 
 type disk struct {
@@ -179,6 +211,13 @@ func DomainXML(m *manifest.Manifest, rootDisk string) ([]byte, error) {
 	d.Devices.Video.Model = attrs{Type: "none"}
 	d.Devices.MemBalloon = attrs{Model: "none"}
 
+	for _, a := range m.Devices.PCI {
+		h, err := pciHostdev(a)
+		if err != nil {
+			return nil, err
+		}
+		d.Devices.Hostdev = append(d.Devices.Hostdev, h)
+	}
 	if m.ConsoleLog != "" {
 		d.Devices.Serial = &serial{Type: "file", Source: attrs{Path: m.ConsoleLog}}
 	}

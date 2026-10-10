@@ -39,6 +39,12 @@ func TestParseRejects(t *testing.T) {
 		{"bad port", `"app":`, `"network":{"mode":"allowlist","allow":[{"addr":"1.1.1.1","port":0}]},"app":`, "port"},
 		{"exchange traversal", `"app":`, `"exchange_dir":"/srv/../etc","app":`, "clean"},
 		{"comma app name", `"Wireshark"`, `"a,b"`, "commas"},
+		{"pci not disposable", `"app":`, `"devices":{"pci":["0000:03:00.0"]},"app":`, "disposable Linux"},
+		{"pci windows", `"os":"linux"`, `"os":"windows","disposable":true,"devices":{"pci":["0000:03:00.0"]}`, "disposable Linux"},
+		{"pci bad address", `"app":`, `"disposable":true,"devices":{"pci":["03:00.0"]},"app":`, "PCI address"},
+		{"pci uppercase", `"app":`, `"disposable":true,"devices":{"pci":["0000:0A:00.0"]},"app":`, "PCI address"},
+		{"pci duplicate", `"app":`, `"disposable":true,"devices":{"pci":["0000:03:00.0","0000:03:00.0"]},"app":`, "twice"},
+		{"pci too many", `"app":`, `"disposable":true,"devices":{"pci":["0000:03:00.0","0000:03:00.1","0000:04:00.0","0000:04:00.1","0000:05:00.0"]},"app":`, "more than"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -58,5 +64,15 @@ func TestAllowPrefix(t *testing.T) {
 	p, err = Allow{Addr: "2001:db8::1"}.Prefix()
 	if err != nil || p.Bits() != 128 {
 		t.Fatalf("got %v %v", p, err)
+	}
+}
+
+func TestNoDevicesByDefault(t *testing.T) {
+	m, err := Parse([]byte(good))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Devices.PCI) != 0 {
+		t.Fatalf("a manifest that names no devices got %v", m.Devices.PCI)
 	}
 }
