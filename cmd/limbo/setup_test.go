@@ -99,6 +99,20 @@ func TestSetupEnablesLibvirtAndCreatesGroups(t *testing.T) {
 	}
 }
 
+func TestSetupMakesTheGroupsItselfWhenThePackageIsNotInstalled(t *testing.T) {
+	f := newFake(allDeps(), true)
+	have := map[string]bool{"limbo-agent": true} // one exists already: only the other is made
+	f.env.exists = func(p string) bool { return p == "/dev/kvm" }
+	f.env.hasGroup = func(n string) bool { return have[n] }
+	if err := setup(context.Background(), f.env, setupOpts{yes: true}); err != nil {
+		t.Fatalf("%v\n%s", err, f.out)
+	}
+	all := strings.Join(f.ran, "\n")
+	if !strings.Contains(all, "groupadd --system limbo-heimdall") || strings.Contains(all, "groupadd --system limbo-agent") || strings.Contains(all, "systemd-sysusers") {
+		t.Fatalf("unexpected commands:\n%s", all)
+	}
+}
+
 func TestUpgradeFlagDoesAFullUpgradeNotAPartialOne(t *testing.T) {
 	f := newFake(nil, true)
 	if err := setup(context.Background(), f.env, setupOpts{yes: true, upgrade: true}); err != nil {

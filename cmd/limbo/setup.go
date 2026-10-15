@@ -32,6 +32,8 @@ type setupEnv struct {
 	isRoot   bool
 	confirm  func(prompt string) bool
 	groupsOK func() bool
+	// hasGroup reports whether one group exists (so setup can make the two it needs without the package's sysusers file).
+	hasGroup func(name string) bool
 	// skippedProfiles lists validation profiles that exist but are not usable (nil: not checked).
 	skippedProfiles func() []runs.SkippedProfile
 }
@@ -56,6 +58,7 @@ func realSetupEnv() setupEnv {
 			return exec.Command("getent", "group", "limbo-heimdall").Run() == nil &&
 				exec.Command("getent", "group", "limbo-agent").Run() == nil
 		},
+		hasGroup: func(name string) bool { return exec.Command("getent", "group", name).Run() == nil },
 		skippedProfiles: func() []runs.SkippedProfile {
 			return (&runs.Manager{ProfileDir: "/etc/limbo/validation"}).SkippedAll()
 		},
@@ -138,7 +141,7 @@ func setup(ctx context.Context, env setupEnv, o setupOpts) error {
 		fmt.Fprintln(env.out, "  - install nothing: every runtime dependency is already present")
 	}
 	fmt.Fprintf(env.out, "  - enable libvirt's socket-activated daemons (%s)\n", strings.Join(libvirtSockets, ", "))
-	fmt.Fprintln(env.out, "  - create the limbo-heimdall and limbo-agent groups, if the package's sysusers file is present")
+	fmt.Fprintln(env.out, "  - create the limbo-heimdall and limbo-agent groups (from the package's sysusers file, or directly when run without the package)")
 	if o.enableService {
 		fmt.Fprintln(env.out, "  - enable and start limbo.service (the control API)")
 	}
@@ -167,6 +170,17 @@ func setup(ctx context.Context, env setupEnv, o setupOpts) error {
 	if env.exists("/usr/lib/sysusers.d/limbo.conf") {
 		if err := env.run(ctx, "systemd-sysusers", "/usr/lib/sysusers.d/limbo.conf"); err != nil {
 			return fmt.Errorf("setup: creating groups: %w", err)
+		}
+	} else if env.hasGroup != nil {
+		// Run from a plain binary (not the package): make the two groups ourselves, the same ones the
+		// sysusers file would. Membership is the access control for Limbo's sockets, so they start empty.
+		for _, g := range []string{"limbo-heimdall", "limbo-agent"} {
+			if env.hasGroup(g) {
+				continue
+			}
+			if err := env.run(ctx, "groupadd", "--system", g); err != nil {
+				return fmt.Errorf("setup: creating group %s: %w", g, err)
+			}
 		}
 	}
 	if err := env.run(ctx, "systemctl", append([]string{"enable", "--now"}, libvirtSockets...)...); err != nil {
