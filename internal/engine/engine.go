@@ -17,6 +17,7 @@ import (
 	"sync"
 
 	"github.com/Artifex-Technologies/Limbo/internal/events"
+	"github.com/Artifex-Technologies/Limbo/internal/hostfw"
 	"github.com/Artifex-Technologies/Limbo/internal/image"
 	"github.com/Artifex-Technologies/Limbo/internal/license"
 	"github.com/Artifex-Technologies/Limbo/internal/manifest"
@@ -44,6 +45,9 @@ type Engine struct {
 	// Hardware decides whether a guest may be given host devices. Nil means no
 	// guest may: a manifest that asks for a device is refused.
 	Hardware Hardware
+	// UFWActive, if set and true, makes Up open the guest's bridge in the host's UFW (and Down close it): see
+	// package hostfw for why a default-drop host firewall otherwise starves the guest of DHCP.
+	UFWActive func() bool
 
 	before sync.Map // guest name -> driver bindings recorded at Up, checked at teardown
 }
@@ -201,6 +205,9 @@ func (e *Engine) Up(ctx context.Context, m *manifest.Manifest) (err error) {
 	if err = e.Runner.Run(ctx, rules, "nft", "-f", "-"); err != nil {
 		return fmt.Errorf("engine: loading firewall rules: %w", err)
 	}
+	if err = e.openHostFirewall(ctx, m); err != nil {
+		return err
+	}
 	if err = e.virsh(ctx, "define", domPath); err != nil {
 		return err
 	}
@@ -256,6 +263,9 @@ func (e *Engine) teardown(ctx context.Context, m *manifest.Manifest) error {
 			errs = append(errs, err)
 		}
 	}
+	if err := e.closeHostFirewall(ctx, m); err != nil {
+		errs = append(errs, err)
+	}
 	// Firewall table goes last: it must outlive the guest.
 	if err := e.Runner.Run(ctx, "", "nft", "delete", "table", "inet", policy.TableName(m)); err != nil {
 		errs = append(errs, err)
@@ -263,6 +273,34 @@ func (e *Engine) teardown(ctx context.Context, m *manifest.Manifest) error {
 	e.settleHardware(m)
 	if err := e.Events.Emit(events.PolicyRemove, m.Name, nil); err != nil {
 		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
+}
+
+// openHostFirewall lets the guest's bridge through UFW, when UFW is on. It runs after Limbo's own table is
+// loaded, so the guest is still never unfiltered; those rules are what restrict it.
+func (e *Engine) openHostFirewall(ctx context.Context, m *manifest.Manifest) error {
+	if e.UFWActive == nil || !e.UFWActive() {
+		return nil
+	}
+	for _, args := range hostfw.UFWOpen(virt.BridgeName(m)) {
+		if err := e.Runner.Run(ctx, "", "ufw", args...); err != nil {
+			return fmt.Errorf("engine: opening the bridge in the host firewall (ufw %s): %w", strings.Join(args, " "), err)
+		}
+	}
+	return nil
+}
+
+// closeHostFirewall takes those rules out again; each runs even if another fails, and a rule that is already gone is not an error worth stopping for.
+func (e *Engine) closeHostFirewall(ctx context.Context, m *manifest.Manifest) error {
+	if e.UFWActive == nil || !e.UFWActive() {
+		return nil
+	}
+	var errs []error
+	for _, args := range hostfw.UFWClose(virt.BridgeName(m)) {
+		if err := e.Runner.Run(ctx, "", "ufw", args...); err != nil {
+			errs = append(errs, fmt.Errorf("ufw %s: %w", strings.Join(args, " "), err))
+		}
 	}
 	return errors.Join(errs...)
 }

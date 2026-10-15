@@ -83,6 +83,40 @@ func TestUpLoadsFirewallBeforeGuestStarts(t *testing.T) {
 	}
 }
 
+func TestUFWIsOpenedForTheBridgeAfterOurTableAndClosedOnDown(t *testing.T) {
+	m, e, r, _ := fixture(t, "linux")
+	e.UFWActive = func() bool { return true }
+	if err := e.Up(context.Background(), m); err != nil {
+		t.Fatal(err)
+	}
+	nft, ufw, start := index(r.calls, "nft -f -"), index(r.calls, "ufw allow in on lb-lab to any port 67 proto udp"), index(r.calls, "qemu:///system start limbo-lab")
+	if !(nft >= 0 && nft < ufw && ufw < start) {
+		t.Fatalf("our table first, then the host firewall, then the guest: %v", r.calls)
+	}
+	if index(r.calls, "ufw route allow in on lb-lab") < 0 {
+		t.Fatalf("the bridge must be allowed to forward: %v", r.calls)
+	}
+	r.calls = nil
+	if err := e.Down(context.Background(), m); err != nil {
+		t.Fatal(err)
+	}
+	del, drop := index(r.calls, "ufw --force delete allow in on lb-lab to any port 67 proto udp"), index(r.calls, "nft delete table inet limbo_lab")
+	if del < 0 || del > drop {
+		t.Fatalf("the host firewall rules go before our table does: %v", r.calls)
+	}
+}
+
+func TestUFWIsLeftAloneWhenItIsOff(t *testing.T) {
+	m, e, r, _ := fixture(t, "linux")
+	e.UFWActive = func() bool { return false }
+	if err := e.Up(context.Background(), m); err != nil {
+		t.Fatal(err)
+	}
+	if index(r.calls, "ufw") >= 0 {
+		t.Fatalf("no ufw commands when it is not active: %v", r.calls)
+	}
+}
+
 func TestUpBlockedBeforeAnySideEffect(t *testing.T) {
 	t.Run("windows without license", func(t *testing.T) {
 		m, e, r, ev := fixture(t, "windows")

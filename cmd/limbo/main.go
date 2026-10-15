@@ -27,6 +27,7 @@ import (
 
 	"github.com/Artifex-Technologies/Limbo/internal/engine"
 	"github.com/Artifex-Technologies/Limbo/internal/events"
+	"github.com/Artifex-Technologies/Limbo/internal/hostfw"
 	"github.com/Artifex-Technologies/Limbo/internal/hostpolicy"
 	"github.com/Artifex-Technologies/Limbo/internal/launch"
 	"github.com/Artifex-Technologies/Limbo/internal/license"
@@ -193,7 +194,7 @@ func act(cmd string, m *manifest.Manifest, state string) error {
 	if err != nil {
 		return err
 	}
-	e := &engine.Engine{Runner: runner.Exec{}, Events: log, StateDir: state, Holds: store, Hardware: &hostpolicy.Policy{StateDir: state}}
+	e := &engine.Engine{Runner: runner.Exec{}, Events: log, StateDir: state, Holds: store, Hardware: &hostpolicy.Policy{StateDir: state}, UFWActive: hostfw.UFWActive}
 
 	switch cmd {
 	case "up":

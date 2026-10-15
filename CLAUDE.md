@@ -15,7 +15,15 @@ against real libvirt or a live guest.
 go vet ./... && go test ./...      # works on Windows or Linux
 ```
 
-Development machine is Windows, but the code targets Linux: guest/host paths use
+**Run on a real Linux host (Labyrinth OS, 2026-10-14):** `go vet` and `go test ./...` pass natively, and
+`scripts/integration-linux-guest.sh` passes 43/43 with real guests under libvirt/KVM. That run found two defects
+unit tests could not: a host firewall that drops by default (UFW, enabled on Labyrinth OS) starved the guest of
+DHCP because Limbo's table cannot override someone else's drop, now handled by `internal/hostfw`; and
+`limbo setup` created no groups when run from a bare binary instead of the package. UFW's `route` rules are
+deleted with `ufw route delete ...` (not `ufw delete route ...`); the real run caught that too. Not run on this
+host yet: the quarantine, chain, Sarina and systemd integration scripts, and any Windows guest.
+
+Development machine was Windows, but the code targets Linux: guest/host paths use
 package `path`, not `filepath`. The Arch WSL distro (`wsl -d archlinux`) now has
 libvirt 12, QEMU, nftables, xorriso and working nested KVM (`/dev/kvm`), so
 real guests can be booted there. A cloud-init Arch base image lives at

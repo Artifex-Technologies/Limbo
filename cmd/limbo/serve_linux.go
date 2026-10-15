@@ -18,6 +18,7 @@ import (
 	"github.com/Artifex-Technologies/Limbo/internal/api"
 	"github.com/Artifex-Technologies/Limbo/internal/engine"
 	"github.com/Artifex-Technologies/Limbo/internal/events"
+	"github.com/Artifex-Technologies/Limbo/internal/hostfw"
 	"github.com/Artifex-Technologies/Limbo/internal/hostpolicy"
 	"github.com/Artifex-Technologies/Limbo/internal/quarantine"
 	"github.com/Artifex-Technologies/Limbo/internal/runner"
@@ -62,7 +63,7 @@ func serve(args []string) error {
 	if err := checkHostPolicy(hostpolicy.DefaultConfig); err != nil {
 		return err
 	}
-	e := &engine.Engine{Runner: runner.Exec{}, Events: log, StateDir: *state, Holds: store, Hardware: &hostpolicy.Policy{StateDir: *state, RunDir: *runDir}}
+	e := &engine.Engine{Runner: runner.Exec{}, Events: log, StateDir: *state, Holds: store, Hardware: &hostpolicy.Policy{StateDir: *state, RunDir: *runDir}, UFWActive: hostfw.UFWActive}
 	mgr := runs.NewManager(*profiles, *state, e, runs.SSH{}, log)
 	// A previous Limbo that died mid-run left guests behind; destroy them now.
 	if n := mgr.ReapOrphans(context.Background()); n > 0 {
