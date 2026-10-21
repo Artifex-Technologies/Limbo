@@ -36,6 +36,7 @@ import (
 // Limits. Server-side, so a caller cannot lift them.
 const (
 	maxCommand       = 4096
+	maxBundle        = 40 << 10 // a tar of source files an agent run may carry into the guest
 	defaultSeconds   = 300
 	maxResults       = 50
 	maxConcurrent    = 2
@@ -56,6 +57,7 @@ type Profile struct {
 	SSHIdentity    string            `json:"ssh_identity"`     // private key matching manifest.provision.ssh_public_key
 	MaxSeconds     int               `json:"max_seconds"`      // hard cap on the COMMAND's runtime (boot is budgeted separately); default 900
 	MaxOutputBytes int               `json:"max_output_bytes"` // per stream; default 64 KiB
+	AllowBundle    bool              `json:"allow_bundle"`     // the human lets runs on this profile carry a small tar of files into the guest (default no)
 }
 
 // Status of a run.
@@ -93,6 +95,12 @@ type Executor interface {
 	Run(ctx context.Context, ip, user, identity, command string, limit int) (out, errOut string, exit int, truncated bool, err error)
 }
 
+// BundleExecutor is an Executor that can also carry a tar into the guest.
+type BundleExecutor interface {
+	// RunBundle unpacks the tar into a fresh folder in the guest's home, then runs command from inside it.
+	RunBundle(ctx context.Context, ip, user, identity, command string, bundle []byte, limit int) (out, errOut string, exit int, truncated bool, err error)
+}
+
 // Manager runs and remembers runs.
 type Manager struct {
 	ProfileDir string
@@ -109,6 +117,7 @@ type Manager struct {
 	order   []string
 	active  int
 	devHeld map[string][]string // run id -> passthrough devices it holds
+	bundles map[string][]byte   // run id -> the tar it carries into the guest
 
 	scanMu sync.Mutex        // serializes profile scans (and the image hashing they do)
 	seen   map[string]string // profile file -> code last logged, so a failure is logged once
@@ -194,7 +203,13 @@ func (m *Manager) loadProfile(name string) (*Profile, error) {
 // Start begins a run and returns its id immediately. A refusal is a *Error and is
 // also written to the event log, so it can be diagnosed from either end.
 func (m *Manager) Start(ctx context.Context, profile, command string, timeoutSeconds int) (string, error) {
-	id, err := m.start(ctx, profile, command, timeoutSeconds)
+	return m.StartBundle(ctx, profile, command, nil, timeoutSeconds)
+}
+
+// StartBundle is Start for a run that also carries a small tar of files (an agent's source) into the guest: it is unpacked in a
+// fresh folder in the guest's home and the command runs from there. Only a profile whose human author set allow_bundle accepts one.
+func (m *Manager) StartBundle(ctx context.Context, profile, command string, bundle []byte, timeoutSeconds int) (string, error) {
+	id, err := m.start(ctx, profile, command, bundle, timeoutSeconds)
 	if err != nil {
 		var re *Error
 		if errors.As(err, &re) {
@@ -208,10 +223,21 @@ func (m *Manager) Start(ctx context.Context, profile, command string, timeoutSec
 	return id, err
 }
 
-func (m *Manager) start(ctx context.Context, profile, command string, timeoutSeconds int) (string, error) {
+func (m *Manager) start(ctx context.Context, profile, command string, bundle []byte, timeoutSeconds int) (string, error) {
 	p, err := m.loadProfile(profile)
 	if err != nil {
 		return "", err
+	}
+	if len(bundle) > 0 {
+		if !p.AllowBundle {
+			return "", newErr(CodeBadRequest, "use a profile whose author allows bundles (allow_bundle in the profile)", "profile %q does not accept files", profile)
+		}
+		if len(bundle) > maxBundle {
+			return "", newErr(CodeBadRequest, "send less: only source files, no data or binaries", "the bundle is larger than %d bytes", maxBundle)
+		}
+		if _, ok := m.Exec.(BundleExecutor); !ok {
+			return "", newErr(CodeBadRequest, "this Limbo cannot carry files into a guest", "bundles are not supported here")
+		}
 	}
 	if _, err := os.Stat(p.Manifest.Image.Path); err != nil {
 		return "", newErr(CodeImageMissing, "ask the operator to restore the profile's base image", "the base image for profile %q is missing or unreadable", profile)
@@ -260,6 +286,12 @@ func (m *Manager) start(ctx context.Context, profile, command string, timeoutSec
 	}
 	res := &Result{ID: id, Profile: profile, Status: Running, Started: time.Now().UTC()}
 	m.results[id] = res
+	if len(bundle) > 0 {
+		if m.bundles == nil {
+			m.bundles = map[string][]byte{}
+		}
+		m.bundles[id] = bundle
+	}
 	m.order = append(m.order, id)
 	for len(m.order) > maxResults {
 		delete(m.results, m.order[0])
@@ -302,9 +334,18 @@ func (m *Manager) execute(ctx context.Context, id string, p *Profile, command st
 	mf.Provision.SeedISO = iso
 
 	sum := sha256.Sum256([]byte(command))
-	_ = m.Events.Emit(events.RunStart, id, map[string]string{
+	m.mu.Lock()
+	bundle := m.bundles[id]
+	delete(m.bundles, id)
+	m.mu.Unlock()
+	start := map[string]string{
 		"profile": filepath.Base(p.SSHIdentity), "command_sha256": hex.EncodeToString(sum[:]), "command": clip(command, 200),
-	})
+	}
+	if len(bundle) > 0 {
+		bs := sha256.Sum256(bundle)
+		start["bundle_sha256"], start["bundle_bytes"] = hex.EncodeToString(bs[:]), fmt.Sprint(len(bundle))
+	}
+	_ = m.Events.Emit(events.RunStart, id, start)
 
 	bootCtx, cancel := context.WithTimeout(ctx, bootBudgetSeconds*time.Second)
 	defer cancel()
@@ -362,7 +403,11 @@ func (m *Manager) execute(ctx context.Context, id string, p *Profile, command st
 			cmdCtx, ccancel := context.WithTimeout(ctx, limit)
 			defer ccancel()
 			var runErr error
-			out, errOut, exit, truncated, runErr = m.Exec.Run(cmdCtx, ip, mf.Access.User, p.SSHIdentity, command, p.MaxOutputBytes)
+			if be, ok := m.Exec.(BundleExecutor); ok && len(bundle) > 0 {
+				out, errOut, exit, truncated, runErr = be.RunBundle(cmdCtx, ip, mf.Access.User, p.SSHIdentity, command, bundle, p.MaxOutputBytes)
+			} else {
+				out, errOut, exit, truncated, runErr = m.Exec.Run(cmdCtx, ip, mf.Access.User, p.SSHIdentity, command, p.MaxOutputBytes)
+			}
 			timedOut = errors.Is(cmdCtx.Err(), context.DeadlineExceeded)
 			if runErr != nil && !timedOut {
 				fail = classify("command", runErr, nil)

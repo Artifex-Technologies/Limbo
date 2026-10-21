@@ -47,8 +47,26 @@ func (SSH) WaitReady(ctx context.Context, ip, user, identity string) error {
 
 // Run executes command in the guest. ssh exits 255 for its own failures, which
 // is reported as an error; any other status is the command's own.
-func (SSH) Run(ctx context.Context, ip, user, identity, command string, limit int) (string, string, int, bool, error) {
+func (s SSH) Run(ctx context.Context, ip, user, identity, command string, limit int) (string, string, int, bool, error) {
+	return s.run(ctx, ip, user, identity, command, nil, limit)
+}
+
+// bundleWrap unpacks the tar (sent on the command's input) into a fresh folder, then runs the command from there.
+// tar drops owners and permissions it was not asked for and refuses paths that climb out of the folder.
+func bundleWrap(command string) string {
+	return `rm -rf "$HOME/agent" && mkdir "$HOME/agent" && tar --no-same-owner --no-same-permissions -xf - -C "$HOME/agent" && cd "$HOME/agent" && (` + command + `)`
+}
+
+// RunBundle is Run for a run that carries a tar into the guest.
+func (s SSH) RunBundle(ctx context.Context, ip, user, identity, command string, bundle []byte, limit int) (string, string, int, bool, error) {
+	return s.run(ctx, ip, user, identity, bundleWrap(command), bundle, limit)
+}
+
+func (SSH) run(ctx context.Context, ip, user, identity, command string, stdin []byte, limit int) (string, string, int, bool, error) {
 	cmd := exec.CommandContext(ctx, "ssh", append(sshArgs(ip, user, identity), command)...)
+	if stdin != nil {
+		cmd.Stdin = bytes.NewReader(stdin)
+	}
 	out, errOut := &capWriter{limit: limit}, &capWriter{limit: limit}
 	cmd.Stdout, cmd.Stderr = out, errOut
 	err := cmd.Run()

@@ -56,12 +56,16 @@ type fakeEvents struct {
 	mu    sync.Mutex
 	kinds []string
 	codes []string // kind:code of every event that carried a code
+	list  []string // every event's details, flattened
 }
 
 func (f *fakeEvents) Emit(kind, _ string, d map[string]string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.kinds = append(f.kinds, kind)
+	for k, v := range d {
+		f.list = append(f.list, k+"="+v)
+	}
 	if d["code"] != "" {
 		f.codes = append(f.codes, kind+":"+d["code"])
 	}

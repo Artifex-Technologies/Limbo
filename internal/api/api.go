@@ -11,6 +11,7 @@ package api
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -58,6 +59,11 @@ type RunService interface {
 	Skipped() any
 	Start(ctx context.Context, profile, command string, timeoutSeconds int) (id string, err error)
 	Get(id string) (any, bool)
+}
+
+// BundleRunService is a RunService that can start a run carrying a small tar of files.
+type BundleRunService interface {
+	StartBundle(ctx context.Context, profile, command string, bundle []byte, timeoutSeconds int) (id string, err error)
 }
 
 // Server holds what the handlers need.
@@ -408,13 +414,25 @@ func (s *Server) startRun(w http.ResponseWriter, r *http.Request, p Principal) (
 		Profile        string `json:"profile"`
 		Command        string `json:"command"`
 		TimeoutSeconds int    `json:"timeout_seconds"`
+		Bundle         string `json:"bundle"` // base64 of a small tar of source files (profiles with allow_bundle only)
 	}
 	if err := decode(r, &in); err != nil {
 		_ = s.audit(r, p, events.RunError, "", map[string]string{"code": "bad_request"})
 		return nil, http.StatusBadRequest, err
 	}
 	// The run outlives this request, so it must not inherit its cancellation.
-	id, err := s.Runs.Start(context.WithoutCancel(r.Context()), in.Profile, in.Command, in.TimeoutSeconds)
+	var id string
+	var err error
+	if in.Bundle != "" {
+		bs, ok := s.Runs.(BundleRunService)
+		raw, derr := base64.StdEncoding.DecodeString(in.Bundle)
+		if !ok || derr != nil {
+			return nil, http.StatusBadRequest, badRequest{"bad_request", "the bundle is not accepted here or is not valid base64", "send the tar as standard base64, to a profile that allows bundles"}
+		}
+		id, err = bs.StartBundle(context.WithoutCancel(r.Context()), in.Profile, in.Command, raw, in.TimeoutSeconds)
+	} else {
+		id, err = s.Runs.Start(context.WithoutCancel(r.Context()), in.Profile, in.Command, in.TimeoutSeconds)
+	}
 	if err != nil {
 		var c coded
 		if errors.As(err, &c) && c.ErrCode() == "busy" {

@@ -157,3 +157,12 @@ about the real update.
   Sarina reads can influence what Sarina *says*; the design assumes it will.
 - It does not claim a validation run predicts the real system. It uses whatever
   image the profile points at; fidelity to the host is the human's choice.
+
+## Runs that carry files (agent bundles)
+
+Sarina's agent forge writes small programs and needs to run them in a guest. A run request may carry `"bundle"`: a standard-base64 tar of
+source files, at most 40 KiB before encoding. It is accepted only by a profile whose human author set `"allow_bundle": true`
+(default off; see `examples/agent-profile.json`: no network, no sudo). Limbo unpacks it in a fresh `~/agent` in the guest (no owners,
+no permissions that were not asked for, paths that climb out are refused by tar) and runs the command from inside that folder. The
+run's audit entry records the bundle's size and sha256. What comes back is the command's output, capped, as for every run; the
+image must already contain the interpreters the agents need, because the guest has no network to install them.
