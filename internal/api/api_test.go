@@ -322,3 +322,37 @@ func TestProfilesEndpointAddsASkippedListAndKeepsTheOldKeys(t *testing.T) {
 		t.Fatalf("details key lost: %v", out)
 	}
 }
+
+// sampleRuns is fakeRuns plus the admin-only sample and stop routes.
+type sampleRuns struct {
+	fakeRuns
+	gotSample string
+	stopped   bool
+}
+
+func (s *sampleRuns) StartSample(_ context.Context, profile, command, sample string, _ int) (string, error) {
+	s.gotSample = sample
+	return "s1", nil
+}
+func (s *sampleRuns) StopAgentRuns() int { s.stopped = true; return 2 }
+
+func TestSampleRunsAndStoppingAgentRunsAreForRootOnly(t *testing.T) {
+	s, _, _ := newServer(t)
+	sr := &sampleRuns{}
+	s.Runs = sr
+	body := `{"profile":"malware-analysis","command":"limbo-decompile triage sample","sample":"abc.sample"}`
+	for _, p := range []Principal{Agent, Control} {
+		if code, _ := call(t, s.Handler(p), "POST", "/v1/sample-runs", body); code != http.StatusNotFound && code != http.StatusMethodNotAllowed {
+			t.Fatalf("principal %v reached the sample route: %d", p, code)
+		}
+		if code, _ := call(t, s.Handler(p), "POST", "/v1/agent-runs/stop", ""); code != http.StatusNotFound && code != http.StatusMethodNotAllowed {
+			t.Fatalf("principal %v reached the stop route: %d", p, code)
+		}
+	}
+	if code, out := call(t, s.Handler(Admin), "POST", "/v1/sample-runs", body); code != http.StatusAccepted || sr.gotSample != "abc.sample" {
+		t.Fatal(code, out)
+	}
+	if code, out := call(t, s.Handler(Admin), "POST", "/v1/agent-runs/stop", "{}"); code != http.StatusOK || !sr.stopped || out["stopped"] != float64(2) {
+		t.Fatal(code, out)
+	}
+}

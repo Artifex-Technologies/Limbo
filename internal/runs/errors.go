@@ -38,6 +38,7 @@ const (
 	CodeRebootRequired   = "reboot_required"   // an earlier run left the device unusable until the host reboots
 	CodeOutputTrunc      = "output_truncated"  // informational: the command ran, output was cut
 	CodeTeardownFailed   = "teardown_failed"   // informational: the command ran, cleanup did not finish
+	CodeContained        = "contained"         // Heimdall has contained Sarina: no agent runs until the owner releases her
 )
 
 // Error is a failure Limbo reports. Its text is safe to show a model: a code,

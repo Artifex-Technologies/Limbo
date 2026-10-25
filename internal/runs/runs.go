@@ -18,12 +18,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/Artifex-Technologies/Limbo/internal/engine"
@@ -37,6 +39,7 @@ import (
 const (
 	maxCommand       = 4096
 	maxBundle        = 40 << 10 // a tar of source files an agent run may carry into the guest
+	maxSample        = 64 << 20 // one file to analyse (sample runs: root's admin socket only)
 	defaultSeconds   = 300
 	maxResults       = 50
 	maxConcurrent    = 2
@@ -58,7 +61,16 @@ type Profile struct {
 	MaxSeconds     int               `json:"max_seconds"`      // hard cap on the COMMAND's runtime (boot is budgeted separately); default 900
 	MaxOutputBytes int               `json:"max_output_bytes"` // per stream; default 64 KiB
 	AllowBundle    bool              `json:"allow_bundle"`     // the human lets runs on this profile carry a small tar of files into the guest (default no)
+	// AllowSample: the human lets root (Heimdall, over the admin socket) send one file to be analysed into a guest of this profile.
+	// Only a sealed profile qualifies: no network, no sudo, no shared folder, no host devices (checked at every start).
+	AllowSample bool `json:"allow_sample"`
 }
+
+// Run kinds: who asked, and so what may stop it.
+const (
+	kindAgent  = "agent"  // Sarina's agents and validation runs (agent socket); stopped when Heimdall contains Sarina
+	kindSample = "sample" // a file analysed for Heimdall (admin socket)
+)
 
 // Status of a run.
 type Status string
@@ -101,6 +113,12 @@ type BundleExecutor interface {
 	RunBundle(ctx context.Context, ip, user, identity, command string, bundle []byte, limit int) (out, errOut string, exit int, truncated bool, err error)
 }
 
+// SampleExecutor is an Executor that can carry one file to analyse into the guest.
+type SampleExecutor interface {
+	// RunSample stores sample read-only as ~/sample/sample in the guest, then runs command from that folder.
+	RunSample(ctx context.Context, ip, user, identity, command string, sample []byte, limit int) (out, errOut string, exit int, truncated bool, err error)
+}
+
 // Manager runs and remembers runs.
 type Manager struct {
 	ProfileDir string
@@ -118,6 +136,14 @@ type Manager struct {
 	active  int
 	devHeld map[string][]string // run id -> passthrough devices it holds
 	bundles map[string][]byte   // run id -> the tar it carries into the guest
+	samples map[string][]byte   // run id -> the file it carries in to be analysed
+	kinds   map[string]string   // run id -> kindAgent or kindSample
+	cancels map[string]context.CancelFunc
+
+	// SampleDir is where root puts a file before asking for a sample run (/var/lib/limbo/inbox); only names inside it are accepted.
+	SampleDir string
+	// Contained reports whether Heimdall has contained Sarina (its lock file exists): agent runs are refused meanwhile.
+	Contained func() bool
 
 	scanMu sync.Mutex        // serializes profile scans (and the image hashing they do)
 	seen   map[string]string // profile file -> code last logged, so a failure is logged once
@@ -209,7 +235,51 @@ func (m *Manager) Start(ctx context.Context, profile, command string, timeoutSec
 // StartBundle is Start for a run that also carries a small tar of files (an agent's source) into the guest: it is unpacked in a
 // fresh folder in the guest's home and the command runs from there. Only a profile whose human author set allow_bundle accepts one.
 func (m *Manager) StartBundle(ctx context.Context, profile, command string, bundle []byte, timeoutSeconds int) (string, error) {
-	id, err := m.start(ctx, profile, command, bundle, timeoutSeconds)
+	return m.startLogged(ctx, profile, command, bundle, nil, kindAgent, timeoutSeconds)
+}
+
+var sampleNameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
+
+// StartSample analyses one file in a sealed guest: the file named (inside SampleDir) is read now, sent into the guest on the command's
+// input and left there read-only as ~/sample/sample; the command runs from that folder with LIMBO_SAMPLE_DIR set to it. For root only
+// (the admin socket): the caller chooses the command, and the profile must be sealed.
+func (m *Manager) StartSample(ctx context.Context, profile, command, sampleName string, timeoutSeconds int) (string, error) {
+	if !sampleNameRe.MatchString(sampleName) || m.SampleDir == "" {
+		return "", newErr(CodeBadRequest, "put the file in Limbo's inbox and give its name only", "the sample must be a plain file name in the inbox")
+	}
+	f, err := os.OpenFile(filepath.Join(m.SampleDir, sampleName), os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	if err != nil {
+		return "", newErr(CodeBadRequest, "put the file in Limbo's inbox first", "the sample %q cannot be opened in the inbox", sampleName)
+	}
+	defer f.Close()
+	if info, err := f.Stat(); err != nil || !info.Mode().IsRegular() {
+		return "", newErr(CodeBadRequest, "send a regular file", "the sample is not a regular file")
+	}
+	b, err := io.ReadAll(io.LimitReader(f, maxSample+1))
+	if err != nil || len(b) == 0 || len(b) > maxSample {
+		return "", newErr(CodeBadRequest, "send a file of 1 byte to 64 MiB", "the sample is empty, unreadable or larger than %d bytes", maxSample)
+	}
+	return m.startLogged(ctx, profile, command, nil, b, kindSample, timeoutSeconds)
+}
+
+// StopAgentRuns ends every agent run now (Heimdall contained Sarina): each guest is torn down as when it times out. Sample runs go on.
+func (m *Manager) StopAgentRuns() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	n := 0
+	for id, k := range m.kinds {
+		if k == kindAgent {
+			if c := m.cancels[id]; c != nil {
+				c()
+				n++
+			}
+		}
+	}
+	return n
+}
+
+func (m *Manager) startLogged(ctx context.Context, profile, command string, bundle, sample []byte, kind string, timeoutSeconds int) (string, error) {
+	id, err := m.start(ctx, profile, command, bundle, sample, kind, timeoutSeconds)
 	if err != nil {
 		var re *Error
 		if errors.As(err, &re) {
@@ -223,10 +293,22 @@ func (m *Manager) StartBundle(ctx context.Context, profile, command string, bund
 	return id, err
 }
 
-func (m *Manager) start(ctx context.Context, profile, command string, bundle []byte, timeoutSeconds int) (string, error) {
+func (m *Manager) start(ctx context.Context, profile, command string, bundle, sample []byte, kind string, timeoutSeconds int) (string, error) {
+	if kind == kindAgent && m.Contained != nil && m.Contained() {
+		return "", newErr(CodeContained, "wait until the owner releases Sarina (Settings > Security)", "Heimdall has contained Sarina: no runs for her agents meanwhile")
+	}
 	p, err := m.loadProfile(profile)
 	if err != nil {
 		return "", err
+	}
+	if kind == kindSample {
+		mf := p.Manifest
+		if !p.AllowSample || mf.Network.Mode != "none" || mf.Access.Sudo || mf.ExchangeDir != "" || len(mf.Devices.PCI) > 0 {
+			return "", newErr(CodeProfileInvalid, "use a sealed profile with allow_sample (no network, no sudo, no shared folder, no devices)", "profile %q may not analyse samples", profile)
+		}
+		if _, ok := m.Exec.(SampleExecutor); !ok {
+			return "", newErr(CodeBadRequest, "this Limbo cannot carry a sample into a guest", "samples are not supported here")
+		}
 	}
 	if len(bundle) > 0 {
 		if !p.AllowBundle {
@@ -292,6 +374,17 @@ func (m *Manager) start(ctx context.Context, profile, command string, bundle []b
 		}
 		m.bundles[id] = bundle
 	}
+	if len(sample) > 0 {
+		if m.samples == nil {
+			m.samples = map[string][]byte{}
+		}
+		m.samples[id] = sample
+	}
+	if m.kinds == nil {
+		m.kinds, m.cancels = map[string]string{}, map[string]context.CancelFunc{}
+	}
+	runCtx, cancelRun := context.WithCancel(ctx)
+	m.kinds[id], m.cancels[id] = kind, cancelRun
 	m.order = append(m.order, id)
 	for len(m.order) > maxResults {
 		delete(m.results, m.order[0])
@@ -299,7 +392,7 @@ func (m *Manager) start(ctx context.Context, profile, command string, bundle []b
 	}
 	m.mu.Unlock()
 
-	go m.execute(ctx, id, p, command, time.Duration(timeoutSeconds)*time.Second)
+	go m.execute(runCtx, id, p, command, time.Duration(timeoutSeconds)*time.Second)
 	return id, nil
 }
 
@@ -324,6 +417,11 @@ func (m *Manager) finish(id string, mut func(*Result)) {
 	}
 	m.active--
 	delete(m.devHeld, id) // teardown has already run: the device is back with the host
+	if c := m.cancels[id]; c != nil {
+		c()
+	}
+	delete(m.cancels, id)
+	delete(m.kinds, id)
 }
 
 func (m *Manager) execute(ctx context.Context, id string, p *Profile, command string, limit time.Duration) {
@@ -337,6 +435,8 @@ func (m *Manager) execute(ctx context.Context, id string, p *Profile, command st
 	m.mu.Lock()
 	bundle := m.bundles[id]
 	delete(m.bundles, id)
+	sample := m.samples[id]
+	delete(m.samples, id)
 	m.mu.Unlock()
 	start := map[string]string{
 		"profile": filepath.Base(p.SSHIdentity), "command_sha256": hex.EncodeToString(sum[:]), "command": clip(command, 200),
@@ -344,6 +444,10 @@ func (m *Manager) execute(ctx context.Context, id string, p *Profile, command st
 	if len(bundle) > 0 {
 		bs := sha256.Sum256(bundle)
 		start["bundle_sha256"], start["bundle_bytes"] = hex.EncodeToString(bs[:]), fmt.Sprint(len(bundle))
+	}
+	if len(sample) > 0 {
+		ss := sha256.Sum256(sample)
+		start["sample_sha256"], start["sample_bytes"] = hex.EncodeToString(ss[:]), fmt.Sprint(len(sample))
 	}
 	_ = m.Events.Emit(events.RunStart, id, start)
 
@@ -403,7 +507,9 @@ func (m *Manager) execute(ctx context.Context, id string, p *Profile, command st
 			cmdCtx, ccancel := context.WithTimeout(ctx, limit)
 			defer ccancel()
 			var runErr error
-			if be, ok := m.Exec.(BundleExecutor); ok && len(bundle) > 0 {
+			if se, ok := m.Exec.(SampleExecutor); ok && len(sample) > 0 {
+				out, errOut, exit, truncated, runErr = se.RunSample(cmdCtx, ip, mf.Access.User, p.SSHIdentity, command, sample, p.MaxOutputBytes)
+			} else if be, ok := m.Exec.(BundleExecutor); ok && len(bundle) > 0 {
 				out, errOut, exit, truncated, runErr = be.RunBundle(cmdCtx, ip, mf.Access.User, p.SSHIdentity, command, bundle, p.MaxOutputBytes)
 			} else {
 				out, errOut, exit, truncated, runErr = m.Exec.Run(cmdCtx, ip, mf.Access.User, p.SSHIdentity, command, p.MaxOutputBytes)

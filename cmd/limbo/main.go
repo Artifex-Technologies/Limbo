@@ -50,7 +50,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: limbo <validate|plan|seed|up|launch|down|version> <manifest> [args] | limbo serve | limbo quarantine ... | limbo report | limbo doctor | limbo setup | limbo passthrough ...")
+		return errors.New("usage: limbo <validate|plan|seed|up|launch|down|version> <manifest> [args] | limbo serve | limbo quarantine ... | limbo report | limbo doctor | limbo setup | limbo passthrough ... | limbo analyze FILE")
 	}
 	cmd, rest := args[0], args[1:]
 	switch cmd {
@@ -69,6 +69,8 @@ func run(args []string) error {
 		return setupCmd(rest)
 	case "passthrough":
 		return passthroughCmd(rest)
+	case "analyze":
+		return analyzeCmd(rest)
 	}
 
 	fs := flag.NewFlagSet(cmd, flag.ContinueOnError)

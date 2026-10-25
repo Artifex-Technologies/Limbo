@@ -8,6 +8,10 @@ Artifex ecosystem: it ships in Labyrinth OS (package `limbo-git`), is meant for
 Niflheim OS (formerly Chymaera OS) too, and is watched by
 [Heimdall](https://github.com/Artifex-Technologies/Heimdall).
 
+**Sample runs** ([docs/SAMPLES.md](docs/SAMPLES.md)): one hostile file analysed in a sealed guest (no network, no sudo, no shared
+folder) for Heimdall's quarantine, `sudo limbo analyze FILE`. While Heimdall has contained Sarina, her agents' runs are refused and
+stopped.
+
 **Status: working for Linux guests, verified against real guests; Windows
 guests are written but have never run.** Linux guests boot under libvirt/KVM with
 per-guest firewalls that were tested from inside the guest; quarantine, human

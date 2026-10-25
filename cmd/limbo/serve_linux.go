@@ -35,6 +35,8 @@ func serve(args []string) error {
 	heimdallGroup := fs.String("heimdall-group", "limbo-heimdall", "group that may use control.sock (Heimdall)")
 	agentGroup := fs.String("agent-group", "limbo-agent", "group that may use agent.sock (Sarina)")
 	profiles := fs.String("profile-dir", "/etc/limbo/validation", "directory of validation profiles (must be root-writable only)")
+	inbox := fs.String("inbox", "/var/lib/limbo/inbox", "where root puts a file before asking for a sample run (root-only)")
+	contained := fs.String("contained-marker", "/etc/heimdall/contained", "Heimdall's containment lock: while it exists, Sarina's agent runs are refused")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -65,6 +67,13 @@ func serve(args []string) error {
 	}
 	e := &engine.Engine{Runner: runner.Exec{}, Events: log, StateDir: *state, Holds: store, Hardware: &hostpolicy.Policy{StateDir: *state, RunDir: *runDir}, UFWActive: hostfw.UFWActive}
 	mgr := runs.NewManager(*profiles, *state, e, runs.SSH{}, log)
+	if err := os.MkdirAll(*inbox, 0o700); err != nil {
+		return err
+	}
+	_ = os.Chmod(*inbox, 0o700)
+	mgr.SampleDir = *inbox
+	marker := *contained
+	mgr.Contained = func() bool { _, err := os.Lstat(marker); return err == nil }
 	// A previous Limbo that died mid-run left guests behind; destroy them now.
 	if n := mgr.ReapOrphans(context.Background()); n > 0 {
 		fmt.Fprintf(os.Stderr, "limbo serve: destroyed %d guest(s) left by an interrupted run\n", n)

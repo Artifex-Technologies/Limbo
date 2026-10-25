@@ -66,6 +66,13 @@ type BundleRunService interface {
 	StartBundle(ctx context.Context, profile, command string, bundle []byte, timeoutSeconds int) (id string, err error)
 }
 
+// SampleRunService is the part of the run backend only root uses (admin socket): analysing one file in a sealed guest for Heimdall,
+// and stopping Sarina's agent runs when Heimdall contains her.
+type SampleRunService interface {
+	StartSample(ctx context.Context, profile, command, sampleName string, timeoutSeconds int) (id string, err error)
+	StopAgentRuns() int
+}
+
 // Server holds what the handlers need.
 type Server struct {
 	Store   *quarantine.Store
@@ -91,6 +98,11 @@ func (s *Server) Handler(p Principal) http.Handler {
 		mux.HandleFunc("POST /v1/quarantine/{id}/verdict", s.wrap(p, s.verdict))
 		mux.HandleFunc("POST /v1/quarantine/{id}/close", s.wrap(p, s.closeRec))
 		mux.HandleFunc("POST /v1/guests/{name}/down", s.wrap(p, s.down))
+		if _, ok := s.Runs.(SampleRunService); ok {
+			mux.HandleFunc("POST /v1/sample-runs", s.wrap(p, s.startSampleRun))
+			mux.HandleFunc("GET /v1/runs/{id}", s.wrap(p, s.getRun))
+			mux.HandleFunc("POST /v1/agent-runs/stop", s.wrap(p, s.stopAgentRuns))
+		}
 	}
 	if p == Agent && s.Runs != nil {
 		mux.HandleFunc("GET /v1/profiles", s.wrap(p, s.profiles))
@@ -441,6 +453,34 @@ func (s *Server) startRun(w http.ResponseWriter, r *http.Request, p Principal) (
 		return nil, http.StatusBadRequest, err
 	}
 	return map[string]string{"id": id}, http.StatusAccepted, nil
+}
+
+// startSampleRun (admin): {"profile", "command", "sample" (a file name in Limbo's inbox), "timeout_seconds"}.
+func (s *Server) startSampleRun(w http.ResponseWriter, r *http.Request, p Principal) (any, int, error) {
+	var in struct {
+		Profile        string `json:"profile"`
+		Command        string `json:"command"`
+		Sample         string `json:"sample"`
+		TimeoutSeconds int    `json:"timeout_seconds"`
+	}
+	if err := decode(r, &in); err != nil {
+		return nil, http.StatusBadRequest, err
+	}
+	id, err := s.Runs.(SampleRunService).StartSample(context.WithoutCancel(r.Context()), in.Profile, in.Command, in.Sample, in.TimeoutSeconds)
+	if err != nil {
+		var c coded
+		if errors.As(err, &c) && c.ErrCode() == "busy" {
+			return nil, http.StatusTooManyRequests, err
+		}
+		return nil, http.StatusBadRequest, err
+	}
+	return map[string]string{"id": id}, http.StatusAccepted, nil
+}
+
+// stopAgentRuns (admin): Heimdall contained Sarina; every run her agents started ends now.
+func (s *Server) stopAgentRuns(w http.ResponseWriter, r *http.Request, p Principal) (any, int, error) {
+	n := s.Runs.(SampleRunService).StopAgentRuns()
+	return map[string]int{"stopped": n}, http.StatusOK, nil
 }
 
 func (s *Server) getRun(w http.ResponseWriter, r *http.Request, p Principal) (any, int, error) {

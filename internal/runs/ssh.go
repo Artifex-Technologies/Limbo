@@ -57,6 +57,17 @@ func bundleWrap(command string) string {
 	return `rm -rf "$HOME/agent" && mkdir "$HOME/agent" && tar --no-same-owner --no-same-permissions -xf - -C "$HOME/agent" && cd "$HOME/agent" && (` + command + `)`
 }
 
+// sampleWrap stores the file (sent on the command's input) read-only in a fresh folder, then runs the command from there. The file is
+// never made executable; the analysis tools only read it.
+func sampleWrap(command string) string {
+	return `umask 077 && rm -rf "$HOME/sample" && mkdir "$HOME/sample" && cat > "$HOME/sample/sample" && chmod 0400 "$HOME/sample/sample" && cd "$HOME/sample" && export LIMBO_SAMPLE_DIR="$HOME/sample" && (` + command + `)`
+}
+
+// RunSample is Run for a run that carries one file to analyse.
+func (s SSH) RunSample(ctx context.Context, ip, user, identity, command string, sample []byte, limit int) (string, string, int, bool, error) {
+	return s.run(ctx, ip, user, identity, sampleWrap(command), sample, limit)
+}
+
 // RunBundle is Run for a run that carries a tar into the guest.
 func (s SSH) RunBundle(ctx context.Context, ip, user, identity, command string, bundle []byte, limit int) (string, string, int, bool, error) {
 	return s.run(ctx, ip, user, identity, bundleWrap(command), bundle, limit)
