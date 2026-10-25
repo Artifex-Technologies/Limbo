@@ -11,8 +11,9 @@
 //
 // The switch by host OS:
 //
-//   - Chymaera OS never allows passthrough. That is hard-coded, so no config
-//     file, however edited, turns it on there.
+//   - Niflheim OS (formerly Chymaera OS) never allows passthrough. That is
+//     hard-coded, under both IDs, so no config file, however edited, turns it
+//     on there.
 //   - Labyrinth OS allows it, but only for devices listed in the config's
 //     pci_allow, and only if the device is safe to hand over (see Check).
 //   - Any other OS is refused.
@@ -45,11 +46,12 @@ const (
 )
 
 // neverOS are os-release IDs on which passthrough is refused regardless of config.
-var neverOS = map[string]bool{"chymaera": true}
+// Niflheim OS is Chymaera OS renamed; both IDs, so the rename never relies on the
+// unknown-OS default.
+var neverOS = map[string]bool{"chymaera": true, "niflheim": true}
 
 // allowOS are os-release IDs on which passthrough is possible at all.
-// Labyrinth is CachyOS-based and must ship its own os-release with ID=labyrinth
-// (it does not yet: see docs/ARCHITECTURE.md section 4.1).
+// Labyrinth is CachyOS-based and ships its own os-release with ID=labyrinth.
 var allowOS = map[string]bool{"labyrinth": true}
 
 // Denied is a refusal that no action of the user's at a terminal will change:

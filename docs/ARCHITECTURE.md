@@ -4,8 +4,8 @@ Limbo runs Windows and Linux guest applications on a Linux host so they
 appear as ordinary windows on the host desktop, inside a sandbox the user
 controls. Its first use is **network and infrastructure security analysis and
 reporting**: running Windows-only and untrusted-input tooling without letting
-it touch the host. It is intended to ship in Chymaera OS (Arch, Hyprland)
-and to be watched by Heimdall.
+it touch the host. It ships in Labyrinth OS, is intended for Niflheim OS
+(formerly Chymaera OS; Arch, Hyprland) too, and is watched by Heimdall.
 
 Status: **first slice built** (see section 12). Claims about third-party
 projects below come from a light read of their repo front pages plus prior
@@ -118,8 +118,8 @@ real GPU.
   `0000:03:00.0`); it is only valid on a disposable Linux guest, max 4 devices.
   The host grants, in `internal/hostpolicy`, checked in `Engine.Up` (the single
   start path) and again when a run starts or profiles are scanned.
-- **Host-OS switch.** `ID=` from `/etc/os-release`: `chymaera` is refused with no
-  override (hard-coded); `labyrinth` is allowed subject to the rest; anything
+- **Host-OS switch.** `ID=` from `/etc/os-release`: `niflheim` and `chymaera` (its
+  former name) are refused with no override (hard-coded); `labyrinth` is allowed subject to the rest; anything
   else, or an unreadable file, is refused. No engine wired to a policy refuses too.
 - **Per-device checks (Labyrinth).** The device must be in `pci_allow` of the
   root-owned `/etc/limbo/host-policy.json` (`limbo serve` refuses to start if that
@@ -150,11 +150,11 @@ real GPU.
   new events `passthrough.approve`, `passthrough.revoke`, `hardware.stuck`.
 - **Not done / unverified.** No real device has been passed through, and none of the
   Linux-side code (the `/proc` scan, sysfs reads, libvirt `managed='yes'`) has run on
-  real hardware; tests use a fake filesystem. Labyrinth must ship its own
-  `/etc/os-release` with `ID=labyrinth`: it is CachyOS-based and defines none yet, so
-  today it would report `cachyos` and be refused. The planned Labyrinth target keeps
-  its display on the Intel iGPU, so the boot-display check passes for the 2080 Ti,
-  but a compositor can still hold the NVIDIA render node; the busy check catches that.
+  real hardware; tests use a fake filesystem. Labyrinth ships its own `/etc/os-release`
+  with `ID=labyrinth` (2026-10). The Labyrinth target machine has no integrated
+  graphics in use: the RTX 2080 Ti is the boot display and the desktop's card, so the
+  boot-display check refuses passing it through there, as it should; passthrough on
+  that machine needs a second card (or the iGPU enabled in the firmware).
 
 Example `/etc/limbo/host-policy.json`:
 
@@ -396,7 +396,9 @@ and from real unprivileged users:
   `control.sock`, and that the Heimdall user and group can read but not write the
   audit log. 14 checks.
 
-## Shipping with Chymaera OS
+## Shipping with Niflheim OS (formerly Chymaera OS)
+
+(Labyrinth OS already ships Limbo as `limbo-git` from its own local repository; this section is the plan for Niflheim.)
 
 Owner's plan: ship Limbo in the ISO. Measured against the distro's real package
 list and repositories (resolved from an empty root, using its own `pacman.conf`

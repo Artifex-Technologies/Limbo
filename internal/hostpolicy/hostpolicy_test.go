@@ -78,9 +78,14 @@ func TestNoDevicesAlwaysPasses(t *testing.T) {
 }
 
 func TestChymaeraNeverAllowsEvenWhenListed(t *testing.T) {
-	h := newHost(t, "chymaera", gpu)
-	h.device(gpu, "0x030000", false, gpu)
-	denied(t, h.p.Check(guest(gpu)))
+	for _, id := range []string{"chymaera", "niflheim"} {
+		h := newHost(t, id, gpu)
+		h.device(gpu, "0x030000", false, gpu)
+		denied(t, h.p.Check(guest(gpu)))
+		if !neverOS[id] {
+			t.Fatalf("%s must be refused by name, not only as an unknown OS", id)
+		}
+	}
 }
 
 func TestUnknownOrUnreadableOSDenies(t *testing.T) {

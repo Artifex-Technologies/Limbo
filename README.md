@@ -4,8 +4,9 @@ Run Windows and Linux guest applications on a Linux host as seamless,
 native-looking windows, each inside a sandbox you control. Built first for
 **network and infrastructure security analysis and reporting**: run
 Windows-only and untrusted-input tooling without exposing the host. Part of the
-Chymaera ecosystem — designed to ship in Chymaera OS and be watched by
-Heimdall.
+Artifex ecosystem: it ships in Labyrinth OS (package `limbo-git`), is meant for
+Niflheim OS (formerly Chymaera OS) too, and is watched by
+[Heimdall](https://github.com/Artifex-Technologies/Heimdall).
 
 **Status: working for Linux guests, verified against real guests; Windows
 guests are written but have never run.** Linux guests boot under libvirt/KVM with
