@@ -19,7 +19,7 @@ func m(os, extra string) *manifest.Manifest {
 }
 
 func TestLinuxUsesWaypipe(t *testing.T) {
-	c, err := Build(m("linux", ""))
+	c, err := Build(m("linux", `"clipboard":"text",`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,5 +48,12 @@ func TestWindowsRemoteAppIsLockedDown(t *testing.T) {
 	c, _ = Build(m("windows", `"clipboard":"text",`))
 	if !strings.Contains(strings.Join(c.Args, " "), "+clipboard") {
 		t.Error("clipboard text not honoured")
+	}
+}
+
+// waypipe cannot leave the clipboard out, so a manifest that says "off" (the default) is refused, not silently ignored.
+func TestLinuxRefusesAClipboardItCannotSwitchOff(t *testing.T) {
+	if _, err := Build(m("linux", "")); err == nil || !strings.Contains(err.Error(), "clipboard") {
+		t.Fatalf("err=%v", err)
 	}
 }

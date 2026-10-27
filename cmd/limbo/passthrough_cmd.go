@@ -23,12 +23,16 @@ func passthroughCmd(args []string) error {
 	state := fs.String("state-dir", defaultStateDir(), "directory for the event log and the approval")
 	runDir := fs.String("run-dir", "/run/limbo", "directory for the reboot-needed marker")
 	minutes := fs.Int("minutes", 30, "approve: how long the approval lasts (max 120)")
+	iKnow := fs.Bool("i-know", false, "allow a state folder other than the daemon's")
 	pos, err := parseInterspersed(fs, args)
 	if err != nil {
 		return err
 	}
 	if os.Geteuid() != 0 {
 		return errors.New("passthrough: must run as root (it changes what guests may take from the host)")
+	}
+	if err := checkRootStateDir(*state, *iKnow); err != nil {
+		return err
 	}
 	tty := false
 	if fi, err := os.Stdin.Stat(); err == nil {

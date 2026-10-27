@@ -76,6 +76,7 @@ func run(args []string) error {
 	fs := flag.NewFlagSet(cmd, flag.ContinueOnError)
 	state := fs.String("state-dir", defaultStateDir(), "directory for event log and generated definitions")
 	iso := fs.String("iso", "", "seed: also build a cloud-init ISO at this path (needs xorriso)")
+	iKnow := fs.Bool("i-know", false, "as root, allow a state folder other than the daemon's")
 	if err := fs.Parse(rest); err != nil {
 		return err
 	}
@@ -99,19 +100,41 @@ func run(args []string) error {
 		}
 		return seed(m, fs.Arg(1), *iso)
 	case "up", "down", "launch":
+		if err := checkRootStateDir(*state, *iKnow); err != nil {
+			return err
+		}
 		return act(cmd, m, *state)
 	}
 	return fmt.Errorf("unknown command %q", cmd)
 }
 
+// daemonStateDir is limbo.service's state folder: its quarantine holds, its audit log (which Heimdall reads) and the
+// passthrough approval live there.
+const daemonStateDir = "/var/lib/limbo/state"
+
+var geteuid = os.Geteuid
+
 func defaultStateDir() string {
 	if d := os.Getenv("LIMBO_STATE_DIR"); d != "" {
 		return d
+	}
+	if geteuid() == 0 {
+		return daemonStateDir
 	}
 	if d, err := os.UserHomeDir(); err == nil {
 		return filepath.Join(d, ".local", "state", "limbo")
 	}
 	return "limbo-state"
+}
+
+// checkRootStateDir refuses, for root, a state folder other than the daemon's: a guest started against another folder
+// would skip the quarantine holds and be invisible to Heimdall. --i-know is for a person who means it.
+func checkRootStateDir(state string, iKnow bool) error {
+	if geteuid() != 0 || iKnow || filepath.Clean(state) == daemonStateDir {
+		return nil
+	}
+	return fmt.Errorf("as root the state folder is the daemon's (%s), where the quarantine holds and Heimdall's view are; "+
+		"add --i-know to use %s anyway", daemonStateDir, state)
 }
 
 // plan prints the generated artifacts. It performs the license check but no
@@ -141,11 +164,13 @@ func plan(m *manifest.Manifest, state string) error {
 	if err != nil {
 		return err
 	}
-	c, err := launch.Build(m)
-	if err != nil {
-		return err
+	launchLine := "refused: "
+	if c, err := launch.Build(m); err != nil {
+		launchLine += err.Error()
+	} else {
+		launchLine = strings.Join(c.Args, " ")
 	}
-	fmt.Printf("# libvirt network\n%s\n# libvirt domain\n%s\n# nftables\n%s\n# launch\n%s\n", netXML, domXML, rules, strings.Join(c.Args, " "))
+	fmt.Printf("# libvirt network\n%s\n# libvirt domain\n%s\n# nftables\n%s\n# launch\n%s\n", netXML, domXML, rules, launchLine)
 	return nil
 }
 
@@ -205,7 +230,12 @@ func act(cmd string, m *manifest.Manifest, state string) error {
 		return e.Down(ctx, m)
 	}
 
-	// launch: gate first, then record, then hand the terminal to the client.
+	// launch: gate first, then record, then hand the terminal to the client. A held guest's app is not opened either.
+	if rec, held := store.Holding(m.Name); held {
+		reason := "guest is quarantined (" + rec.ID + ", " + string(rec.Status) + ")"
+		_ = log.Emit(events.GateBlocked, m.Name, map[string]string{"reason": reason})
+		return fmt.Errorf("%w: %s", engine.ErrQuarantined, reason)
+	}
 	if err := license.Check(m); err != nil {
 		_ = log.Emit(events.GateBlocked, m.Name, map[string]string{"reason": err.Error()})
 		return err

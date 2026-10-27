@@ -33,6 +33,12 @@ func Build(m *manifest.Manifest) (Command, error) {
 	ip := virt.Addr(m).Guest.String()
 	switch m.OS {
 	case manifest.OSLinux:
+		// waypipe forwards the whole Wayland connection, clipboard included (every type, not only text), and has no way
+		// to leave it out. Until the window comes through a filtering compositor, "off" would be a promise not kept.
+		if m.Clipboard != manifest.ClipText {
+			return Command{}, fmt.Errorf("launch: a Linux app's window comes through waypipe, which shares the clipboard and "+
+				"cannot switch it off; set \"clipboard\": %q in %s's manifest to accept that", manifest.ClipText, m.Name)
+		}
 		return Command{Args: []string{
 			"waypipe", "ssh",
 			"-o", "BatchMode=yes",
