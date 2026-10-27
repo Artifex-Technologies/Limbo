@@ -123,3 +123,14 @@ func TestHostdevOnlyWhenRequested(t *testing.T) {
 		}
 	}
 }
+
+func TestTheShareIsReadOnlyUnlessAskedOtherwise(t *testing.T) {
+	ro, _ := DomainXML(parse(t, `"exchange_dir":"/srv/limbo/lab",`), "/state/lab.overlay.qcow2")
+	if !strings.Contains(string(ro), "<readonly></readonly>") {
+		t.Errorf("a share is read-only on the host's side by default:\n%s", ro)
+	}
+	rw, _ := DomainXML(parse(t, `"exchange_dir":"/srv/limbo/lab","exchange_writable":true,`), "/state/lab.overlay.qcow2")
+	if strings.Contains(string(rw), "<readonly") {
+		t.Errorf("exchange_writable must leave it writable:\n%s", rw)
+	}
+}

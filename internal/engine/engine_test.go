@@ -285,3 +285,13 @@ func TestStuckDeviceAfterTeardownIsAudited(t *testing.T) {
 		t.Fatalf("hardware.stuck not audited: %v", ev.kinds)
 	}
 }
+
+func TestAWritableShareNeedsANosuidNodevMount(t *testing.T) {
+	if !mountSafe(0x2|0x4) || mountSafe(0x2) || mountSafe(0x4) || mountSafe(0) {
+		t.Fatal("mountSafe must need both nosuid and nodev")
+	}
+	ro := &manifest.Manifest{ExchangeDir: t.TempDir()}
+	if err := exchangeSafe(ro); err != nil {
+		t.Fatalf("a read-only share needs nothing: %v", err)
+	}
+}

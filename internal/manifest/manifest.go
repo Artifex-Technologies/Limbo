@@ -52,8 +52,12 @@ type Manifest struct {
 	MemoryMB    int     `json:"memory_mb"`
 	Network     Network `json:"network"`
 	ExchangeDir string  `json:"exchange_dir"`
-	Clipboard   string  `json:"clipboard"`
-	Disposable  bool    `json:"disposable"`
+	// ExchangeWritable lets the guest write into ExchangeDir. Off by default: the share is read-only on the host's side (virtiofsd
+	// --readonly), whatever the guest's own mount says. A writable share is accepted only on a nosuid,nodev host mount, because
+	// the guest's root writes there as the host's root and could otherwise leave setuid-root programs or device nodes.
+	ExchangeWritable bool   `json:"exchange_writable"`
+	Clipboard        string `json:"clipboard"`
+	Disposable       bool   `json:"disposable"`
 	// ConsoleLog, if set, records the guest's serial console to this host file.
 	// Output only: the guest can write to it but there is no input channel.
 	ConsoleLog string    `json:"console_log"`

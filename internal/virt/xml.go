@@ -130,11 +130,12 @@ type iface struct {
 }
 
 type filesystem struct {
-	Type       string `xml:"type,attr"`
-	AccessMode string `xml:"accessmode,attr"`
-	Driver     attrs  `xml:"driver"`
-	Source     attrs  `xml:"source"`
-	Target     attrs  `xml:"target"`
+	Type       string    `xml:"type,attr"`
+	AccessMode string    `xml:"accessmode,attr"`
+	Driver     attrs     `xml:"driver"`
+	Source     attrs     `xml:"source"`
+	Target     attrs     `xml:"target"`
+	ReadOnly   *struct{} `xml:"readonly,omitempty"`
 }
 
 // serial is a file-backed serial port: the guest's console output is appended to
@@ -228,6 +229,9 @@ func DomainXML(m *manifest.Manifest, rootDisk string) ([]byte, error) {
 			Driver: attrs{Type: "virtiofs"},
 			Source: attrs{Dir: m.ExchangeDir},
 			Target: attrs{Dir: "limbo-exchange"},
+		}
+		if !m.ExchangeWritable {
+			d.Devices.Filesystem.ReadOnly = &struct{}{} // read-only on the host's side (virtiofsd --readonly)
 		}
 	}
 	return marshal(d)

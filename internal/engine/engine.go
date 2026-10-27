@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/Artifex-Technologies/Limbo/internal/events"
 	"github.com/Artifex-Technologies/Limbo/internal/hostfw"
@@ -123,6 +124,10 @@ func (e *Engine) Up(ctx context.Context, m *manifest.Manifest) (err error) {
 	}
 	if len(m.Devices.PCI) > 0 {
 		e.before.Store(g, e.Hardware.Before(m))
+	}
+	if err := exchangeSafe(m); err != nil {
+		_ = e.Events.Emit(events.GateBlocked, g, map[string]string{"reason": err.Error()})
+		return err
 	}
 	if err := license.Check(m); err != nil {
 		_ = e.Events.Emit(events.GateBlocked, g, map[string]string{"reason": err.Error()})
@@ -303,4 +308,26 @@ func (e *Engine) closeHostFirewall(ctx context.Context, m *manifest.Manifest) er
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// exchangeSafe refuses a writable shared folder whose host mount allows setuid programs or device nodes: the guest's root writes
+// into it as the host's root. A read-only share (the default) needs nothing.
+func exchangeSafe(m *manifest.Manifest) error {
+	if m.ExchangeDir == "" || !m.ExchangeWritable {
+		return nil
+	}
+	var st syscall.Statfs_t
+	if err := syscall.Statfs(m.ExchangeDir, &st); err != nil {
+		return fmt.Errorf("exchange_dir %s: %w", m.ExchangeDir, err)
+	}
+	if !mountSafe(st.Flags) {
+		return fmt.Errorf("exchange_dir %s is writable for the guest but its mount allows setuid programs and device nodes: put it on a mount with nosuid,nodev (for example a bind mount of the folder onto itself with those options), or make the share read-only", m.ExchangeDir)
+	}
+	return nil
+}
+
+// mountSafe: the mount has both ST_NOSUID and ST_NODEV.
+func mountSafe(flags int64) bool {
+	const stNosuid, stNodev = 0x2, 0x4
+	return flags&stNosuid != 0 && flags&stNodev != 0
 }
