@@ -42,7 +42,8 @@ const (
 	maxSample        = 64 << 20 // one file to analyse (sample runs: root's admin socket only)
 	defaultSeconds   = 300
 	maxResults       = 50
-	maxConcurrent    = 2
+	maxConcurrent    = 2 // agent runs at once
+	maxSamples       = 1 // sample analyses at once, on top of those
 	defaultOutputCap = 64 << 10
 	readyWaitSeconds = 180
 	// bootBudgetSeconds bounds building the seed, starting the guest and waiting for
@@ -343,7 +344,18 @@ func (m *Manager) start(ctx context.Context, profile, command string, bundle, sa
 	}
 
 	m.mu.Lock()
-	if m.active >= maxConcurrent {
+	// agent runs and sample runs are counted apart: Sarina's runs can never take the slot Heimdall's sample analysis needs
+	running := 0
+	for _, k := range m.kinds {
+		if k == kind {
+			running++
+		}
+	}
+	if kind == kindSample && running >= maxSamples {
+		m.mu.Unlock()
+		return "", newErr(CodeBusy, "wait about a minute and retry", "a sample analysis is already in progress")
+	}
+	if kind != kindSample && running >= maxConcurrent {
 		m.mu.Unlock()
 		return "", newErr(CodeBusy, "wait about a minute and retry", "%d validation runs are already in progress", maxConcurrent)
 	}

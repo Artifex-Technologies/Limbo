@@ -132,3 +132,30 @@ func TestSampleWrapStoresReadOnlyThenRuns(t *testing.T) {
 		t.Fatalf("wrong order: %s", w)
 	}
 }
+
+// Agent runs at their limit leave the sample slot free: Sarina cannot starve Heimdall's analysis.
+func TestAgentRunsCannotTakeTheSampleSlot(t *testing.T) {
+	x := setup(t, true)
+	name := sealSample(t, x, true)
+	x.m.Exec = &sampleExec{fakeExec: x.ex}
+	x.ex.block = make(chan struct{})
+	var ids []string
+	for i := 0; i < maxConcurrent; i++ {
+		id, err := x.m.Start(context.Background(), x.prof, "true", 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, id)
+	}
+	id, err := x.m.StartSample(context.Background(), x.prof, "true", name, 0)
+	if err != nil {
+		t.Fatalf("the sample was refused while agent runs were busy: %v", err)
+	}
+	if _, err := x.m.StartSample(context.Background(), x.prof, "true", name, 0); err == nil {
+		t.Fatal("a second sample beyond its slot accepted")
+	}
+	close(x.ex.block)
+	for _, i := range append(ids, id) {
+		wait(t, x.m, i)
+	}
+}
