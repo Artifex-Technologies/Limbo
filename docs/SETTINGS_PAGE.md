@@ -22,7 +22,10 @@ Settings > Security > Limbo (next to Heimdall):
    - the memory and processors it is given, and whether it has network.
 
    Start and Stop buttons, and "Free space" for a stopped guest's changes.
-3. **Quarantine:** what is held and why, with Sarina's advisory clearly labelled as untrusted, and the Safe / Dangerous verdict.
+3. **Quarantine:** not on this page. Heimdall decides what is held (files on the host, and guests it asks Limbo to restrict), so
+   the quarantine screen and the Safe / Dangerous verdict live on Heimdall's page (Settings > Security). That one screen shows held
+   files and held guests together. Here, a held guest's row says "held by Heimdall" and links to it. Limbo still keeps a guest's
+   verdict record, because it owns the guest, and still requires the password for it (Matt agreed, 2026-11-04).
 4. **Ask for my password for Limbo changes:** on by default, which is how Limbo works today. Turning it off or back on always
    asks for the password (pkexec).
 
@@ -76,7 +79,7 @@ Status: the Windows code in Limbo is written but has never run, so the license p
 The page shows figures (instances, states, disk use, memory) even with the switch on. They come through read-only routes on
 `user.sock` (GET only), so looking never needs sudo.
 
-## Later, if wanted
+## Later (wanted)
 
 Possible additions:
 
@@ -86,7 +89,8 @@ Possible additions:
 - the audit log in plain words;
 - a one-click `limbo report`.
 
-## Open question for Matt
+## Decided
 
-Should quarantine verdicts and loosening a restricted guest stay behind the password even when the switch is off? This is
-recommended. The alternative is to let the switch cover everything.
+- 2026-11-04 (Matt): quarantine verdicts and loosening a restricted guest always need the password, whatever the switch says. The
+  quarantine screen belongs with Heimdall.
+- 2026-11-04 (Matt): the "Later, if wanted" items are wanted.
