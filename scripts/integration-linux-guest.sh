@@ -107,6 +107,17 @@ run_mode() { # run_mode <name> <network-json-fragment>
     ;;
   esac
 
+  # IPv6: the guest's network gives it none, and the firewall drops what the guest makes itself.
+  expect fail "guest has no IPv6 way out (2606:4700:4700::1111:443)" gssh "timeout 4 bash -c '</dev/tcp/2606:4700:4700::1111/443'"
+  expect fail "nothing on the guest's link answers IPv6 (no neighbour after an all-nodes ping)" \
+    gssh "ping -6 -c2 -W2 ff02::1%eth0 >/dev/null 2>&1; ip -6 neigh | grep -q ."
+  if [ "$mode" = internet-only ]; then
+    expect pass "the loaded firewall drops guest IPv6 before its accept" sh -c "nft list table inet limbo_$GUEST | grep -q 'meta nfproto ipv6 drop'"
+  fi
+  # The guest presents exactly the host key limbo seed made (what limbo launch pins).
+  expect pass "guest's host key is the one made at seed" sh -c \
+    "ssh-keyscan -T 5 -t ed25519 $GIP 2>/dev/null | awk '{print \$2\" \"\$3}' | grep -qxF \"\$(cut -d' ' -f1,2 $WORK/seed/ssh_host_ed25519_key.pub)\""
+
   expect pass "host can still reach the guest (ssh) while filtered" gssh true
   "$LIMBO" down "$WORK/$GUEST.json" && ok "limbo down" || bad "limbo down"
   expect fail "libvirt domain removed" virsh -c qemu:///system dominfo "limbo-$GUEST"
@@ -125,6 +136,31 @@ want none && run_mode none ''
 want internet-only && run_mode internet-only '"network": {"mode": "internet-only"},'
 want allowlist && run_mode allowlist '"network": {"mode": "allowlist", "allow": [{"addr": "1.1.1.1", "port": 443}]},'
 
+
+# A persistent guest boots from its own overlay, keeps what it wrote across down/up, and never changes the base image.
+run_persistent() {
+  echo "== persistent guest on its own overlay"
+  GUEST=itpers; manifest ''
+  sed -i 's/"disposable": true/"disposable": false/' "$WORK/$GUEST.json"
+  BASESUM=$(sha256sum "$BASE" | cut -d' ' -f1)
+  "$LIMBO" up "$WORK/$GUEST.json" && ok "persistent guest up" || { bad "persistent up"; "$LIMBO" down "$WORK/$GUEST.json" >/dev/null 2>&1; return; }
+  DISK="$LIMBO_STATE_DIR/$GUEST.disk.qcow2"
+  qemu-img info -U "$DISK" 2>/dev/null | grep -q "backing file: $BASE" && ok "it boots from its own overlay backed by the base image" || bad "no overlay at $DISK"
+  GIP=$("$LIMBO" address "$WORK/$GUEST.json"); up=no
+  for _ in $(seq 1 "${LIMBO_IT_BOOT_WAIT:-100}"); do gssh true 2>/dev/null && { up=yes; break; }; sleep 3; done
+  [ "$up" = yes ] && ok "persistent guest reachable at $GIP" || { bad "persistent guest never reachable"; "$LIMBO" down "$WORK/$GUEST.json" >/dev/null 2>&1; return; }
+  gssh "echo kept > ~/marker && sync" && ok "guest wrote a file" || bad "guest could not write"
+  "$LIMBO" down "$WORK/$GUEST.json" && ok "persistent guest down" || bad "persistent down"
+  [ -f "$DISK" ] && ok "its overlay survives down" || bad "overlay deleted at down"
+  [ "$(sha256sum "$BASE" | cut -d' ' -f1)" = "$BASESUM" ] && ok "base image unchanged" || bad "base image changed"
+  "$LIMBO" up "$WORK/$GUEST.json" >/dev/null && GIP=$("$LIMBO" address "$WORK/$GUEST.json") && up=no
+  for _ in $(seq 1 "${LIMBO_IT_BOOT_WAIT:-100}"); do gssh true 2>/dev/null && { up=yes; break; }; sleep 3; done
+  expect pass "what it wrote is still there after down and up" gssh "grep -qx kept ~/marker"
+  "$LIMBO" down "$WORK/$GUEST.json" >/dev/null 2>&1
+  rm -f "$DISK"
+  GUEST=itest
+}
+want persistent && run_persistent
 
 # Two guests at once: one must not be able to reach the other, even though both
 # have internet access, and the host must still reach each.
