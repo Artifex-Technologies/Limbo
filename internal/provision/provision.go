@@ -30,10 +30,20 @@ type Seed struct {
 	MetaData string
 }
 
+// HostKey is the guest's own SSH host key pair, made on the host so the host can pin the public half before the
+// guest ever boots (`limbo launch` then refuses any other key).
+type HostKey struct {
+	Private string // OpenSSH private key, as ssh-keygen writes it
+	Public  string // "ssh-ed25519 AAAA..."
+}
+
 // Build renders the seed. Every manifest value is validated and then emitted as
 // a JSON string; JSON is valid YAML, which removes any chance of a value
 // changing the document's structure.
-func Build(m *manifest.Manifest) (Seed, error) {
+func Build(m *manifest.Manifest) (Seed, error) { return BuildWithHostKey(m, nil) }
+
+// BuildWithHostKey is Build plus the guest's host key: the guest uses exactly this key and generates none.
+func BuildWithHostKey(m *manifest.Manifest, hk *HostKey) (Seed, error) {
 	if m.OS != manifest.OSLinux {
 		return Seed{}, fmt.Errorf("provision: only Linux guests are supported")
 	}
@@ -59,6 +69,15 @@ func Build(m *manifest.Manifest) (Seed, error) {
 		b.WriteString("    sudo: \"ALL=(ALL) NOPASSWD:ALL\"\n")
 	}
 	fmt.Fprintf(&b, "    ssh_authorized_keys: [%s]\n", q(m.Provision.SSHPublicKey))
+	if hk != nil {
+		pub := strings.TrimSpace(hk.Public)
+		if !manifest.HostKeyRe.MatchString(pub) || !strings.HasPrefix(hk.Private, "-----BEGIN OPENSSH PRIVATE KEY-----") {
+			return Seed{}, fmt.Errorf("provision: the host key pair is not an ed25519 OpenSSH key")
+		}
+		b.WriteString("ssh_deletekeys: true\nssh_genkeytypes: []\nssh_keys:\n")
+		fmt.Fprintf(&b, "  ed25519_private: %s\n", q(hk.Private))
+		fmt.Fprintf(&b, "  ed25519_public: %s\n", q(pub))
+	}
 	b.WriteString("disable_root: true\n")
 	b.WriteString("ssh_pwauth: false\n")
 	// The guest's clock starts correct (libvirt sets the RTC from the host), so

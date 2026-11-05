@@ -109,3 +109,32 @@ func TestSudoIsOffByDefaultAndOptIn(t *testing.T) {
 		t.Fatalf("sudo must be part of the user entry:\n%s", userBlock)
 	}
 }
+
+func TestHostKeyGoesInAsJSONStringsOnly(t *testing.T) {
+	m := mf(t, "linux", `{"ssh_public_key":"`+key+`"}`)
+	hk := &HostKey{
+		Private: "-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n-----END OPENSSH PRIVATE KEY-----\n",
+		Public:  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl limbo-lab",
+	}
+	s, err := BuildWithHostKey(m, hk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"ssh_deletekeys: true", "ssh_genkeytypes: []", `ed25519_private: "-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n`, `ed25519_public: "ssh-ed25519 AAAA`} {
+		if !strings.Contains(s.UserData, want) {
+			t.Errorf("missing %q:\n%s", want, s.UserData)
+		}
+	}
+	for _, bad := range []*HostKey{
+		{Private: hk.Private, Public: "ssh-rsa AAAAB3"},
+		{Private: "not a key", Public: hk.Public},
+		{Private: hk.Private, Public: hk.Public + "\nruncmd: [rm]"},
+	} {
+		if _, err := BuildWithHostKey(m, bad); err == nil {
+			t.Errorf("accepted %+v", bad)
+		}
+	}
+	if s, _ := Build(m); strings.Contains(s.UserData, "ssh_keys") {
+		t.Fatal("no host key asked for, none given")
+	}
+}

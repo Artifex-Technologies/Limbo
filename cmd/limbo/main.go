@@ -184,7 +184,7 @@ func plan(m *manifest.Manifest, state string) error {
 		return err
 	}
 	launchLine := "refused: "
-	if c, err := launch.Build(m); err != nil {
+	if c, err := launch.Build(m, "<known_hosts holding the pinned key>"); err != nil {
 		launchLine += err.Error()
 	} else {
 		launchLine = strings.Join(c.Args, " ")
@@ -192,6 +192,50 @@ func plan(m *manifest.Manifest, state string) error {
 	fmt.Printf("# addresses are placeholders: each guest's subnet is given and recorded at up (limbo address MANIFEST)\n")
 	fmt.Printf("# libvirt network\n%s\n# libvirt domain\n%s\n# nftables\n%s\n# launch\n%s\n", netXML, domXML, rules, launchLine)
 	return nil
+}
+
+// hostKeyFile is where `limbo seed` keeps the guest's host key pair, beside the seed it goes into.
+const hostKeyFile = "ssh_host_ed25519_key"
+
+// keygen makes an ed25519 key pair; replaced in tests.
+var keygen = func(path, comment string) error {
+	out, err := exec.Command("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", comment, "-f", path).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("ssh-keygen: %w: %s", err, out)
+	}
+	return nil
+}
+
+// guestHostKey makes the guest's host key pair in dir the first time (and reuses it after), so the host knows the key
+// before the guest boots. A manifest that pins a different key is refused; one that pins none is told what to add.
+func guestHostKey(m *manifest.Manifest, dir string) (*provision.HostKey, error) {
+	if m.OS != manifest.OSLinux {
+		return nil, nil
+	}
+	priv := filepath.Join(dir, hostKeyFile)
+	if _, err := os.Lstat(priv); os.IsNotExist(err) {
+		if err := keygen(priv, "limbo-"+m.Name); err != nil {
+			return nil, err
+		}
+	}
+	pb, err1 := os.ReadFile(priv)
+	ub, err2 := os.ReadFile(priv + ".pub")
+	if err1 != nil || err2 != nil {
+		return nil, fmt.Errorf("seed: reading the guest's host key in %s: %v %v", dir, err1, err2)
+	}
+	hk := &provision.HostKey{Private: string(pb), Public: strings.TrimSpace(string(ub))}
+	f := strings.Fields(hk.Public)
+	if len(f) < 2 {
+		return nil, fmt.Errorf("seed: %s.pub is not a public key", priv)
+	}
+	pin := f[0] + " " + f[1]
+	switch pinned := strings.Fields(m.Provision.HostKey); {
+	case len(pinned) == 0:
+		fmt.Fprintf(os.Stderr, "pin: add this to %s's manifest under \"provision\" (limbo launch refuses a guest without it):\n  \"host_key\": %q\n", m.Name, pin)
+	case len(pinned) < 2 || pinned[0]+" "+pinned[1] != pin:
+		return nil, fmt.Errorf("seed: the manifest pins a different host key than %s.pub; fix provision.host_key, or delete the key pair in %s to make a new one (then update the pin)", priv, dir)
+	}
+	return hk, nil
 }
 
 // address prints the guest's IPv4 address, given at `up` (as root the daemon's record; otherwise the daemon's record
@@ -217,11 +261,15 @@ func guestAddress(m *manifest.Manifest, state string) (string, error) {
 }
 
 func seed(m *manifest.Manifest, dir, isoPath string) error {
-	s, err := provision.Build(m)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	hk, err := guestHostKey(m, dir)
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	s, err := provision.BuildWithHostKey(m, hk)
+	if err != nil {
 		return err
 	}
 	for name, body := range map[string]string{"user-data": s.UserData, "meta-data": s.MetaData} {
@@ -274,23 +322,101 @@ func act(cmd string, m *manifest.Manifest, state string) error {
 	}
 
 	// launch: gate first, then record, then hand the terminal to the client. A held guest's app is not opened either.
-	if rec, held := store.Holding(m.Name); held {
-		reason := "guest is quarantined (" + rec.ID + ", " + string(rec.Status) + ")"
-		_ = log.Emit(events.GateBlocked, m.Name, map[string]string{"reason": reason})
-		return fmt.Errorf("%w: %s", engine.ErrQuarantined, reason)
-	}
-	if err := license.Check(m); err != nil {
-		_ = log.Emit(events.GateBlocked, m.Name, map[string]string{"reason": err.Error()})
-		return err
-	}
-	c, err := launch.Build(m)
+	c, cleanup, err := prepareLaunch(m, state, store, log)
 	if err != nil {
 		return err
 	}
+	defer cleanup()
 	if err := log.Emit(events.AppLaunch, m.Name, map[string]string{"app": m.App.Name}); err != nil {
 		return err
 	}
 	p := exec.CommandContext(ctx, c.Args[0], c.Args[1:]...)
 	p.Stdin, p.Stdout, p.Stderr = os.Stdin, os.Stdout, os.Stderr
 	return p.Run()
+}
+
+// launchView is what a person's `limbo launch` asks Limbo about the guest (GET /v1/instances/{name} on user.sock).
+type launchView struct {
+	State   string `json:"state"`
+	Running bool   `json:"running"`
+	Address string `json:"address"`
+	Hold    *struct {
+		ID     string `json:"id"`
+		Status string `json:"status"`
+	} `json:"hold"`
+}
+
+// askLimbo is replaced in tests.
+var askLimbo = func(name string) (launchView, error) {
+	var v launchView
+	err := doJSON(unixClient(userSock), "GET", "/v1/instances/"+name, nil, &v)
+	return v, err
+}
+
+// prepareLaunch runs every check `launch` needs and returns the client's command, with a cleanup for the known_hosts
+// file it writes. Guests are started by root, so their holds and addresses are the daemon's: root reads them from the
+// daemon's state folder; anyone else asks the daemon through user.sock, and without an answer nothing is launched.
+func prepareLaunch(m *manifest.Manifest, state string, store *quarantine.Store, log *events.Logger) (launch.Command, func(), error) {
+	none := func() {}
+	refuse := func(reason string) (launch.Command, func(), error) {
+		_ = log.Emit(events.GateBlocked, m.Name, map[string]string{"reason": reason})
+		return launch.Command{}, none, fmt.Errorf("%w: %s", engine.ErrQuarantined, reason)
+	}
+	var addr string
+	if geteuid() == 0 {
+		if rec, held := store.Holding(m.Name); held {
+			return refuse("guest is quarantined (" + rec.ID + ", " + string(rec.Status) + ")")
+		}
+		a, err := guestAddress(m, state)
+		if err != nil {
+			return launch.Command{}, none, err
+		}
+		addr = a
+	} else {
+		v, err := askLimbo(m.Name)
+		if err != nil {
+			return launch.Command{}, none, fmt.Errorf("launch: Limbo could not be asked whether %s is held (%v); a person's launch "+
+				"goes through user.sock: join the limbo-users group (sudo gpasswd -a $USER limbo-users, then log in again)", m.Name, err)
+		}
+		if v.Hold != nil {
+			return refuse("guest is quarantined (" + v.Hold.ID + ", " + v.Hold.Status + ")")
+		}
+		if !v.Running || v.Address == "" {
+			return launch.Command{}, none, fmt.Errorf("launch: %s is not running", m.Name)
+		}
+		addr = v.Address
+	}
+	if err := license.Check(m); err != nil {
+		_ = log.Emit(events.GateBlocked, m.Name, map[string]string{"reason": err.Error()})
+		return launch.Command{}, none, err
+	}
+	var a, b, x, host int
+	if n, _ := fmt.Sscanf(addr, "%d.%d.%d.%d", &a, &b, &x, &host); n != 4 || a != 10 || b != 213 || x < 1 || x > 254 || host != 2 {
+		return launch.Command{}, none, fmt.Errorf("launch: %q is not a Limbo guest address", addr)
+	}
+	cp := *m
+	cp.Subnet = x
+	line, err := launch.KnownHostsLine(&cp)
+	if err != nil {
+		return launch.Command{}, none, err
+	}
+	f, err := os.CreateTemp("", "limbo-known-hosts-*")
+	if err != nil {
+		return launch.Command{}, none, err
+	}
+	cleanup := func() { os.Remove(f.Name()) }
+	_, werr := f.WriteString(line)
+	if cerr := f.Close(); werr == nil {
+		werr = cerr
+	}
+	if werr != nil {
+		cleanup()
+		return launch.Command{}, none, werr
+	}
+	c, err := launch.Build(&cp, f.Name())
+	if err != nil {
+		cleanup()
+		return launch.Command{}, none, err
+	}
+	return c, cleanup, nil
 }

@@ -40,6 +40,9 @@ const (
 // interface names (Linux caps those at 15 bytes; we prefix with "vl-"/"lb-").
 var nameRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,11}$`)
 
+// HostKeyRe is one ed25519 public key line (an optional comment after it): a guest's pinned host key.
+var HostKeyRe = regexp.MustCompile(`^ssh-ed25519 [A-Za-z0-9+/=]{60,80}( [^\r\n]*)?$`)
+
 // userRe is deliberately narrow: the user ends up in an ssh/RDP argument.
 var userRe = regexp.MustCompile(`^[a-z_][a-z0-9_-]{0,31}$`)
 
@@ -137,6 +140,10 @@ type Provision struct {
 	// SeedISO, if set, is attached read-only as a cloud-init "cidata" disk.
 	// Build it with `limbo seed --iso`.
 	SeedISO string `json:"seed_iso"`
+	// HostKey pins the guest's SSH host key ("ssh-ed25519 AAAA..."): `limbo seed` makes the key pair, puts it in the
+	// guest at first boot and prints this line to add. `limbo launch` refuses a guest without it, so the host never
+	// trusts whatever key answers first.
+	HostKey string `json:"host_key"`
 }
 
 // Windows holds what the user must supply before a Windows guest may exist.
@@ -233,6 +240,9 @@ func (m *Manifest) Validate() error {
 	}
 	if m.Provision.SeedISO != "" && (!path.IsAbs(m.Provision.SeedISO) || path.Clean(m.Provision.SeedISO) != m.Provision.SeedISO) {
 		return fmt.Errorf("manifest: provision.seed_iso must be an absolute, clean path")
+	}
+	if m.Provision.HostKey != "" && !HostKeyRe.MatchString(m.Provision.HostKey) {
+		return fmt.Errorf("manifest: provision.host_key must be one line \"ssh-ed25519 AAAA...\" (as limbo seed prints it)")
 	}
 	if !userRe.MatchString(m.Access.User) {
 		return fmt.Errorf("manifest: access.user missing or invalid")

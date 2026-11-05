@@ -9,6 +9,7 @@ package launch
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Artifex-Technologies/Limbo/internal/manifest"
 	"github.com/Artifex-Technologies/Limbo/internal/virt"
@@ -23,13 +24,27 @@ type Command struct {
 	PasswordPrompt bool
 }
 
-// Build returns the launch command for the manifest's application.
+// KnownHostsLine is the one line of the known_hosts file Build's ssh is pointed at: the guest's pinned key under a
+// name that is the guest's, not its address, so the pin follows the guest whatever subnet it is given.
+func KnownHostsLine(m *manifest.Manifest) (string, error) {
+	f := strings.Fields(m.Provision.HostKey)
+	if len(f) < 2 || !manifest.HostKeyRe.MatchString(m.Provision.HostKey) {
+		return "", fmt.Errorf("launch: %s has no pinned host key: run `limbo seed` for it, add the provision.host_key line it prints "+
+			"to the manifest, and rebuild the guest from that seed (launch never trusts a key on first use)", m.Name)
+	}
+	return hostAlias(m) + " " + f[0] + " " + f[1] + "\n", nil
+}
+
+func hostAlias(m *manifest.Manifest) string { return "limbo-" + m.Name }
+
+// Build returns the launch command for the manifest's application. knownHosts is a file holding KnownHostsLine (the
+// caller writes it); m.Subnet must be the one the guest was given at up.
 //
 // Windows output is UNVERIFIED: the /app syntax follows FreeRDP 3's documented
 // form but has not been run against a real Windows guest. Every optional
 // channel (clipboard, drives, sound, microphone) is switched off explicitly
 // rather than left to the client's defaults, which vary by version.
-func Build(m *manifest.Manifest) (Command, error) {
+func Build(m *manifest.Manifest, knownHosts string) (Command, error) {
 	ip := virt.Addr(m).Guest.String()
 	switch m.OS {
 	case manifest.OSLinux:
@@ -39,10 +54,19 @@ func Build(m *manifest.Manifest) (Command, error) {
 			return Command{}, fmt.Errorf("launch: a Linux app's window comes through waypipe, which shares the clipboard and "+
 				"cannot switch it off; set \"clipboard\": %q in %s's manifest to accept that", manifest.ClipText, m.Name)
 		}
+		if _, err := KnownHostsLine(m); err != nil {
+			return Command{}, err
+		}
+		// The guest's key is pinned at provisioning: any other key is refused, there is no first-use trust, and the
+		// person's own known_hosts files are neither read nor written.
 		return Command{Args: []string{
 			"waypipe", "ssh",
 			"-o", "BatchMode=yes",
-			"-o", "StrictHostKeyChecking=accept-new",
+			"-o", "StrictHostKeyChecking=yes",
+			"-o", "UserKnownHostsFile=" + knownHosts,
+			"-o", "GlobalKnownHostsFile=/dev/null",
+			"-o", "HostKeyAlias=" + hostAlias(m),
+			"-o", "CheckHostIP=no",
 			m.Access.User + "@" + ip,
 			m.App.Exec,
 		}}, nil
