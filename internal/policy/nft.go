@@ -82,6 +82,9 @@ func NFT(m *manifest.Manifest) (string, error) {
 	case manifest.NetInternetOnly:
 		w(`    iifname "%s" ip daddr { %s } drop`, tap, strings.Join(privateV4, ", "))
 		w(`    iifname "%s" ip6 daddr { %s } drop`, tap, strings.Join(privateV6, ", "))
+		// A guest has no IPv6 (its libvirt network gives none and NATs only IPv4), so IPv6 it sends itself, to any
+		// destination, is dropped here rather than left to the host's forwarding setting.
+		w(`    iifname "%s" meta nfproto ipv6 drop`, tap)
 		w(`    iifname "%s" accept`, tap)
 	case manifest.NetAllowlist:
 		for _, a := range m.Network.Allow {

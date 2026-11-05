@@ -102,3 +102,22 @@ func TestNFTReplaceIsAtomicScriptWithDenyAllRestrict(t *testing.T) {
 		t.Error("NFTRestrict must not modify the manifest it was given")
 	}
 }
+
+// IPv6 a guest sends itself never leaves in internet-only mode (the one that otherwise accepts), and is dropped by the
+// final rule in the others.
+func TestIPv6FromAGuestIsDropped(t *testing.T) {
+	out, err := NFT(guest(t, `"network":{"mode":"internet-only"},`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	v6, acc := strings.Index(out, `iifname "lb-lab" meta nfproto ipv6 drop`), strings.Index(out, `iifname "lb-lab" accept`)
+	if v6 < 0 || acc < 0 || v6 > acc {
+		t.Fatalf("IPv6 must be dropped before the accept:\n%s", out)
+	}
+	for _, mode := range []string{"", `"network":{"mode":"allowlist","allow":[{"addr":"203.0.113.1","port":443}]},`} {
+		out, _ := NFT(guest(t, mode))
+		if strings.Contains(out, `iifname "lb-lab" accept`) || !strings.HasSuffix(strings.TrimSpace(out[:strings.LastIndex(out, "}")]), "}") {
+			t.Fatalf("unexpected accept:\n%s", out)
+		}
+	}
+}
