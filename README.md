@@ -26,6 +26,8 @@ limbo doctor                                 # what is installed, what is missin
 sudo limbo setup                             # installs libvirt, QEMU, ... (Limbo ships without them)
 limbo plan examples/analysis-linux.json      # safe anywhere: prints what `up` would apply
 sudo limbo up examples/analysis-linux.json   # Linux host with libvirt + nftables
+limbo address examples/analysis-linux.json   # its address (given at up)
+limbo launch --check examples/analysis-linux.json   # every launch check, no window (needs provision.host_key: see limbo seed)
 limbo launch examples/analysis-linux.json
 sudo limbo down examples/analysis-linux.json
 
@@ -34,6 +36,12 @@ sudo limbo quarantine list                   # what is held, and why
 sudo limbo quarantine show ID                # evidence and advisories (labelled untrusted)
 sudo limbo quarantine verdict ID safe|dangerous --note "..."   # only a human can
 limbo report --since 7d --out report.md      # Markdown evidence report
+
+limbo settings show                          # the Settings page's figures (members of limbo-users; docs/SETTINGS_PAGE.md)
+limbo instance start|stop|set NAME ...       # needs the password unless "Ask for my password" is off
+sudo limbo settings password on|off          # that switch
+limbo exchange take GUEST FILE DEST          # a file out of a guest's outbox, scanned by ClamAV first
+sudo limbo net watch                         # guests' connections and refusals, live (serve logs them as net.* events)
 ```
 
 ## Scope
