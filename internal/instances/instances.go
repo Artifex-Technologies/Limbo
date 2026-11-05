@@ -159,8 +159,8 @@ type View struct {
 	Devices        []string  `json:"devices"`       // never null
 	Disposable     bool      `json:"disposable"`
 	Owner          string    `json:"owner"`
-	Mine           bool      `json:"mine"`       // the caller may change it (ownership only; the switch is separate)
-	Hold           *Hold     `json:"hold"`       // null unless held
+	Mine           bool      `json:"mine"` // the caller may change it (ownership only; the switch is separate)
+	Hold           *Hold     `json:"hold"` // null unless held
 	HeldByHeimdall bool      `json:"held_by_heimdall"`
 	Pending        bool      `json:"pending"` // changed while running: the change applies at the next start
 	License        string    `json:"license"` // id of the Windows license assigned to it, or ""
