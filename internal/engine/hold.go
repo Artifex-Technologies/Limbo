@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/Artifex-Technologies/Limbo/internal/events"
 	"github.com/Artifex-Technologies/Limbo/internal/manifest"
@@ -160,4 +161,28 @@ func (e *Engine) CleanState(m *manifest.Manifest) {
 	for _, f := range []string{m.Name + ".network.xml", m.Name + ".domain.xml", m.Name + ".manifest.json"} {
 		_ = os.Remove(filepath.Join(e.StateDir, f))
 	}
+}
+
+// Outputter is a Runner that can also return what a command printed. runner.Exec satisfies it.
+type Outputter interface {
+	Output(ctx context.Context, name string, args ...string) (string, error)
+}
+
+// RunningDomains lists the libvirt domains running now, in one virsh call (asked on request, never polled).
+func (e *Engine) RunningDomains(ctx context.Context) (map[string]bool, error) {
+	o, ok := e.Runner.(Outputter)
+	if !ok {
+		return nil, errors.New("engine: this runner cannot list domains")
+	}
+	out, err := o.Output(ctx, "virsh", "-c", connect, "list", "--name", "--state-running")
+	if err != nil {
+		return nil, err
+	}
+	running := map[string]bool{}
+	for _, line := range strings.Split(out, "\n") {
+		if n := strings.TrimSpace(line); n != "" {
+			running[n] = true
+		}
+	}
+	return running, nil
 }
