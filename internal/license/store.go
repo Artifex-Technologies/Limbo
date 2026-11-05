@@ -149,7 +149,9 @@ func (s *Store) load() ([]*entry, error) {
 		}
 		out = append(out, e)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Added.Before(out[j].Added) || (out[i].Added.Equal(out[j].Added) && out[i].ID < out[j].ID) })
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Added.Before(out[j].Added) || (out[i].Added.Equal(out[j].Added) && out[i].ID < out[j].ID)
+	})
 	return out, nil
 }
 
