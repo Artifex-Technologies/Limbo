@@ -80,3 +80,25 @@ func TestLinuxRefusesAClipboardItCannotSwitchOff(t *testing.T) {
 		t.Fatalf("err=%v", err)
 	}
 }
+
+func TestCheckRunsTheSameSSHWithoutAWindow(t *testing.T) {
+	c, err := Build(m("linux", `"clipboard":"text","subnet":7,`+pin), "/tmp/kh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c = WithIdentity(c, "/home/u/.ssh/limbo")
+	args, err := CheckArgs(c, "true")
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(args, " ")
+	if args[0] != "ssh" || args[len(args)-1] != "true" || args[len(args)-2] != "analyst@10.213.7.2" ||
+		!strings.Contains(joined, "-i /home/u/.ssh/limbo -o IdentitiesOnly=yes") || !strings.Contains(joined, "StrictHostKeyChecking=yes") ||
+		strings.Contains(joined, "waypipe") {
+		t.Fatalf("%v", args)
+	}
+	w, _ := Build(m("windows", ""), "")
+	if _, err := CheckArgs(w, "true"); err == nil {
+		t.Fatal("windows launch checked as ssh")
+	}
+}

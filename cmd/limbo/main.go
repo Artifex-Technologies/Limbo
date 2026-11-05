@@ -4,7 +4,7 @@
 //	limbo plan     <manifest>     print everything `up` would apply; changes nothing
 //	limbo seed     <manifest> <dir>   write cloud-init user-data/meta-data (Linux guests)
 //	limbo up       <manifest>     verify, configure firewall, start the guest (Linux host, root)
-//	limbo launch   <manifest>     show the guest's application as a host window
+//	limbo launch   <manifest>     show the guest's application as a host window (--check: every check, no window)
 //	limbo down     <manifest>     stop the guest and remove its network and firewall table
 //	limbo address  <manifest>     print the guest's address (given at up)
 //
@@ -32,6 +32,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/Artifex-Technologies/Limbo/internal/api"
 	"github.com/Artifex-Technologies/Limbo/internal/engine"
@@ -100,6 +101,8 @@ func run(args []string) error {
 	state := fs.String("state-dir", defaultStateDir(), "directory for event log and generated definitions")
 	iso := fs.String("iso", "", "seed: also build a cloud-init ISO at this path (needs xorriso)")
 	iKnow := fs.Bool("i-know", false, "as root, allow a state folder other than the daemon's")
+	check := fs.Bool("check", false, "launch: run every check (hold, address, pinned key, ssh, the app and waypipe in the guest, waypipe and a display here) without opening a window")
+	identity := fs.String("identity", "", "launch: the ssh private key to use (default: your ssh defaults)")
 	if err := fs.Parse(rest); err != nil {
 		return err
 	}
@@ -128,7 +131,7 @@ func run(args []string) error {
 		if err := checkRootStateDir(*state, *iKnow); err != nil {
 			return err
 		}
-		return act(cmd, m, *state)
+		return act(cmd, m, *state, launchOpts{check: *check, identity: *identity})
 	}
 	return fmt.Errorf("unknown command %q", cmd)
 }
@@ -293,7 +296,13 @@ func seed(m *manifest.Manifest, dir, isoPath string) error {
 	return nil
 }
 
-func act(cmd string, m *manifest.Manifest, state string) error {
+// launchOpts are launch's flags.
+type launchOpts struct {
+	check    bool
+	identity string
+}
+
+func act(cmd string, m *manifest.Manifest, state string, lo launchOpts) error {
 	if runtime.GOOS != "linux" {
 		return fmt.Errorf("%s: requires a Linux host (use `plan` elsewhere)", cmd)
 	}
@@ -330,6 +339,10 @@ func act(cmd string, m *manifest.Manifest, state string) error {
 		return err
 	}
 	defer cleanup()
+	c = launch.WithIdentity(c, lo.identity)
+	if lo.check {
+		return launchCheck(ctx, m, c)
+	}
 	if err := log.Emit(events.AppLaunch, m.Name, map[string]string{"app": m.App.Name}); err != nil {
 		return err
 	}
@@ -337,6 +350,58 @@ func act(cmd string, m *manifest.Manifest, state string) error {
 	p.Stdin, p.Stdout, p.Stderr = os.Stdin, os.Stdout, os.Stderr
 	return p.Run()
 }
+
+// launchCheck proves everything a launch needs except the window: the gates already passed (prepareLaunch), then
+// ssh with the pinned key, the app and waypipe inside the guest, and waypipe and a Wayland display here. It prints one
+// line per check and fails if any does.
+func launchCheck(ctx context.Context, m *manifest.Manifest, c launch.Command) error {
+	fmt.Printf("ok    %s is running, not held, and its host key is pinned\n", m.Name)
+	failed := 0
+	report := func(ok bool, good, bad string) {
+		if ok {
+			fmt.Println("ok    " + good)
+		} else {
+			fmt.Println("FAIL  " + bad)
+			failed++
+		}
+	}
+	app := strings.Fields(m.App.Exec)
+	remote := "true"
+	if len(app) > 0 {
+		remote = "command -v -- " + shellQuote(app[0]) + " >/dev/null && command -v waypipe >/dev/null"
+	}
+	for i, r := range []string{"true", remote} {
+		args, err := launch.CheckArgs(c, r)
+		if err != nil {
+			return err
+		}
+		cctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+		out, err := exec.CommandContext(cctx, args[0], args[1:]...).CombinedOutput()
+		cancel()
+		msg := strings.TrimSpace(string(out))
+		if len(msg) > 200 {
+			msg = msg[:200]
+		}
+		if i == 0 {
+			report(err == nil, "ssh reaches the guest and it shows the pinned host key", "ssh with the pinned key failed: "+msg)
+			if err != nil {
+				break
+			}
+		} else {
+			report(err == nil, fmt.Sprintf("the guest has %q and waypipe", app[0]), fmt.Sprintf("the guest lacks %q or waypipe (install them in its image)", app[0]))
+		}
+	}
+	_, werr := exec.LookPath("waypipe")
+	report(werr == nil, "waypipe is installed here", "waypipe is not installed here (sudo pacman -S waypipe)")
+	report(os.Getenv("WAYLAND_DISPLAY") != "", "a Wayland display is here", "no Wayland display here (WAYLAND_DISPLAY is not set): run launch from the desktop")
+	if failed > 0 {
+		return fmt.Errorf("launch check: %d of the checks failed", failed)
+	}
+	return nil
+}
+
+// shellQuote quotes one word for the guest's shell.
+func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
 
 // launchView is what a person's `limbo launch` asks Limbo about the guest (GET /v1/instances/{name} on user.sock).
 type launchView struct {

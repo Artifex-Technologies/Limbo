@@ -161,6 +161,21 @@ run_persistent() {
   for _ in $(seq 1 "${LIMBO_IT_BOOT_WAIT:-100}"); do gssh true 2>/dev/null && { up=yes; break; }; sleep 3; done
   [ "$up" = yes ] && ok "persistent guest reachable at $GIP" || { bad "persistent guest never reachable"; "$LIMBO" down --i-know "$WORK/$GUEST.json" >/dev/null 2>&1; return; }
   gssh "echo kept > ~/marker && sync" && ok "guest wrote a file" || bad "guest could not write"
+  # limbo launch --check: every launch check but the window, against the key limbo seed made and pinned.
+  PIN=$(cut -d' ' -f1,2 "$WORK/seed/ssh_host_ed25519_key.pub")
+  python3 - "$WORK/$GUEST.json" "$PIN" "$WORK/launch-good.json" "$WORK/launch-bad.json" <<'PY'
+import json, sys
+m = json.load(open(sys.argv[1]))
+m["clipboard"] = "text"
+m["provision"]["host_key"] = sys.argv[2]
+json.dump(m, open(sys.argv[3], "w"))
+m["provision"]["host_key"] = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl"
+json.dump(m, open(sys.argv[4], "w"))
+PY
+  "$LIMBO" launch --i-know --check --identity "$WORK/key" "$WORK/launch-good.json" >"$WORK/launch-good.out" 2>&1
+  expect pass "launch --check: ssh reaches the guest with the pinned key" grep -q "^ok    ssh reaches the guest" "$WORK/launch-good.out"
+  "$LIMBO" launch --i-know --check --identity "$WORK/key" "$WORK/launch-bad.json" >"$WORK/launch-bad.out" 2>&1
+  expect pass "launch --check: a different pinned key is refused" grep -q "^FAIL  ssh with the pinned key failed" "$WORK/launch-bad.out"
   "$LIMBO" down --i-know "$WORK/$GUEST.json" && ok "persistent guest down" || bad "persistent down"
   [ -f "$DISK" ] && ok "its overlay survives down" || bad "overlay deleted at down"
   [ "$(sha256sum "$BASE" | cut -d' ' -f1)" = "$BASESUM" ] && ok "base image unchanged" || bad "base image changed"

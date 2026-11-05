@@ -90,3 +90,23 @@ func Build(m *manifest.Manifest, knownHosts string) (Command, error) {
 	}
 	return Command{}, fmt.Errorf("launch: unsupported os %q", m.OS)
 }
+
+// WithIdentity makes a Linux launch use one ssh private key (and only that one) instead of the person's defaults.
+func WithIdentity(c Command, identity string) Command {
+	if identity == "" || len(c.Args) < 2 || c.Args[0] != "waypipe" || c.Args[1] != "ssh" {
+		return c
+	}
+	args := append([]string{"waypipe", "ssh", "-i", identity, "-o", "IdentitiesOnly=yes"}, c.Args[2:]...)
+	return Command{Args: args, PasswordPrompt: c.PasswordPrompt}
+}
+
+// CheckArgs turns a Linux launch into a plain ssh that runs remote instead of the application, with exactly the same
+// options (the pinned key, the same user and address): `limbo launch --check` uses it to prove everything but the
+// window works, without a display.
+func CheckArgs(c Command, remote string) ([]string, error) {
+	if len(c.Args) < 4 || c.Args[0] != "waypipe" || c.Args[1] != "ssh" {
+		return nil, fmt.Errorf("launch: only a Linux (waypipe) launch can be checked this way")
+	}
+	args := append([]string{"ssh"}, c.Args[2:len(c.Args)-1]...)
+	return append(args, remote), nil
+}
