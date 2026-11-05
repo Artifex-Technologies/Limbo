@@ -56,7 +56,8 @@ func realSetupEnv() setupEnv {
 		},
 		groupsOK: func() bool {
 			return exec.Command("getent", "group", "limbo-heimdall").Run() == nil &&
-				exec.Command("getent", "group", "limbo-agent").Run() == nil
+				exec.Command("getent", "group", "limbo-agent").Run() == nil &&
+				exec.Command("getent", "group", "limbo-users").Run() == nil
 		},
 		hasGroup: func(name string) bool { return exec.Command("getent", "group", name).Run() == nil },
 		skippedProfiles: func() []runs.SkippedProfile {
@@ -94,8 +95,8 @@ func doctor(env setupEnv) bool {
 	}
 	check(env.exists("/dev/kvm"), "/dev/kvm (hardware virtualization is available)",
 		"/dev/kvm: no hardware virtualization here (enable VT-x/AMD-V, or nested virtualization in a VM)")
-	check(env.groupsOK(), "groups limbo-heimdall and limbo-agent exist",
-		"groups limbo-heimdall / limbo-agent: run `sudo limbo setup` (or install the package so sysusers creates them)")
+	check(env.groupsOK(), "groups limbo-heimdall, limbo-agent and limbo-users exist",
+		"groups limbo-heimdall / limbo-agent / limbo-users: run `sudo limbo setup` (or install the package so sysusers creates them)")
 	if env.skippedProfiles != nil {
 		if sk := env.skippedProfiles(); len(sk) > 0 {
 			fmt.Fprintln(env.out, "\nValidation profiles that exist but are not offered:")
@@ -141,7 +142,7 @@ func setup(ctx context.Context, env setupEnv, o setupOpts) error {
 		fmt.Fprintln(env.out, "  - install nothing: every runtime dependency is already present")
 	}
 	fmt.Fprintf(env.out, "  - enable libvirt's socket-activated daemons (%s)\n", strings.Join(libvirtSockets, ", "))
-	fmt.Fprintln(env.out, "  - create the limbo-heimdall and limbo-agent groups (from the package's sysusers file, or directly when run without the package)")
+	fmt.Fprintln(env.out, "  - create the limbo-heimdall, limbo-agent and limbo-users groups (from the package's sysusers file, or directly when run without the package)")
 	if o.enableService {
 		fmt.Fprintln(env.out, "  - enable and start limbo.service (the control API)")
 	}
@@ -174,7 +175,7 @@ func setup(ctx context.Context, env setupEnv, o setupOpts) error {
 	} else if env.hasGroup != nil {
 		// Run from a plain binary (not the package): make the two groups ourselves, the same ones the
 		// sysusers file would. Membership is the access control for Limbo's sockets, so they start empty.
-		for _, g := range []string{"limbo-heimdall", "limbo-agent"} {
+		for _, g := range []string{"limbo-heimdall", "limbo-agent", "limbo-users"} {
 			if env.hasGroup(g) {
 				continue
 			}

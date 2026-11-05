@@ -108,7 +108,7 @@ func TestSetupMakesTheGroupsItselfWhenThePackageIsNotInstalled(t *testing.T) {
 		t.Fatalf("%v\n%s", err, f.out)
 	}
 	all := strings.Join(f.ran, "\n")
-	if !strings.Contains(all, "groupadd --system limbo-heimdall") || strings.Contains(all, "groupadd --system limbo-agent") || strings.Contains(all, "systemd-sysusers") {
+	if !strings.Contains(all, "groupadd --system limbo-heimdall") || !strings.Contains(all, "groupadd --system limbo-users") || strings.Contains(all, "groupadd --system limbo-agent") || strings.Contains(all, "systemd-sysusers") {
 		t.Fatalf("unexpected commands:\n%s", all)
 	}
 }

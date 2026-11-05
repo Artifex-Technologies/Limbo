@@ -36,3 +36,23 @@ func peerOf(ctx context.Context) string {
 	})
 	return out
 }
+
+// realPeerUID returns the unix-socket peer's uid (SO_PEERCRED). Used on user.sock to know whose guest is asked about;
+// the socket's group is still the access control.
+func realPeerUID(ctx context.Context) (int, bool) {
+	c, ok := ctx.Value(connKey{}).(*net.UnixConn)
+	if !ok {
+		return 0, false
+	}
+	raw, err := c.SyscallConn()
+	if err != nil {
+		return 0, false
+	}
+	uid, found := 0, false
+	_ = raw.Control(func(fd uintptr) {
+		if u, err := syscall.GetsockoptUcred(int(fd), syscall.SOL_SOCKET, syscall.SO_PEERCRED); err == nil {
+			uid, found = int(u.Uid), true
+		}
+	})
+	return uid, found
+}

@@ -31,6 +31,7 @@ const (
 	Admin   Principal = "admin"   // the human
 	Control Principal = "control" // Heimdall: may restrict, never loosen
 	Agent   Principal = "agent"   // Sarina: validation runs only
+	// User (settings.go) is a member of limbo-users: the Settings page.
 )
 
 // Actions are the side effects the API may trigger on guests.
@@ -79,6 +80,12 @@ type Server struct {
 	Actions Actions
 	Events  Emitter
 	Runs    RunService
+	// The Settings page (docs/SETTINGS_PAGE.md): user.sock and the admin socket. Each may be nil, and then its
+	// routes do not exist.
+	Instances InstanceService
+	Licenses  LicenseService
+	Settings  SettingsStore
+	Exchange  ExchangeService
 }
 
 const maxBody = 64 << 10
@@ -104,6 +111,8 @@ func (s *Server) Handler(p Principal) http.Handler {
 			mux.HandleFunc("POST /v1/agent-runs/stop", s.wrap(p, s.stopAgentRuns))
 		}
 	}
+	s.settingsRoutes(mux, p)
+	s.exchangeRoutes(mux, p)
 	if p == Agent && s.Runs != nil {
 		mux.HandleFunc("GET /v1/profiles", s.wrap(p, s.profiles))
 		mux.HandleFunc("POST /v1/runs", s.wrap(p, s.startRun))

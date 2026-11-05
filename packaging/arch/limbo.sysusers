@@ -1,5 +1,9 @@
 # Groups that gate Limbo's sockets (docs/QUARANTINE.md). Membership IS the
 # access control: add Heimdall's service user to limbo-heimdall and
-# Sarina's to limbo-agent, and nobody else.
+# Sarina's to limbo-agent, and nobody else. limbo-users is for people: its
+# members may read Limbo's figures through user.sock (the Settings page), and
+# change their own guests there when "Ask for my password for Limbo changes"
+# is off (docs/SETTINGS_PAGE.md).
 g limbo-heimdall - -
 g limbo-agent  - -
+g limbo-users  - -

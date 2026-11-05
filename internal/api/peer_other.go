@@ -11,3 +11,5 @@ import (
 func ConnContext(ctx context.Context, c net.Conn) context.Context { return ctx }
 
 func peerOf(context.Context) string { return "unknown" }
+
+func realPeerUID(context.Context) (int, bool) { return 0, false }

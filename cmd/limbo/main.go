@@ -12,6 +12,12 @@
 //	limbo report [--guest G] [--since 7d] [--out F]   Markdown evidence report
 //	limbo doctor                  what is installed and what is missing
 //	limbo setup [--yes] [--upgrade] [--enable-service]   install the runtime (libvirt, QEMU, ...) and enable it
+//
+//	The Settings page (docs/SETTINGS_PAGE.md); --json prints the socket's answer:
+//	limbo settings show | password on|off
+//	limbo instance list | show | start | stop | set | free-space | add | remove
+//	limbo license list | add --name N (key on stdin) | remove | reveal | assign | unassign
+//	limbo exchange list GUEST | take GUEST PATH DEST   (ClamAV scans before anything leaves a guest)
 package main
 
 import (
@@ -25,10 +31,12 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/Artifex-Technologies/Limbo/internal/api"
 	"github.com/Artifex-Technologies/Limbo/internal/engine"
 	"github.com/Artifex-Technologies/Limbo/internal/events"
 	"github.com/Artifex-Technologies/Limbo/internal/hostfw"
 	"github.com/Artifex-Technologies/Limbo/internal/hostpolicy"
+	"github.com/Artifex-Technologies/Limbo/internal/instances"
 	"github.com/Artifex-Technologies/Limbo/internal/launch"
 	"github.com/Artifex-Technologies/Limbo/internal/license"
 	"github.com/Artifex-Technologies/Limbo/internal/manifest"
@@ -42,15 +50,18 @@ import (
 const version = "0.1.0-dev"
 
 func main() {
+	api.Version = version
 	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, "limbo:", err)
+		if err != errSilent {
+			fmt.Fprintln(os.Stderr, "limbo:", err)
+		}
 		os.Exit(1)
 	}
 }
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: limbo <validate|plan|seed|up|launch|down|version> <manifest> [args] | limbo serve | limbo quarantine ... | limbo report | limbo doctor | limbo setup | limbo passthrough ... | limbo analyze FILE")
+		return errors.New("usage: limbo <validate|plan|seed|up|launch|down|version> <manifest> [args] | limbo serve | limbo quarantine ... | limbo report | limbo doctor | limbo setup | limbo passthrough ... | limbo analyze FILE | limbo settings|instance|license|exchange ...")
 	}
 	cmd, rest := args[0], args[1:]
 	switch cmd {
@@ -71,6 +82,14 @@ func run(args []string) error {
 		return passthroughCmd(rest)
 	case "analyze":
 		return analyzeCmd(rest)
+	case "settings":
+		return settingsCmd(rest)
+	case "instance":
+		return instanceCmd(rest)
+	case "license":
+		return licenseCmd(rest)
+	case "exchange":
+		return exchangeCmd(rest)
 	}
 
 	fs := flag.NewFlagSet(cmd, flag.ContinueOnError)
@@ -218,7 +237,8 @@ func act(cmd string, m *manifest.Manifest, state string) error {
 	if err != nil {
 		return err
 	}
-	e := &engine.Engine{Runner: runner.Exec{}, Events: log, StateDir: state, Holds: store, Hardware: &hostpolicy.Policy{StateDir: state}, UFWActive: hostfw.UFWActive}
+	e := &engine.Engine{Runner: runner.Exec{}, Events: log, StateDir: state, Holds: store, Hardware: &hostpolicy.Policy{StateDir: state}, UFWActive: hostfw.UFWActive,
+		ExchangeRoot: instances.DefaultExchangeRoot}
 
 	switch cmd {
 	case "up":

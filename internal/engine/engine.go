@@ -18,6 +18,7 @@ import (
 	"syscall"
 
 	"github.com/Artifex-Technologies/Limbo/internal/events"
+	"github.com/Artifex-Technologies/Limbo/internal/exchange"
 	"github.com/Artifex-Technologies/Limbo/internal/hostfw"
 	"github.com/Artifex-Technologies/Limbo/internal/image"
 	"github.com/Artifex-Technologies/Limbo/internal/license"
@@ -49,6 +50,9 @@ type Engine struct {
 	// UFWActive, if set and true, makes Up open the guest's bridge in the host's UFW (and Down close it): see
 	// package hostfw for why a default-drop host firewall otherwise starves the guest of DHCP.
 	UFWActive func() bool
+	// ExchangeRoot is where guests' outboxes live (package exchange). A guest may write to a shared folder only if it
+	// is its own outbox, ExchangeRoot/<name>; empty means no guest may write to one.
+	ExchangeRoot string
 
 	before sync.Map // guest name -> driver bindings recorded at Up, checked at teardown
 }
@@ -125,7 +129,7 @@ func (e *Engine) Up(ctx context.Context, m *manifest.Manifest) (err error) {
 	if len(m.Devices.PCI) > 0 {
 		e.before.Store(g, e.Hardware.Before(m))
 	}
-	if err := exchangeSafe(m); err != nil {
+	if err := e.exchangeSafe(m); err != nil {
 		_ = e.Events.Emit(events.GateBlocked, g, map[string]string{"reason": err.Error()})
 		return err
 	}
@@ -327,11 +331,20 @@ func (e *Engine) closeHostFirewall(ctx context.Context, m *manifest.Manifest) er
 	return errors.Join(errs...)
 }
 
-// exchangeSafe refuses a writable shared folder whose host mount allows setuid programs or device nodes: the guest's root writes
-// into it as the host's root. A read-only share (the default) needs nothing.
-func exchangeSafe(m *manifest.Manifest) error {
+// exchangeSafe refuses a writable shared folder unless it is the guest's own outbox (ExchangeRoot/<name>, root-only,
+// read back only through package exchange, which scans each file with ClamAV before a person gets it), and unless its
+// host mount forbids setuid programs and device nodes: the guest's root writes into it as the host's root. A read-only
+// share (the default) needs nothing.
+func (e *Engine) exchangeSafe(m *manifest.Manifest) error {
 	if m.ExchangeDir == "" || !m.ExchangeWritable {
 		return nil
+	}
+	if e.ExchangeRoot == "" || m.ExchangeDir != filepath.Join(e.ExchangeRoot, m.Name) {
+		return fmt.Errorf("exchange_dir %s is writable for the guest, but a guest may only write to its own outbox %s, "+
+			"where nothing reaches a person before ClamAV has scanned it (limbo exchange take)", m.ExchangeDir, filepath.Join(e.ExchangeRoot, m.Name))
+	}
+	if err := exchange.Prepare(e.ExchangeRoot, m.Name); err != nil {
+		return err
 	}
 	var st syscall.Statfs_t
 	if err := syscall.Statfs(m.ExchangeDir, &st); err != nil {

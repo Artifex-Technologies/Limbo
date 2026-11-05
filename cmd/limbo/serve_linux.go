@@ -18,11 +18,15 @@ import (
 	"github.com/Artifex-Technologies/Limbo/internal/api"
 	"github.com/Artifex-Technologies/Limbo/internal/engine"
 	"github.com/Artifex-Technologies/Limbo/internal/events"
+	"github.com/Artifex-Technologies/Limbo/internal/exchange"
 	"github.com/Artifex-Technologies/Limbo/internal/hostfw"
 	"github.com/Artifex-Technologies/Limbo/internal/hostpolicy"
+	"github.com/Artifex-Technologies/Limbo/internal/instances"
+	"github.com/Artifex-Technologies/Limbo/internal/license"
 	"github.com/Artifex-Technologies/Limbo/internal/quarantine"
 	"github.com/Artifex-Technologies/Limbo/internal/runner"
 	"github.com/Artifex-Technologies/Limbo/internal/runs"
+	"github.com/Artifex-Technologies/Limbo/internal/settings"
 )
 
 // serve runs the control API: three unix sockets, one per principal. See
@@ -37,6 +41,12 @@ func serve(args []string) error {
 	profiles := fs.String("profile-dir", "/etc/limbo/validation", "directory of validation profiles (must be root-writable only)")
 	inbox := fs.String("inbox", "/var/lib/limbo/inbox", "where root puts a file before asking for a sample run (root-only)")
 	contained := fs.String("contained-marker", "/etc/heimdall/contained", "Heimdall's containment lock: while it exists, Sarina's agent runs are refused")
+	usersGroup := fs.String("users-group", "limbo-users", "group that may use user.sock (the Settings page)")
+	instancesDir := fs.String("instances-dir", instances.DefaultDir, "registered instances (must be root-writable only)")
+	settingsPath := fs.String("settings", settings.DefaultPath, "the password switch")
+	licensesDir := fs.String("licenses-dir", license.DefaultDir, "Windows license keys (root-only)")
+	limboRoot := fs.String("limbo-root", instances.DefaultLimboRoot, "Limbo's folder, for the space figures")
+	exchangeRoot := fs.String("exchange-root", instances.DefaultExchangeRoot, "guests' shared-folder outboxes (root-only)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -47,6 +57,9 @@ func serve(args []string) error {
 		return err
 	}
 	if err := checkProfileDir(*profiles); err != nil {
+		return err
+	}
+	if err := checkProfileDir(*instancesDir); err != nil { // same rule: whoever writes it decides what starts
 		return err
 	}
 
@@ -65,7 +78,8 @@ func serve(args []string) error {
 	if err := checkHostPolicy(hostpolicy.DefaultConfig); err != nil {
 		return err
 	}
-	e := &engine.Engine{Runner: runner.Exec{}, Events: log, StateDir: *state, Holds: store, Hardware: &hostpolicy.Policy{StateDir: *state, RunDir: *runDir}, UFWActive: hostfw.UFWActive}
+	e := &engine.Engine{Runner: runner.Exec{}, Events: log, StateDir: *state, Holds: store, Hardware: &hostpolicy.Policy{StateDir: *state, RunDir: *runDir}, UFWActive: hostfw.UFWActive,
+		ExchangeRoot: *exchangeRoot}
 	mgr := runs.NewManager(*profiles, *state, e, runs.SSH{}, log)
 	if err := os.MkdirAll(*inbox, 0o700); err != nil {
 		return err
@@ -79,11 +93,23 @@ func serve(args []string) error {
 		fmt.Fprintf(os.Stderr, "limbo serve: destroyed %d guest(s) left by an interrupted run\n", n)
 	}
 	srv := &api.Server{
-		Store:   store,
-		Actions: api.EngineActions{E: e},
-		Events:  log,
-		Runs:    mgr,
+		Store:    store,
+		Actions:  api.EngineActions{E: e},
+		Events:   log,
+		Runs:     mgr,
+		Settings: api.SettingsFile{Path: *settingsPath},
+		Exchange: &exchange.Service{Root: *exchangeRoot, Scratch: filepath.Join(*state, "exchange-scratch"),
+			Held: filepath.Join(*state, "exchange-held"), Scanner: exchange.ClamAV{}, Events: log},
 	}
+	inst := &instances.Service{Dir: *instancesDir, StateDir: *state, LimboRoot: *limboRoot, ExchangeRoot: *exchangeRoot,
+		Guests: e, Holds: store, Events: log, HostLimits: instances.HostLimits}
+	if lic, err := license.OpenStore(*licensesDir); err != nil {
+		fmt.Fprintf(os.Stderr, "limbo serve: Windows licenses unavailable: %v\n", err)
+	} else {
+		srv.Licenses = lic
+		inst.LicenseOf = lic.AssignedTo
+	}
+	srv.Instances = inst
 
 	if err := os.MkdirAll(*runDir, 0o755); err != nil {
 		return err
@@ -98,6 +124,13 @@ func serve(args []string) error {
 		{"admin.sock", api.Admin, 0o600, ""},
 		{"control.sock", api.Control, 0o660, *heimdallGroup},
 		{"agent.sock", api.Agent, 0o660, *agentGroup},
+	}
+	// user.sock (the Settings page) exists only once its group does: an older install without the group keeps the
+	// three sockets it had.
+	if _, err := user.LookupGroup(*usersGroup); err == nil {
+		socks = append(socks, sock{"user.sock", api.User, 0o660, *usersGroup})
+	} else {
+		fmt.Fprintf(os.Stderr, "limbo: group %q not found; user.sock (the Settings page) is not offered. Run: sudo limbo setup\n", *usersGroup)
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

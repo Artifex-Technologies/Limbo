@@ -330,7 +330,35 @@ func TestAWritableShareNeedsANosuidNodevMount(t *testing.T) {
 		t.Fatal("mountSafe must need both nosuid and nodev")
 	}
 	ro := &manifest.Manifest{ExchangeDir: t.TempDir()}
-	if err := exchangeSafe(ro); err != nil {
+	e := &Engine{}
+	if err := e.exchangeSafe(ro); err != nil {
 		t.Fatalf("a read-only share needs nothing: %v", err)
+	}
+}
+
+// A guest may write only into its own outbox, never a folder of the manifest's choosing.
+func TestAWritableShareMustBeTheGuestsOutbox(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "exchange")
+	for _, tc := range []struct {
+		root, dir string
+	}{
+		{"", "/var/lib/limbo/exchange/lab"},             // no outbox root configured
+		{root, filepath.Join(t.TempDir(), "elsewhere")}, // a folder elsewhere
+		{root, filepath.Join(root, "other")},            // another guest's outbox
+	} {
+		e := &Engine{ExchangeRoot: tc.root}
+		m := &manifest.Manifest{Name: "lab", ExchangeDir: tc.dir, ExchangeWritable: true}
+		if err := e.exchangeSafe(m); err == nil || !strings.Contains(err.Error(), "own outbox") {
+			t.Errorf("%+v: %v", tc, err)
+		}
+	}
+	// Its own outbox gets made root-only, and then the mount check applies (a temp folder is rarely nosuid,nodev).
+	e := &Engine{ExchangeRoot: root}
+	err := e.exchangeSafe(&manifest.Manifest{Name: "lab", ExchangeDir: filepath.Join(root, "lab"), ExchangeWritable: true})
+	if fi, serr := os.Stat(filepath.Join(root, "lab")); serr != nil || fi.Mode().Perm() != 0o700 {
+		t.Fatalf("outbox not prepared: %v", serr)
+	}
+	if err != nil && !strings.Contains(err.Error(), "nosuid,nodev") {
+		t.Fatalf("unexpected: %v", err)
 	}
 }
