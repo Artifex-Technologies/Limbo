@@ -178,7 +178,7 @@ registered instances kept elsewhere; the other figures are parts of it.
 `GET /v1/instances/{name}` → `Instance`. An Instance:
 
 ```json
-{"name": "lab", "kind": "instance", "os": "linux", "state": "running", "running": true,
+{"name": "lab", "kind": "instance", "os": "linux", "state": "running", "running": true, "address": "10.213.3.2",
  "cpus": 2, "memory_mb": 4096, "network": "none",
  "disk": {"base_bytes": 2147483648, "own_bytes": 52428800, "virtual_bytes": 21474836480, "disk_gb": 0},
  "shared_folder": "off", "clipboard": "off", "devices": [], "disposable": false,
@@ -190,6 +190,7 @@ registered instances kept elsewhere; the other figures are parts of it.
 
 - `kind`: `instance` (registered; may be changed), `run` (a validation or sample run, Sarina's or Heimdall's), `manual` (started by
   hand with `limbo up`). Only `instance` rows get buttons.
+- `address`: the guest's IPv4 address while it is up (given at start), else `""`.
 - `state`: `running`, `stopped` or `held`. `held` wins: a held guest may be running or stopped (see `running`).
 - `hold`: null, or `{"id": "q-...", "status": "open"|"dangerous", "level": "restrict"|"isolate", "by": "heimdall"|"person",
   "since": "RFC 3339 time"}`. Show "held by Heimdall" (`held_by_heimdall` is `by == "heimdall"`) and link to Heimdall's page.

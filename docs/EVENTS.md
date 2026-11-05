@@ -59,6 +59,33 @@ particular `policy.release` after a `safe` verdict is not a "policy applied
 twice" anomaly. A `quarantine.verdict` is written *before* it takes effect and a
 verdict that cannot be logged does not happen.
 
+## Guest network (package flows)
+
+Written by `limbo serve` from what the guests' firewalls log (NFLOG group 7213, rate-limited
+in the kernel). Only `limbo serve` writes them; a guest started from the command line while
+serve is not running produces none. Every value is a string. Destinations are addresses
+the guest chose: data, not names to look up.
+
+| kind | when | detail |
+| --- | --- | --- |
+| `net.flow` | the first time a guest opens a connection to a destination (allowed by its policy) | `proto` (`tcp`/`udp`/`icmp`/...), `dst`, `dport` (when the protocol has ports), `icmp_type` (ICMP), `verdict` = `allowed`, `scope` (`internet`, `lan`, ...) |
+| `net.blocked` | the first time a guest is refused a destination | as `net.flow`, with `verdict` = `dropped` and `scope` one of `host` (addressed to the host itself), `lan` (private, link-local or CGNAT ranges: the LAN and other guests), `loopback`, `ipv6`, `internet` (allowlist mode), `other` |
+| `net.anomaly` | a guest's refusals look like probing | `reason` (below), `proto`, `dst`, `dport`, `count` (times since the last report); for `scan` also `window_seconds`, `threshold` |
+| `net.capped` | a guest used its budget of 256 distinct `net.flow`/`net.blocked` events; further ones are not written (anomalies still are) | `limit` |
+
+`net.anomaly` reasons, each reported at most once per guest per 10 minutes:
+
+- `host_probe`: TCP or UDP to the host itself, except DNS to the guest's own gateway (a guest
+  in `none` or `allowlist` mode asks for DNS it does not get; that is a refusal, not a probe).
+- `lan_probe`: anything to private, link-local, CGNAT or loopback addresses (the LAN, the router,
+  other guests).
+- `scan`: 20 distinct refused destinations (address and port) within a minute.
+- `ipv6`: IPv6 sent off the guest's link (a guest has no IPv6; link-local chatter does not count).
+
+"First time" is per guest while `limbo serve` runs; it is forgotten when the guest is torn
+down (the name may be reused) and when serve restarts. Heimdall may raise a finding on
+`net.anomaly` and restrict the guest through `control.sock`; Limbo itself only reports.
+
 ## The Settings page (docs/SETTINGS_PAGE.md)
 
 Written by the API server; each carries `principal` (`admin` or `user`) and `peer`.

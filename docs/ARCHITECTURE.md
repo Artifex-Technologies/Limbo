@@ -278,7 +278,10 @@ fits as another **source**, with the same shape as `hostsource`/`netsource`:
    default.
 3. **File quarantine.** Files leaving the guest land in a quarantine directory
    first; Heimdall (and any scanner such as ClamAV) must clear them before they
-   reach the user's real folders.
+   reach the user's real folders. Built 2026-11-05 as the guest's outbox
+   (`internal/exchange`, docs/SETTINGS_PAGE.md "Files from a guest"): ClamAV scans a
+   private copy; a file it knows is held root-only and reported (`exchange.held`) for
+   Heimdall to take into its own quarantine (immunity).
 
 Heimdall's CLAUDE.md says it is read-only toward other projects with one
 deliberate exception. Item 2 is a second exception and needs an explicit
@@ -342,8 +345,14 @@ been verified:
 | `internal/license` | Windows gate | unit tests |
 | `internal/image` | SHA-256 verify of base image | unit tests; base image confirmed unmodified after many guest sessions |
 | `internal/events` | JSONL audit log (Heimdall contract, `docs/EVENTS.md`) | unit tests; real logs consumed by the real `heimdalld` |
-| `internal/launch` | waypipe / FreeRDP RemoteApp argv | unit tests only. **Neither client has been run** |
-| `cmd/limbo` | CLI: up/down/plan/seed/launch/serve/quarantine/report | everything except `launch` exercised for real |
+| `internal/launch` | waypipe / FreeRDP RemoteApp argv; waypipe pinned to the guest's host key | unit tests only. **Neither client has been run** |
+| `internal/instances` | the Settings page's guests: registry, figures, bounded changes, owner and hold rules | unit tests with a fake engine |
+| `internal/settings` | the password switch file (fails closed) | unit tests |
+| `internal/license` (store) | Windows keys, root-only, masked | unit tests |
+| `internal/exchange` | guest outboxes: ClamAV-scanned copies out, known files held | unit tests with a fake scanner |
+| `internal/flows` | NFLOG reader and the `net.*` events | unit tests on kernel-format messages; real kernel in `integration-linux-guest.sh` |
+| `internal/virt` (subnets) | allocated, recorded guest subnets | unit tests (254 at once); real guests |
+| `cmd/limbo` | CLI: up/down/plan/seed/launch/serve/quarantine/report, settings/instance/license/exchange/net/address | everything except `launch` exercised for real; the Settings commands against a stub socket |
 | `packaging/arch` | PKGBUILD, systemd unit, sysusers | `makepkg` builds it (with `check()`); the real units run under their hardening |
 
 Real-guest verification environment: Arch Linux WSL2 with nested KVM, libvirt
@@ -478,27 +487,51 @@ Not built / not verified:
 - A real model's advisory quality, and Sarina choosing to call `limbo_validate`
   well. Everything model-facing was tested with a fake model that records requests.
 - Heimdall's response to anything other than `guest.start` / `policy.remove`
-  (deliberately narrow). Network flow events and egress-anomaly detection are not
-  emitted yet.
-- The exchange-directory broker: the virtiofs share exists, but nothing scans or
-  quarantines what crosses it. virtiofs itself has not been exercised.
+  (deliberately narrow). Since 2026-11-05 Limbo emits guest network events
+  (`net.flow`, `net.blocked`, `net.anomaly`, `net.capped`; docs/EVENTS.md) and
+  outbox events (`exchange.*`), but Heimdall does not act on them yet (its detector
+  ignores kinds it does not know; see the Coordination Log in CLAUDE.md).
+- The guest outbox (package exchange: ClamAV-scanned copies, held files) is
+  unit-tested only; no guest has written to a real writable virtiofs share, because
+  `/var/lib/limbo` on the owner's PC is not a nosuid,nodev mount (an owner step),
+  and virtiofs itself has not been exercised.
+- `user.sock` and the Settings routes are tested over a real unix socket with the
+  kernel's peer credentials, but not under the installed daemon yet (owner step:
+  install and restart). The Settings page itself (Yggdrasil) is not built.
+- Windows licenses are stored, masked and assigned; nothing hands a key to a guest
+  yet, because there is no Windows installer.
 - Wine backend, GUI, guest agent.
 - Anything on bare-metal KVM or under load (only nested KVM was tested).
 
 Known weaknesses to fix before trusting it:
 
-- Guest subnet comes from a hash of the name; two names can collide (surfaces as
-  a libvirt error, not silent). Validation-run guest names are random, so a
-  collision there is a one-in-254 failed run.
-- `StrictHostKeyChecking=accept-new` for `limbo launch` is trust-on-first-use;
-  provisioning should pin the guest's host key. (Validation runs use no host-key
-  checking by design: fresh keys every boot on a private bridge.)
-- Persistent (non-disposable) guests boot the base image directly, so two of them
-  cannot share an image and the guest can modify it.
-- The virtiofs exchange share is writable by the guest into a host directory; it
-  should be a quarantine directory scanned before anything reaches `$HOME`.
-- IPv6 from a guest is not specifically tested.
 - A guest can only be quarantined by name through the manifest copy `up` leaves in
   the state directory; if that file is removed, holds cannot be applied by name.
 - Heimdall restarting mid-sequence can report a later `guest.start` as unfiltered if
   it never saw the `policy.apply`; a persisted offset avoids it in normal use.
+- Flow events are only written while `limbo serve` runs (one reader per kernel log
+  group), and their "first time" memory is lost when serve restarts.
+- A guest started with an older Limbo got its subnet from the name hash; the
+  allocator skips any subnet a host interface already uses, so they do not collide,
+  but such a guest has no record in `subnets.json` (`limbo address` cannot find it).
+
+Fixed 2026-11-05 (were known weaknesses):
+
+- Guest subnets came from a hash of the name and could collide (one validation run
+  in 254 failed). Now allocated under a lock and recorded (`virt.Subnets`,
+  `<state>/subnets.json`); `limbo address` prints a guest's address.
+- `limbo launch` trusted the guest's host key on first use. Now `limbo seed` makes
+  the guest's host key, the manifest pins it (`provision.host_key`), and launch
+  refuses any other key (and any guest without a pin). A person's launch also asks
+  the daemon (user.sock) whether the guest is held, instead of its own state folder,
+  which never had the daemon's holds. (Validation runs still use no host-key
+  checking by design: fresh keys every boot on a private bridge.)
+- Persistent guests booted the base image itself. Now every guest boots from an
+  overlay; a persistent guest keeps its own (`<name>.disk.qcow2`) across down/up.
+- The writable exchange share went straight into a host folder. Now a guest may only
+  write into its own root-only outbox, and files leave it only through
+  `limbo exchange take`, which scans a private copy with ClamAV, holds what ClamAV
+  knows and refuses when it cannot scan.
+- IPv6 from a guest was not handled or tested. Internet-only mode now drops it
+  before its accept, and the real-guest test checks that no guest has an IPv6 way
+  out in any mode.

@@ -12,7 +12,7 @@ per-package verification table and known weaknesses). Nothing has been run
 against real libvirt or a live guest.
 
 ```bash
-go vet ./... && go test ./...      # works on Windows or Linux
+go vet ./... && go test ./...      # Linux (the code uses Linux syscalls; it no longer builds for Windows)
 ```
 
 **Run on a real Linux host (Labyrinth OS, 2026-10-14):** `go vet` and `go test ./...` pass natively, and
@@ -132,6 +132,44 @@ narrow exception; Limbo quarantine actions need an explicit decision there
 first.
 
 ## Coordination Log (newest first)
+
+### 2026-11-05 — Settings page backend, guest network events, the known weaknesses
+- **New socket for people: `/run/limbo/user.sock`** (0660 root:`limbo-users`, a new
+  group in sysusers and `limbo setup`). It is the Yggdrasil Settings page's: read-only
+  figures always, changes to a member's own guests only while the password switch
+  (`/etc/limbo/settings.json`, root's) is off. The exact protocol (routes, JSON, error
+  codes, CLI equivalents with `--json`) is `docs/SETTINGS_PAGE.md` "Protocol"; the
+  page (Rust) is written against it. `control.sock` and `agent.sock` are unchanged and
+  have none of the new routes (pinned in `internal/api/settings_test.go`).
+- **New events, all additive** (docs/EVENTS.md): `net.flow`, `net.blocked`,
+  `net.anomaly` (`reason` host_probe | lan_probe | scan | ipv6), `net.capped`;
+  `exchange.file` | `exchange.held` | `exchange.fail`; `instance.request` |
+  `instance.change` | `instance.add` | `instance.remove`; `settings.change`;
+  `license.add` | `license.remove` | `license.reveal` | `license.assign` |
+  `license.unassign` (id only, never a key). No existing kind or key changed.
+- **For Heimdall (not edited from here; another session works there today):**
+  its `limbo-guest` detector ignores kinds it does not know, so nothing breaks.
+  Suggested consumption: a finding on `net.anomaly` (host_probe and lan_probe:
+  warning or higher, a guest reaching for the host or the LAN; scan: warning;
+  ipv6: info), which may restrict the guest through `control.sock` as today;
+  `exchange.held` names a file ClamAV knew, held root-only at
+  `/var/lib/limbo/state/exchange-held/<sha256>`, which Heimdall's root side could
+  take into its immunity quarantine (`heimdalld immunity hold`). The firewall now
+  routes refusals through two log-then-drop chains (`blocked`, `hostblocked`) in the
+  guest's table; table name, `policy.apply`/`policy.remove` and their order are
+  unchanged, so the chain test's "delete the table" trigger works as before.
+- **For Sarina:** nothing changes on `agent.sock`. Validation-run guests now get
+  allocated subnets (no more one-in-254 start failures from hash collisions).
+- Weaknesses fixed: subnets allocated and recorded; launch pins the guest's host
+  key and asks the daemon about holds; persistent guests on their own overlay; a
+  writable share is only the guest's root-only outbox, scanned by ClamAV on the way
+  out; IPv6 dropped and tested. Details in ARCHITECTURE.md.
+- Module now needs Go 1.24 (`os.Root`). The integration scripts pass `--i-know` to
+  `up`/`down` (root's state-folder guard from 2026-10-27). Run them from a copy of the
+  repo when editing at the same time: bash reads a script while it runs.
+- Owner steps (install, restart, group membership, optional exchange mount):
+  `docs/OWNER_STEPS_2026-11-05.md`.
+— Signed: Limbo / Claude Opus 5.5
 
 ### 2026-10-10 — Sentry renamed to Heimdall
 - Chymaera_Sentry is now Heimdall. Group `limbo-sentry` -> `limbo-heimdall`
