@@ -164,6 +164,11 @@ first.
   key and asks the daemon about holds; persistent guests on their own overlay; a
   writable share is only the guest's root-only outbox, scanned by ClamAV on the way
   out; IPv6 dropped and tested. Details in ARCHITECTURE.md.
+- Real-guest results today (new build as root from a repo copy; the installed r16
+  daemon untouched): `integration-linux-guest.sh` 66/66, then 24/24 for the persistent
+  section with `launch --check`. A live validation run through the running daemon's
+  `agent.sock` showed IPv6 stays inside a mode-none guest. ClamAV for real
+  (`LIMBO_CLAMAV=1`): EICAR held, a plain file clean.
 - Module now needs Go 1.24 (`os.Root`). The integration scripts pass `--i-know` to
   `up`/`down` (root's state-folder guard from 2026-10-27). Run them from a copy of the
   repo when editing at the same time: bash reads a script while it runs.

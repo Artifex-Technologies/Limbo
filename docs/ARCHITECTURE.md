@@ -482,8 +482,11 @@ Not built / not verified:
 
 - **Windows guests**: gate, XML and argv are written but have never been run; no
   Windows ISO or license exists on this machine.
-- `limbo launch` (waypipe/FreeRDP) has not been run, and no guest has been given
-  a display client.
+- `limbo launch` (waypipe/FreeRDP) has not opened a window: waypipe is not installed
+  on the owner's PC or in the guest images, and the tests run without a display.
+  `limbo launch --check` was run for real (2026-11-05): the gates, the address, and
+  ssh with the pinned host key work, and a wrong pin is refused; what is left for a
+  real window is waypipe on both sides and a Wayland session.
 - A real model's advisory quality, and Sarina choosing to call `limbo_validate`
   well. Everything model-facing was tested with a fake model that records requests.
 - Heimdall's response to anything other than `guest.start` / `policy.remove`
@@ -515,7 +518,11 @@ Known weaknesses to fix before trusting it:
   allocator skips any subnet a host interface already uses, so they do not collide,
   but such a guest has no record in `subnets.json` (`limbo address` cannot find it).
 
-Fixed 2026-11-05 (were known weaknesses):
+Fixed 2026-11-05 (were known weaknesses). Verified on the owner's PC with the new
+build run as root from a copy of the repo (the installed daemon was not touched):
+`scripts/integration-linux-guest.sh` 66/66 (every network mode, IPv6 checks, the
+pinned host key, the persistent overlay, isolation, and the `net.*` events read from
+the real kernel), then the persistent section again with `launch --check` (24/24).
 
 - Guest subnets came from a hash of the name and could collide (one validation run
   in 254 failed). Now allocated under a lock and recorded (`virt.Subnets`,
