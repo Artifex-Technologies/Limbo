@@ -199,13 +199,52 @@ func TestDisposableUsesOverlayAndRemovesIt(t *testing.T) {
 	}
 }
 
-func TestPersistentGuestBootsBaseDirectly(t *testing.T) {
+// A persistent guest boots from its own overlay, kept across Down and reused at the next Up; the base image is never
+// what the guest writes to.
+func TestPersistentGuestKeepsItsOwnOverlay(t *testing.T) {
 	m, e, r, _ := fixture(t, "linux")
 	if err := e.Up(context.Background(), m); err != nil {
 		t.Fatal(err)
 	}
-	if index(r.calls, "qemu-img") >= 0 {
-		t.Fatalf("persistent guest must not get an overlay: %v", r.calls)
+	qi := index(r.calls, "qemu-img create")
+	if qi < 0 || !strings.Contains(r.calls[qi], "-b "+m.Image.Path) || !strings.Contains(r.calls[qi], "lab.disk.qcow2") {
+		t.Fatalf("persistent guest must get its own overlay: %v", r.calls)
+	}
+	dom, _ := os.ReadFile(filepath.Join(e.StateDir, "lab.domain.xml"))
+	if !strings.Contains(string(dom), "lab.disk.qcow2") || strings.Contains(string(dom), m.Image.Path) {
+		t.Fatalf("domain must boot from the overlay, never the base image:\n%s", dom)
+	}
+	disk := filepath.Join(e.StateDir, "lab.disk.qcow2")
+	if err := os.WriteFile(disk, []byte("what the guest wrote"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Down(context.Background(), m); err != nil {
+		t.Fatal(err)
+	}
+	if b, err := os.ReadFile(disk); err != nil || string(b) != "what the guest wrote" {
+		t.Fatalf("a persistent guest's disk must survive Down: %v", err)
+	}
+	r.calls = nil
+	if err := e.Up(context.Background(), m); err != nil {
+		t.Fatal(err)
+	}
+	if index(r.calls, "qemu-img create") >= 0 {
+		t.Fatalf("the kept overlay must be reused, not recreated: %v", r.calls)
+	}
+}
+
+func TestDiskGrowsOnlyWhenAsked(t *testing.T) {
+	m, e, r, _ := fixture(t, "linux")
+	m.DiskGB = 64
+	if err := e.Up(context.Background(), m); err != nil {
+		t.Fatal(err)
+	}
+	ri := index(r.calls, "qemu-img resize")
+	if ri < 0 || !strings.HasSuffix(r.calls[ri], "lab.disk.qcow2 64G") || strings.Contains(r.calls[ri], "--shrink") {
+		t.Fatalf("resize: %v", r.calls)
+	}
+	if ri > index(r.calls, "qemu:///system define") {
+		t.Fatal("the disk must be grown before the guest is defined")
 	}
 }
 

@@ -141,11 +141,8 @@ func (e *Engine) Up(ctx context.Context, m *manifest.Manifest) (err error) {
 		return err
 	}
 
-	rootDisk := m.Image.Path
-	overlay := filepath.Join(e.StateDir, virt.OverlayName(m))
-	if m.Disposable {
-		rootDisk = overlay
-	}
+	// Every guest boots from an overlay in the state directory; the base image is only ever opened read-only.
+	rootDisk := filepath.Join(e.StateDir, virt.DiskName(m))
 	netXML, err := virt.NetworkXML(m)
 	if err != nil {
 		return err
@@ -187,15 +184,8 @@ func (e *Engine) Up(ctx context.Context, m *manifest.Manifest) (err error) {
 		}
 	}()
 
-	if m.Disposable {
-		// A fresh copy-on-write overlay per guest: the shared base image is only
-		// ever opened read-only (so several guests can use it at once, which
-		// libvirt's own <transient/> disks cannot), and the guest's writes die
-		// with the overlay at Down.
-		_ = os.Remove(overlay)
-		if err = e.Runner.Run(ctx, "", "qemu-img", "create", "-f", "qcow2", "-b", m.Image.Path, "-F", "qcow2", overlay); err != nil {
-			return fmt.Errorf("engine: creating disposable overlay: %w", err)
-		}
+	if err = e.prepareDisk(ctx, m, rootDisk); err != nil {
+		return err
 	}
 	if err = e.virsh(ctx, "net-define", netPath); err != nil {
 		return err
@@ -220,6 +210,33 @@ func (e *Engine) Up(ctx context.Context, m *manifest.Manifest) (err error) {
 		return err
 	}
 	return e.virsh(ctx, "start", virt.DomainName(m))
+}
+
+// prepareDisk makes the copy-on-write overlay the guest boots from, so the shared base image is only ever opened
+// read-only (several guests can use it at once, which libvirt's own <transient/> disks cannot, and no guest can change
+// it). A disposable guest gets a fresh one each time, and its writes die with it at Down. A persistent guest keeps its
+// own across Down and Up, so what it wrote is still there next time; "free space" (package instances) deletes it.
+// Before 2026-11-05 a persistent guest booted the base image itself.
+func (e *Engine) prepareDisk(ctx context.Context, m *manifest.Manifest, overlay string) error {
+	fresh := m.Disposable
+	if !fresh {
+		if _, err := os.Lstat(overlay); os.IsNotExist(err) {
+			fresh = true
+		}
+	}
+	if fresh {
+		_ = os.Remove(overlay)
+		if err := e.Runner.Run(ctx, "", "qemu-img", "create", "-f", "qcow2", "-b", m.Image.Path, "-F", "qcow2", overlay); err != nil {
+			return fmt.Errorf("engine: creating the guest's overlay: %w", err)
+		}
+	}
+	if m.DiskGB > 0 {
+		// qemu-img refuses to shrink without --shrink, which is never passed: a disk only grows.
+		if err := e.Runner.Run(ctx, "", "qemu-img", "resize", "-f", "qcow2", overlay, fmt.Sprintf("%dG", m.DiskGB)); err != nil {
+			return fmt.Errorf("engine: growing the guest's disk to %d GiB (a disk can only grow): %w", m.DiskGB, err)
+		}
+	}
+	return nil
 }
 
 // Down stops the guest and removes everything Up created. Each step runs even

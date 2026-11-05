@@ -142,10 +142,7 @@ func checkRootStateDir(state string, iKnow bool) error {
 // planRootDisk mirrors the engine's choice of boot disk, so the plan shows the
 // path the guest would really use.
 func planRootDisk(m *manifest.Manifest, state string) string {
-	if m.Disposable {
-		return filepath.Join(state, virt.OverlayName(m))
-	}
-	return m.Image.Path
+	return filepath.Join(state, virt.DiskName(m))
 }
 
 func plan(m *manifest.Manifest, state string) error {

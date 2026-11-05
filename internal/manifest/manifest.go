@@ -50,6 +50,9 @@ type Manifest struct {
 	Image       Image   `json:"image"`
 	CPUs        int     `json:"cpus"`
 	MemoryMB    int     `json:"memory_mb"`
+	// DiskGB, if set, grows the guest's disk to this many GiB (its own overlay; the base image is never changed). A
+	// disk only grows: a smaller value than the disk already has makes Up fail. 0 keeps the image's size.
+	DiskGB int `json:"disk_gb,omitempty"`
 	Network     Network `json:"network"`
 	ExchangeDir string  `json:"exchange_dir"`
 	// ExchangeWritable lets the guest write into ExchangeDir. Off by default: the share is read-only on the host's side (virtiofsd
@@ -77,6 +80,9 @@ type Devices struct {
 	// access to the device, so it is limited to disposable Linux guests.
 	PCI []string `json:"pci"`
 }
+
+// MaxDiskGB bounds disk_gb (4 TiB).
+const MaxDiskGB = 4096
 
 // maxPCI bounds how many devices one guest may take; a GPU and its audio function is the usual need.
 const maxPCI = 4
@@ -202,6 +208,9 @@ func (m *Manifest) Validate() error {
 	}
 	if m.MemoryMB < 512 {
 		return fmt.Errorf("manifest: memory_mb must be at least 512")
+	}
+	if m.DiskGB < 0 || m.DiskGB > MaxDiskGB {
+		return fmt.Errorf("manifest: disk_gb must be 0 (the image's size) to %d", MaxDiskGB)
 	}
 	switch m.Clipboard {
 	case ClipOff, ClipText:

@@ -157,9 +157,22 @@ type channel struct {
 // the state directory.
 func OverlayName(m *manifest.Manifest) string { return m.Name + ".overlay.qcow2" }
 
+// PersistentDiskName is the file name of a persistent guest's own disk inside the state directory: an overlay backed
+// by the base image, kept across Down, so the base image is never written and several guests can share it.
+func PersistentDiskName(m *manifest.Manifest) string { return m.Name + ".disk.qcow2" }
+
+// DiskName is the disk a guest boots from (inside the state directory): its throwaway overlay if it is disposable,
+// its own kept overlay otherwise.
+func DiskName(m *manifest.Manifest) string {
+	if m.Disposable {
+		return OverlayName(m)
+	}
+	return PersistentDiskName(m)
+}
+
 // DomainXML returns the libvirt domain definition. rootDisk is the disk the
-// guest boots from: the manifest's image for a persistent guest, or the
-// per-guest overlay (see OverlayName) for a disposable one.
+// guest boots from: always an overlay in the state directory (see DiskName),
+// never the base image itself.
 //
 // What is deliberately absent matters as much as what is present: no graphics
 // device, no USB redirection, no sound, no SPICE agent, no shared folder unless
