@@ -45,14 +45,14 @@ var userRe = regexp.MustCompile(`^[a-z_][a-z0-9_-]{0,31}$`)
 
 // Manifest describes one guest and the single application shown from it.
 type Manifest struct {
-	Name        string  `json:"name"`
-	OS          string  `json:"os"`
-	Image       Image   `json:"image"`
-	CPUs        int     `json:"cpus"`
-	MemoryMB    int     `json:"memory_mb"`
+	Name     string `json:"name"`
+	OS       string `json:"os"`
+	Image    Image  `json:"image"`
+	CPUs     int    `json:"cpus"`
+	MemoryMB int    `json:"memory_mb"`
 	// DiskGB, if set, grows the guest's disk to this many GiB (its own overlay; the base image is never changed). A
 	// disk only grows: a smaller value than the disk already has makes Up fail. 0 keeps the image's size.
-	DiskGB int `json:"disk_gb,omitempty"`
+	DiskGB      int     `json:"disk_gb,omitempty"`
 	Network     Network `json:"network"`
 	ExchangeDir string  `json:"exchange_dir"`
 	// ExchangeWritable lets the guest write into ExchangeDir. Off by default: the share is read-only on the host's side (virtiofsd
