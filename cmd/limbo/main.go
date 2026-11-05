@@ -19,6 +19,7 @@
 //	limbo instance list | show | start | stop | set | free-space | add | remove
 //	limbo license list | add --name N (key on stdin) | remove | reveal | assign | unassign
 //	limbo exchange list GUEST | take GUEST PATH DEST   (ClamAV scans before anything leaves a guest)
+//	limbo net watch [--seconds N]   guests' flows and refusals as they happen (root; limbo serve logs them itself)
 package main
 
 import (
@@ -91,6 +92,8 @@ func run(args []string) error {
 		return licenseCmd(rest)
 	case "exchange":
 		return exchangeCmd(rest)
+	case "net":
+		return netCmd(rest)
 	}
 
 	fs := flag.NewFlagSet(cmd, flag.ContinueOnError)

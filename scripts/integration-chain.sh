@@ -49,7 +49,7 @@ jget() { python3 -c "import sys,json; d=json.load(sys.stdin); print(eval('d'+sys
 PIDS=""
 cleanup() {
   for p in $PIDS; do kill "$p" 2>/dev/null; done
-  "$LIMBO" down "$WORK/$GUEST.json" >/dev/null 2>&1
+  "$LIMBO" down --i-know "$WORK/$GUEST.json" >/dev/null 2>&1
   nft delete table inet "limbo_$GUEST" >/dev/null 2>&1
 }
 trap cleanup EXIT
@@ -111,7 +111,7 @@ waitfor 15 grep -q "Limbo quarantine response enabled" "$WORK/heimdall.err" && o
 
 echo "== a healthy guest start must NOT trigger anything"
 "$LIMBO" seed --iso "$WORK/seed.iso" "$WORK/$GUEST.json" "$WORK/seed" >/dev/null
-"$LIMBO" up "$WORK/$GUEST.json" && ok "limbo up" || bad "limbo up"
+"$LIMBO" up --i-know "$WORK/$GUEST.json" && ok "limbo up" || bad "limbo up"
 GIP=$("$LIMBO" address "$WORK/$GUEST.json"); GW="${GIP%.*}.1"  # given at up
 waitfor 90 gssh true && ok "guest booted" || { bad "guest never booted"; echo "passed=$PASS failed=$FAIL"; exit 1; }
 sleep 4

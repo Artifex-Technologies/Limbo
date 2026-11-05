@@ -56,6 +56,15 @@ func NFT(m *manifest.Manifest) (string, error) {
 	w := func(format string, a ...any) { fmt.Fprintf(&b, format+"\n", a...) }
 
 	w("table inet %s {", TableName(m))
+	// What the guest is refused is reported, not only dropped: these chains log a guest's unicast packet to the
+	// NFLOG group limbo serve listens on (package flows), rate-limited, then drop it. "h" is the host refused, "d"
+	// is anywhere else refused. Logging never decides anything; the drop is the last statement either way.
+	for _, c := range []struct{ name, kind string }{{"hostblocked", "h"}, {"blocked", "d"}} {
+		w("  chain %s {", c.name)
+		w(`    meta pkttype unicast limit rate 20/second burst 40 packets log prefix "%s" group %d`, LogPrefix(m, c.kind), NFLogGroup)
+		w("    drop")
+		w("  }")
+	}
 	w("  chain input {")
 	w("    type filter hook input priority -10; policy accept;")
 	w(`    iifname "%s" ct state established,related accept`, tap)
@@ -69,7 +78,7 @@ func NFT(m *manifest.Manifest) (string, error) {
 		w(`    iifname "%s" ip daddr %s udp dport 53 accept`, tap, gw)
 		w(`    iifname "%s" ip daddr %s tcp dport 53 accept`, tap, gw)
 	}
-	w(`    iifname "%s" drop`, tap)
+	w(`    iifname "%s" goto hostblocked`, tap)
 	w("  }")
 	w("  chain forward {")
 	w("    type filter hook forward priority -10; policy accept;")
@@ -80,11 +89,12 @@ func NFT(m *manifest.Manifest) (string, error) {
 	case manifest.NetNone:
 		// Nothing to allow; the final drop below covers it.
 	case manifest.NetInternetOnly:
-		w(`    iifname "%s" ip daddr { %s } drop`, tap, strings.Join(privateV4, ", "))
-		w(`    iifname "%s" ip6 daddr { %s } drop`, tap, strings.Join(privateV6, ", "))
+		w(`    iifname "%s" ip daddr { %s } goto blocked`, tap, strings.Join(privateV4, ", "))
+		w(`    iifname "%s" ip6 daddr { %s } goto blocked`, tap, strings.Join(privateV6, ", "))
 		// A guest has no IPv6 (its libvirt network gives none and NATs only IPv4), so IPv6 it sends itself, to any
 		// destination, is dropped here rather than left to the host's forwarding setting.
-		w(`    iifname "%s" meta nfproto ipv6 drop`, tap)
+		w(`    iifname "%s" meta nfproto ipv6 goto blocked`, tap)
+		w(`    iifname "%s" ct state new limit rate 50/second burst 100 packets log prefix "%s" group %d`, tap, LogPrefix(m, "a"), NFLogGroup)
 		w(`    iifname "%s" accept`, tap)
 	case manifest.NetAllowlist:
 		for _, a := range m.Network.Allow {
@@ -96,14 +106,23 @@ func NFT(m *manifest.Manifest) (string, error) {
 			if p.Addr().Is6() {
 				fam = "ip6"
 			}
+			w(`    iifname "%s" %s daddr %s %s dport %d ct state new limit rate 50/second burst 100 packets log prefix "%s" group %d`, tap, fam, p, a.Proto, a.Port, LogPrefix(m, "a"), NFLogGroup)
 			w(`    iifname "%s" %s daddr %s %s dport %d accept`, tap, fam, p, a.Proto, a.Port)
 		}
 	}
-	w(`    iifname "%s" drop`, tap)
+	w(`    iifname "%s" goto blocked`, tap)
 	w("  }")
 	w("}")
 	return b.String(), nil
 }
+
+// NFLogGroup is the netlink log group the guests' tables send what they refuse (and new connections they allow) to;
+// limbo serve reads it (package flows). Nothing listening means nothing is logged: the kernel drops the copies.
+const NFLogGroup = 7213
+
+// LogPrefix is the log prefix for one guest: "limbo:<name>:<kind>", kind "a" (a new connection allowed), "d" (refused)
+// or "h" (refused, addressed to the host). Package flows parses it.
+func LogPrefix(m *manifest.Manifest, kind string) string { return "limbo:" + m.Name + ":" + kind }
 
 // NFTReplace renders a script that atomically replaces the guest's table with
 // the given ruleset. The leading bare "table" line creates it if absent so the

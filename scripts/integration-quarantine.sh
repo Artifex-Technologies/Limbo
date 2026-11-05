@@ -52,7 +52,7 @@ mkdir -p "$RUN"; chmod 755 "$RUN"
 SERVE=$!
 cleanup() {
   kill $SERVE 2>/dev/null
-  "$LIMBO" down "$WORK/$GUEST.json" >/dev/null 2>&1
+  "$LIMBO" down --i-know "$WORK/$GUEST.json" >/dev/null 2>&1
 }
 trap cleanup EXIT
 for _ in $(seq 1 20); do [ -S "$RUN/admin.sock" ] && [ -S "$RUN/agent.sock" ] && [ -S "$RUN/control.sock" ] && break; sleep 0.5; done
@@ -87,7 +87,7 @@ boot() { for _ in $(seq 1 80); do gssh true 2>/dev/null && return 0; sleep 3; do
 
 echo "== quarantine lifecycle"
 "$LIMBO" seed --iso "$WORK/seed.iso" "$WORK/$GUEST.json" "$WORK/seed" >/dev/null
-"$LIMBO" up "$WORK/$GUEST.json" && ok "limbo up" || bad "limbo up"
+"$LIMBO" up --i-know "$WORK/$GUEST.json" && ok "limbo up" || bad "limbo up"
 GIP=$("$LIMBO" address "$WORK/$GUEST.json")  # given at up
 boot && ok "guest booted" || { bad "guest never booted"; echo "passed=$PASS failed=$FAIL"; exit 1; }
 expect pass "before quarantine: guest reaches the internet" gtcp 1.1.1.1 443
@@ -136,10 +136,10 @@ expect fail "dangerous: guest is isolated (host cannot reach it)" ssh -i "$WORK/
 # the human tears it down; its overlay must be kept as evidence
 curl -s --unix-socket "$RUN/admin.sock" -X POST "http://l/v1/guests/$GUEST/down" >/dev/null
 ls "$LIMBO_STATE_DIR/evidence/$ID2.overlay.qcow2" >/dev/null 2>&1 && ok "condemned guest's disk kept as evidence" || bad "no evidence overlay"
-"$LIMBO" up "$WORK/$GUEST.json" 2>&1 | grep -q "quarantined" && ok "a condemned guest cannot be started again" || bad "condemned guest was startable"
+"$LIMBO" up --i-know "$WORK/$GUEST.json" 2>&1 | grep -q "quarantined" && ok "a condemned guest cannot be started again" || bad "condemned guest was startable"
 "$LIMBO" quarantine --socket "$RUN/admin.sock" close "$ID2" >/dev/null && ok "human closes the record" || bad "close failed"
-"$LIMBO" up "$WORK/$GUEST.json" >/dev/null 2>&1 && ok "after close the name is usable again" || bad "up refused after close"
-"$LIMBO" down "$WORK/$GUEST.json" >/dev/null 2>&1
+"$LIMBO" up --i-know "$WORK/$GUEST.json" >/dev/null 2>&1 && ok "after close the name is usable again" || bad "up refused after close"
+"$LIMBO" down --i-know "$WORK/$GUEST.json" >/dev/null 2>&1
 
 echo "== validation runs (Sarina)"
 python3 - <<PY

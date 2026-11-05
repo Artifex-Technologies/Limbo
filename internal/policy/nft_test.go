@@ -27,7 +27,7 @@ func TestNFT(t *testing.T) {
 	}{
 		{
 			name: "default is none",
-			must: []string{`iifname "lb-lab" drop`, `oifname "lb-lab" drop`, "udp sport 68 udp dport 67 accept"},
+			must: []string{`iifname "lb-lab" goto blocked`, `iifname "lb-lab" goto hostblocked`, `oifname "lb-lab" drop`, "udp sport 68 udp dport 67 accept"},
 			// No guest-initiated accept and no DNS to host when there is no network.
 			mustNot: []string{`iifname "lb-lab" accept`, "dport 53"},
 		},
@@ -64,13 +64,13 @@ func TestNFT(t *testing.T) {
 	}
 }
 
-// The last guest-initiated rule must always be a drop: a bug that forgot a
-// mode's rules must fail closed.
+// The last guest-initiated rule must always be a drop (through the "blocked" chain, which logs and then drops): a bug
+// that forgot a mode's rules must fail closed.
 func TestForwardEndsInDrop(t *testing.T) {
 	for _, n := range []string{"", `"network":{"mode":"internet-only"},`} {
 		out, _ := NFT(guest(t, n))
 		lines := strings.Split(strings.TrimSpace(out), "\n")
-		if got := strings.TrimSpace(lines[len(lines)-3]); got != `iifname "lb-lab" drop` {
+		if got := strings.TrimSpace(lines[len(lines)-3]); got != `iifname "lb-lab" goto blocked` {
 			t.Errorf("forward chain ends with %q", got)
 		}
 	}
@@ -110,7 +110,7 @@ func TestIPv6FromAGuestIsDropped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v6, acc := strings.Index(out, `iifname "lb-lab" meta nfproto ipv6 drop`), strings.Index(out, `iifname "lb-lab" accept`)
+	v6, acc := strings.Index(out, `iifname "lb-lab" meta nfproto ipv6 goto blocked`), strings.Index(out, `iifname "lb-lab" accept`)
 	if v6 < 0 || acc < 0 || v6 > acc {
 		t.Fatalf("IPv6 must be dropped before the accept:\n%s", out)
 	}
@@ -119,5 +119,39 @@ func TestIPv6FromAGuestIsDropped(t *testing.T) {
 		if strings.Contains(out, `iifname "lb-lab" accept`) || !strings.HasSuffix(strings.TrimSpace(out[:strings.LastIndex(out, "}")]), "}") {
 			t.Fatalf("unexpected accept:\n%s", out)
 		}
+	}
+}
+
+// What a guest is refused is logged to limbo serve's NFLOG group and then dropped; the drop never depends on the log.
+func TestRefusalsAreLoggedThenDropped(t *testing.T) {
+	for _, mode := range []string{"", `"network":{"mode":"internet-only"},`, `"network":{"mode":"allowlist","allow":[{"addr":"203.0.113.1","port":443}]},`} {
+		out, err := NFT(guest(t, mode))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, chain := range []string{"hostblocked", "blocked"} {
+			i := strings.Index(out, "chain "+chain+" {")
+			if i < 0 {
+				t.Fatalf("no %s chain:\n%s", chain, out)
+			}
+			body := out[i : i+strings.Index(out[i:], "}")]
+			lines := strings.Split(strings.TrimSpace(body), "\n")
+			if strings.TrimSpace(lines[len(lines)-1]) != "drop" || !strings.Contains(body, "group 7213") || !strings.Contains(body, "limit rate") || !strings.Contains(body, "pkttype unicast") {
+				t.Fatalf("%s must log (unicast, limited) then drop:\n%s", chain, body)
+			}
+		}
+		if !strings.Contains(out, `prefix "limbo:lab:h"`) || !strings.Contains(out, `prefix "limbo:lab:d"`) {
+			t.Fatalf("prefixes:\n%s", out)
+		}
+		// Guest-made traffic never reaches a bare drop without passing a log chain (bare drops are only for traffic to the guest).
+		for _, line := range strings.Split(out, "\n") {
+			if strings.Contains(line, `iifname "lb-lab"`) && strings.HasSuffix(strings.TrimSpace(line), " drop") {
+				t.Fatalf("unlogged guest drop: %s", line)
+			}
+		}
+	}
+	out, _ := NFT(guest(t, `"network":{"mode":"internet-only"},`))
+	if a, acc := strings.Index(out, `prefix "limbo:lab:a"`), strings.Index(out, `iifname "lb-lab" accept`); a < 0 || a > acc {
+		t.Fatalf("a new allowed connection is logged before the accept:\n%s", out)
 	}
 }

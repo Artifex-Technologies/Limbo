@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"os/signal"
 	"os/user"
@@ -19,10 +20,12 @@ import (
 	"github.com/Artifex-Technologies/Limbo/internal/engine"
 	"github.com/Artifex-Technologies/Limbo/internal/events"
 	"github.com/Artifex-Technologies/Limbo/internal/exchange"
+	"github.com/Artifex-Technologies/Limbo/internal/flows"
 	"github.com/Artifex-Technologies/Limbo/internal/hostfw"
 	"github.com/Artifex-Technologies/Limbo/internal/hostpolicy"
 	"github.com/Artifex-Technologies/Limbo/internal/instances"
 	"github.com/Artifex-Technologies/Limbo/internal/license"
+	"github.com/Artifex-Technologies/Limbo/internal/policy"
 	"github.com/Artifex-Technologies/Limbo/internal/quarantine"
 	"github.com/Artifex-Technologies/Limbo/internal/runner"
 	"github.com/Artifex-Technologies/Limbo/internal/runs"
@@ -79,7 +82,8 @@ func serve(args []string) error {
 	if err := checkHostPolicy(hostpolicy.DefaultConfig); err != nil {
 		return err
 	}
-	e := &engine.Engine{Runner: runner.Exec{}, Events: log, StateDir: *state, Holds: store, Hardware: &hostpolicy.Policy{StateDir: *state, RunDir: *runDir}, UFWActive: hostfw.UFWActive,
+	agg := newAggregator(log, *state)
+	e := &engine.Engine{Runner: runner.Exec{}, Events: forgetting{log, agg}, StateDir: *state, Holds: store, Hardware: &hostpolicy.Policy{StateDir: *state, RunDir: *runDir}, UFWActive: hostfw.UFWActive,
 		ExchangeRoot: *exchangeRoot, Subnets: &virt.Subnets{Path: filepath.Join(*state, "subnets.json")}}
 	mgr := runs.NewManager(*profiles, *state, e, runs.SSH{}, log)
 	if err := os.MkdirAll(*inbox, 0o700); err != nil {
@@ -150,12 +154,44 @@ func serve(args []string) error {
 			errc <- api.Serve(ctx, l, srv.Handler(h))
 		}(l, s.who)
 	}
+	// Guests' network flows and refusals (package flows): read from the kernel as they happen, written to the audit
+	// log Heimdall reads. Without it Limbo works as before, so a failure here is reported, not fatal.
+	go func() {
+		if err := flows.Listen(ctx, policy.NFLogGroup, agg.Handle); err != nil {
+			fmt.Fprintf(os.Stderr, "limbo serve: guest network events unavailable: %v\n", err)
+		}
+	}()
 	select {
 	case <-ctx.Done():
 		return nil
 	case err := <-errc:
 		return err
 	}
+}
+
+// newAggregator reports guests' flows into the log, telling DNS to a guest's own gateway apart from probing the host.
+func newAggregator(log *events.Logger, state string) *flows.Aggregator {
+	return &flows.Aggregator{Events: log, Gateway: func(g string) (netip.Addr, bool) {
+		m, err := engine.LoadGuest(state, g)
+		if err != nil {
+			return netip.Addr{}, false
+		}
+		return virt.Addr(m).Gateway, true
+	}}
+}
+
+// forgetting passes events through and, when a guest is torn down, forgets what the flow aggregator remembered of
+// it (the name may be reused).
+type forgetting struct {
+	*events.Logger
+	agg *flows.Aggregator
+}
+
+func (f forgetting) Emit(kind, guest string, detail map[string]string) error {
+	if kind == events.PolicyRemove {
+		f.agg.Forget(guest)
+	}
+	return f.Logger.Emit(kind, guest, detail)
 }
 
 // shareEventLog lets Heimdall read the audit log (and only that). The log is the
