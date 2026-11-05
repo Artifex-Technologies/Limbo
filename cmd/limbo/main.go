@@ -6,6 +6,7 @@
 //	limbo up       <manifest>     verify, configure firewall, start the guest (Linux host, root)
 //	limbo launch   <manifest>     show the guest's application as a host window
 //	limbo down     <manifest>     stop the guest and remove its network and firewall table
+//	limbo address  <manifest>     print the guest's address (given at up)
 //
 //	limbo serve                   run the control API: admin, control and agent sockets (Linux, root)
 //	limbo quarantine ...          list / show / restrict / verdict / close (admin socket; needs sudo)
@@ -61,7 +62,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: limbo <validate|plan|seed|up|launch|down|version> <manifest> [args] | limbo serve | limbo quarantine ... | limbo report | limbo doctor | limbo setup | limbo passthrough ... | limbo analyze FILE | limbo settings|instance|license|exchange ...")
+		return errors.New("usage: limbo <validate|plan|seed|up|launch|down|address|version> <manifest> [args] | limbo serve | limbo quarantine ... | limbo report | limbo doctor | limbo setup | limbo passthrough ... | limbo analyze FILE | limbo settings|instance|license|exchange ...")
 	}
 	cmd, rest := args[0], args[1:]
 	switch cmd {
@@ -118,6 +119,8 @@ func run(args []string) error {
 			return errors.New("seed: output directory required")
 		}
 		return seed(m, fs.Arg(1), *iso)
+	case "address":
+		return address(m, *state)
 	case "up", "down", "launch":
 		if err := checkRootStateDir(*state, *iKnow); err != nil {
 			return err
@@ -186,8 +189,31 @@ func plan(m *manifest.Manifest, state string) error {
 	} else {
 		launchLine = strings.Join(c.Args, " ")
 	}
+	fmt.Printf("# addresses are placeholders: each guest's subnet is given and recorded at up (limbo address MANIFEST)\n")
 	fmt.Printf("# libvirt network\n%s\n# libvirt domain\n%s\n# nftables\n%s\n# launch\n%s\n", netXML, domXML, rules, launchLine)
 	return nil
+}
+
+// address prints the guest's IPv4 address, given at `up` (as root the daemon's record; otherwise the daemon's record
+// if readable, then the caller's own state folder).
+func address(m *manifest.Manifest, state string) error {
+	ip, err := guestAddress(m, state)
+	if err != nil {
+		return err
+	}
+	fmt.Println(ip)
+	return nil
+}
+
+func guestAddress(m *manifest.Manifest, state string) (string, error) {
+	for _, dir := range []string{state, daemonStateDir} {
+		if x, ok := (virt.Subnets{Path: filepath.Join(dir, "subnets.json")}).Lookup(m.Name); ok {
+			cp := *m
+			cp.Subnet = x
+			return virt.Addr(&cp).Guest.String(), nil
+		}
+	}
+	return "", fmt.Errorf("guest %q is not up (no subnet is recorded for it)", m.Name)
 }
 
 func seed(m *manifest.Manifest, dir, isoPath string) error {
@@ -238,7 +264,7 @@ func act(cmd string, m *manifest.Manifest, state string) error {
 		return err
 	}
 	e := &engine.Engine{Runner: runner.Exec{}, Events: log, StateDir: state, Holds: store, Hardware: &hostpolicy.Policy{StateDir: state}, UFWActive: hostfw.UFWActive,
-		ExchangeRoot: instances.DefaultExchangeRoot}
+		ExchangeRoot: instances.DefaultExchangeRoot, Subnets: &virt.Subnets{Path: filepath.Join(state, "subnets.json")}}
 
 	switch cmd {
 	case "up":

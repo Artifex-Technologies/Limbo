@@ -27,6 +27,7 @@ import (
 	"github.com/Artifex-Technologies/Limbo/internal/runner"
 	"github.com/Artifex-Technologies/Limbo/internal/runs"
 	"github.com/Artifex-Technologies/Limbo/internal/settings"
+	"github.com/Artifex-Technologies/Limbo/internal/virt"
 )
 
 // serve runs the control API: three unix sockets, one per principal. See
@@ -79,7 +80,7 @@ func serve(args []string) error {
 		return err
 	}
 	e := &engine.Engine{Runner: runner.Exec{}, Events: log, StateDir: *state, Holds: store, Hardware: &hostpolicy.Policy{StateDir: *state, RunDir: *runDir}, UFWActive: hostfw.UFWActive,
-		ExchangeRoot: *exchangeRoot}
+		ExchangeRoot: *exchangeRoot, Subnets: &virt.Subnets{Path: filepath.Join(*state, "subnets.json")}}
 	mgr := runs.NewManager(*profiles, *state, e, runs.SSH{}, log)
 	if err := os.MkdirAll(*inbox, 0o700); err != nil {
 		return err

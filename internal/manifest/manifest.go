@@ -63,12 +63,15 @@ type Manifest struct {
 	Disposable       bool   `json:"disposable"`
 	// ConsoleLog, if set, records the guest's serial console to this host file.
 	// Output only: the guest can write to it but there is no input channel.
-	ConsoleLog string    `json:"console_log"`
-	Access     Access    `json:"access"`
-	App        App       `json:"app"`
-	Provision  Provision `json:"provision"`
-	Windows    Windows   `json:"windows"`
-	Devices    Devices   `json:"devices"`
+	ConsoleLog string `json:"console_log"`
+	// Subnet is the X of the guest's 10.213.X.0/24, given and recorded by Limbo at `up` (virt.Subnets) and kept in
+	// the copy of the manifest it saves. A value in a manifest you write is replaced.
+	Subnet    int       `json:"subnet,omitempty"`
+	Access    Access    `json:"access"`
+	App       App       `json:"app"`
+	Provision Provision `json:"provision"`
+	Windows   Windows   `json:"windows"`
+	Devices   Devices   `json:"devices"`
 }
 
 // Devices is host hardware handed to the guest. Empty by default, and even when a
@@ -208,6 +211,9 @@ func (m *Manifest) Validate() error {
 	}
 	if m.MemoryMB < 512 {
 		return fmt.Errorf("manifest: memory_mb must be at least 512")
+	}
+	if m.Subnet < 0 || m.Subnet > 254 {
+		return fmt.Errorf("manifest: subnet out of range")
 	}
 	if m.DiskGB < 0 || m.DiskGB > MaxDiskGB {
 		return fmt.Errorf("manifest: disk_gb must be 0 (the image's size) to %d", MaxDiskGB)

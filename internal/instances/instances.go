@@ -150,6 +150,7 @@ type View struct {
 	OS             string    `json:"os"`    // linux | windows
 	State          string    `json:"state"` // running | stopped | held
 	Running        bool      `json:"running"`
+	Address        string    `json:"address"` // the guest's IPv4 address while it is up, else ""
 	CPUs           int       `json:"cpus"`
 	MemoryMB       int       `json:"memory_mb"`
 	Network        string    `json:"network"` // none | allowlist | internet-only (what the manifest gives; a hold cuts it)
@@ -338,6 +339,9 @@ func (s *Service) view(m *manifest.Manifest, kind string, e *Entry, o Overrides,
 	v.State = "stopped"
 	if v.Running {
 		v.State = "running"
+	}
+	if cur, err := s.startedFrom(m.Name); err == nil && cur.Subnet > 0 && (v.Running || s.Guests.Defined(context.Background(), cur)) {
+		v.Address = virt.Addr(cur).Guest.String()
 	}
 	if h, held := s.hold(m.Name); held {
 		v.Hold, v.State = h, "held"

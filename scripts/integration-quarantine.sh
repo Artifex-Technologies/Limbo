@@ -80,7 +80,7 @@ cat >"$WORK/$GUEST.json" <<EOF
   "access": {"user": "analyst"}, "app": {"name": "Shell", "exec": "true"},
   "provision": {"ssh_public_key": "$(cat "$WORK/key.pub")", "seed_iso": "$WORK/seed.iso"} }
 EOF
-GIP=$("$LIMBO" plan "$WORK/$GUEST.json" | grep -o 'analyst@[0-9.]*' | head -1 | cut -d@ -f2)
+GIP=""  # set after up: the subnet is given then (limbo address)
 gssh() { ssh -i "$WORK/key" -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 -o LogLevel=ERROR "analyst@$GIP" "$@"; }
 gtcp() { gssh "timeout 4 bash -c '</dev/tcp/$1/$2'"; }
 boot() { for _ in $(seq 1 80); do gssh true 2>/dev/null && return 0; sleep 3; done; return 1; }
@@ -88,6 +88,7 @@ boot() { for _ in $(seq 1 80); do gssh true 2>/dev/null && return 0; sleep 3; do
 echo "== quarantine lifecycle"
 "$LIMBO" seed --iso "$WORK/seed.iso" "$WORK/$GUEST.json" "$WORK/seed" >/dev/null
 "$LIMBO" up "$WORK/$GUEST.json" && ok "limbo up" || bad "limbo up"
+GIP=$("$LIMBO" address "$WORK/$GUEST.json")  # given at up
 boot && ok "guest booted" || { bad "guest never booted"; echo "passed=$PASS failed=$FAIL"; exit 1; }
 expect pass "before quarantine: guest reaches the internet" gtcp 1.1.1.1 443
 

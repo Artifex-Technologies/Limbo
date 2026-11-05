@@ -53,6 +53,9 @@ type Engine struct {
 	// ExchangeRoot is where guests' outboxes live (package exchange). A guest may write to a shared folder only if it
 	// is its own outbox, ExchangeRoot/<name>; empty means no guest may write to one.
 	ExchangeRoot string
+	// Subnets, if set, gives each guest its own recorded subnet at Up and forgets it at teardown. Nil keeps whatever
+	// the manifest says (tests), which falls back to a hash of the name.
+	Subnets *virt.Subnets
 
 	before sync.Map // guest name -> driver bindings recorded at Up, checked at teardown
 }
@@ -145,6 +148,19 @@ func (e *Engine) Up(ctx context.Context, m *manifest.Manifest) (err error) {
 		return err
 	}
 
+	if e.Subnets != nil {
+		x, err := e.Subnets.Allocate(g)
+		if err != nil {
+			_ = e.Events.Emit(events.GateBlocked, g, map[string]string{"reason": err.Error()})
+			return err
+		}
+		m.Subnet = x
+		defer func() {
+			if err != nil { // whatever failed, the guest is not up: its subnet is free again
+				_ = e.Subnets.Release(g)
+			}
+		}()
+	}
 	// Every guest boots from an overlay in the state directory; the base image is only ever opened read-only.
 	rootDisk := filepath.Join(e.StateDir, virt.DiskName(m))
 	netXML, err := virt.NetworkXML(m)
@@ -299,6 +315,13 @@ func (e *Engine) teardown(ctx context.Context, m *manifest.Manifest) error {
 	e.settleHardware(m)
 	if err := e.Events.Emit(events.PolicyRemove, m.Name, nil); err != nil {
 		errs = append(errs, err)
+	}
+	// Forget the subnet. If the network somehow survived, its bridge still holds an address in it, and Allocate skips
+	// subnets a host interface uses, so it is not handed out again while it exists.
+	if e.Subnets != nil {
+		if err := e.Subnets.Release(m.Name); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	return errors.Join(errs...)
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/Artifex-Technologies/Limbo/internal/events"
 	"github.com/Artifex-Technologies/Limbo/internal/license"
 	"github.com/Artifex-Technologies/Limbo/internal/manifest"
+	"github.com/Artifex-Technologies/Limbo/internal/virt"
 )
 
 type fakeRunner struct {
@@ -360,5 +361,49 @@ func TestAWritableShareMustBeTheGuestsOutbox(t *testing.T) {
 	}
 	if err != nil && !strings.Contains(err.Error(), "nosuid,nodev") {
 		t.Fatalf("unexpected: %v", err)
+	}
+}
+
+// Each guest gets its own recorded subnet; teardown gives it back.
+func TestSubnetsAreAllocatedNotHashed(t *testing.T) {
+	m, e, _, _ := fixture(t, "linux")
+	e.Subnets = &virt.Subnets{Path: filepath.Join(e.StateDir, "subnets.json"), InUse: func() map[int]bool { return map[int]bool{1: true} }}
+	if err := e.Up(context.Background(), m); err != nil {
+		t.Fatal(err)
+	}
+	if m.Subnet != 2 {
+		t.Fatalf("subnet 1 is in use on the host; got %d", m.Subnet)
+	}
+	saved, err := LoadGuest(e.StateDir, "lab")
+	if err != nil || saved.Subnet != 2 {
+		t.Fatalf("the saved manifest must carry the subnet: %v %v", saved, err)
+	}
+	net, _ := os.ReadFile(filepath.Join(e.StateDir, "lab.network.xml"))
+	if !strings.Contains(string(net), "10.213.2.1") {
+		t.Fatalf("network not on the allocated subnet:\n%s", net)
+	}
+	m2 := *m
+	m2.Name, m2.Subnet = "lab2", 0
+	if err := e.Up(context.Background(), &m2); err != nil {
+		t.Fatal(err)
+	}
+	if m2.Subnet != 3 {
+		t.Fatalf("second guest got %d", m2.Subnet)
+	}
+	if err := e.Down(context.Background(), m); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := e.Subnets.Lookup("lab"); ok {
+		t.Fatal("subnet kept after teardown")
+	}
+	// A failed Up gives its subnet back too.
+	m3 := *m
+	m3.Name, m3.Subnet = "lab3", 0
+	e.Runner.(*fakeRunner).failOn = "net-define"
+	if err := e.Up(context.Background(), &m3); err == nil {
+		t.Fatal("expected failure")
+	}
+	if _, ok := e.Subnets.Lookup("lab3"); ok {
+		t.Fatal("a failed up kept its subnet")
 	}
 }

@@ -38,12 +38,15 @@ type Addressing struct {
 	MAC     string
 }
 
-// Addr derives a stable 10.213.X.0/24 from the guest name. Two names can hash
-// to the same X; libvirt refuses to define overlapping networks, so a collision
-// surfaces as an error at `up` rather than as silent cross-talk.
+// Addr is the guest's addressing in 10.213.X.0/24. X is m.Subnet, which the engine allocates and records at Up
+// (Subnets), so no two guests share one. Only a manifest that never went through Up (`limbo plan`) falls back to a
+// hash of the name, which can collide; libvirt refuses overlapping networks, so even that would surface as an error.
 func Addr(m *manifest.Manifest) Addressing {
 	h := sha256.Sum256([]byte(m.Name))
 	x := 1 + int(h[0])%254
+	if m.Subnet >= 1 && m.Subnet <= 254 {
+		x = m.Subnet
+	}
 	at := func(host byte) netip.Addr { return netip.AddrFrom4([4]byte{10, 213, byte(x), host}) }
 	return Addressing{
 		Gateway: at(1),

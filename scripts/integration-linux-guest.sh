@@ -60,11 +60,11 @@ run_mode() { # run_mode <name> <network-json-fragment>
   echo "== mode: $mode"
   manifest "$2"
   "$LIMBO" seed --iso "$WORK/seed.iso" "$WORK/$GUEST.json" "$WORK/seed" >/dev/null || { bad "seed"; return; }
-  GIP=$("$LIMBO" plan "$WORK/$GUEST.json" | grep -o 'analyst@[0-9.]*' | head -1 | cut -d@ -f2)
-  GW="${GIP%.*}.1"
-
   : >"$WORK/$GUEST.console"
   if "$LIMBO" up "$WORK/$GUEST.json"; then ok "limbo up"; else bad "limbo up"; "$LIMBO" down "$WORK/$GUEST.json" >/dev/null 2>&1; return; fi
+  # The subnet is given at up and recorded (it used to come from a hash of the name).
+  GIP=$("$LIMBO" address "$WORK/$GUEST.json")
+  GW="${GIP%.*}.1"
 
   up=no
   t0=$SECONDS
@@ -131,12 +131,12 @@ want allowlist && run_mode allowlist '"network": {"mode": "allowlist", "allow": 
 run_isolation() {
   echo "== isolation between two guests"
   GUEST=isoa; manifest '"network": {"mode": "internet-only"},'
-  A_IP=$("$LIMBO" plan "$WORK/isoa.json" | grep -o 'analyst@[0-9.]*' | head -1 | cut -d@ -f2)
   GUEST=isob; manifest '"network": {"mode": "internet-only"},'
-  B_IP=$("$LIMBO" plan "$WORK/isob.json" | grep -o 'analyst@[0-9.]*' | head -1 | cut -d@ -f2)
-  [ "$A_IP" != "$B_IP" ] && ok "guests have distinct subnets ($A_IP, $B_IP)" || { bad "subnet collision"; return; }
   "$LIMBO" seed --iso "$WORK/seed.iso" "$WORK/isoa.json" "$WORK/seed" >/dev/null
   "$LIMBO" up "$WORK/isoa.json" && "$LIMBO" up "$WORK/isob.json" && ok "both guests up" || { bad "bring-up"; GUEST=isoa "$LIMBO" down "$WORK/isoa.json" >/dev/null 2>&1; "$LIMBO" down "$WORK/isob.json" >/dev/null 2>&1; return; }
+  A_IP=$("$LIMBO" address "$WORK/isoa.json")
+  B_IP=$("$LIMBO" address "$WORK/isob.json")
+  [ -n "$A_IP" ] && [ "${A_IP%.*}" != "${B_IP%.*}" ] && ok "guests have distinct subnets ($A_IP, $B_IP)" || bad "subnet collision ($A_IP, $B_IP)"
   for ip in "$A_IP" "$B_IP"; do
     GIP=$ip; up=no
     for _ in $(seq 1 "${LIMBO_IT_BOOT_WAIT:-100}"); do gssh true 2>/dev/null && { up=yes; break; }; sleep 3; done
