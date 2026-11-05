@@ -59,5 +59,29 @@ particular `policy.release` after a `safe` verdict is not a "policy applied
 twice" anomaly. A `quarantine.verdict` is written *before* it takes effect and a
 verdict that cannot be logged does not happen.
 
-Not yet emitted (planned): guest network destinations, exchange-directory file
-hashes, guest-agent health.
+## The Settings page (docs/SETTINGS_PAGE.md)
+
+Written by the API server; each carries `principal` (`admin` or `user`) and `peer`.
+Informational for Heimdall: none of them loosens a guest Heimdall holds (those
+requests are refused before anything is written).
+
+| kind | when | detail |
+| --- | --- | --- |
+| `instance.request` | a person asked to start or stop a registered instance (engine events follow) | `action` |
+| `instance.change` | a person changed an instance's settings, or freed its disk | `changed` (comma-separated keys, or `free_space`) |
+| `instance.add` / `instance.remove` | root registered or removed an instance | `owner` / `delete_disk` |
+| `settings.change` | root turned the password switch on or off (written before it takes effect; not saved if it cannot be written) | `ask_password` |
+| `license.add` / `license.remove` / `license.reveal` / `license.assign` / `license.unassign` | a Windows license was stored, removed, shown in full, or (un)assigned | `id` (never the key) |
+
+## Files leaving a guest (package exchange)
+
+| kind | when | detail |
+| --- | --- | --- |
+| `exchange.file` | a file left a guest's outbox, scanned clean by ClamAV (written before it is handed out; not handed out if it cannot be written) | `path` (from the guest: untrusted, control characters replaced, 200 chars), `sha256`, `size`, `scan` |
+| `exchange.held` | ClamAV knew the file: it was moved to `/var/lib/limbo/state/exchange-held/<sha256>` (root-only) and not handed out | `path`, `sha256`, `size`, `signature` |
+| `exchange.fail` | the file could not be scanned, so it stayed in the outbox | `path`, `sha256`, `size`, `reason` |
+
+Heimdall may treat `exchange.held` as a finding (the sha256 names the held copy root can
+take into Heimdall's immunity quarantine). Nothing in Heimdall consumes these yet.
+
+Not yet emitted (planned): guest-agent health.
