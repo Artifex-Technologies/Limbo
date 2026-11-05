@@ -30,7 +30,8 @@ LIMBO="$WORK/limbo"
 SHA=$(sha256sum "$BASE" | cut -d' ' -f1)
 
 # --- principals: real groups and users -------------------------------------
-groupadd -f limbo-heimdall; groupadd -f limbo-agent
+groupadd -f limbo-heimdall; groupadd -f limbo-agent; groupadd -f limbo-users
+id itq-user   >/dev/null 2>&1 || useradd -M -s /usr/bin/nologin -G limbo-users itq-user
 id itq-heimdall >/dev/null 2>&1 || useradd -M -s /usr/bin/nologin -G limbo-heimdall itq-heimdall
 id itq-agent  >/dev/null 2>&1 || useradd -M -s /usr/bin/nologin -G limbo-agent  itq-agent
 id itq-other  >/dev/null 2>&1 || useradd -M -s /usr/bin/nologin itq-other
@@ -48,7 +49,9 @@ jget() { python3 -c "import sys,json; d=json.load(sys.stdin); print(eval('d'+sys
 # --- start the daemon -------------------------------------------------------
 mkdir -p "$RUN"; chmod 755 "$RUN"
 "$LIMBO" serve --run-dir "$RUN" --state-dir "$LIMBO_STATE_DIR" --profile-dir "$PROFILES" \
-  --heimdall-group limbo-heimdall --agent-group limbo-agent >"$WORK/serve.log" 2>&1 &
+  --heimdall-group limbo-heimdall --agent-group limbo-agent --users-group limbo-users \
+  --instances-dir "$WORK/instances" --settings "$WORK/settings.json" --licenses-dir "$WORK/licenses" \
+  --exchange-root "$WORK/exchange" --limbo-root "$WORK" >"$WORK/serve.log" 2>&1 &
 SERVE=$!
 cleanup() {
   kill $SERVE 2>/dev/null
@@ -70,6 +73,15 @@ expect fail "Sarina's user cannot reach control.sock"     sock itq-agent control
 expect fail "Sarina's user cannot reach admin.sock"       sock itq-agent admin.sock GET /v1/quarantine
 expect pass "Heimdall's user can reach control.sock"        sock itq-heimdall control.sock GET /v1/quarantine
 expect pass "Sarina's user can reach agent.sock"          sock itq-agent agent.sock GET /v1/profiles
+
+echo "== user.sock (the Settings page)"
+[ "$(stat -c '%a %G' $RUN/user.sock)" = "660 limbo-users" ] && ok "user.sock is 660 limbo-users" || bad "user.sock $(stat -c '%a %G' $RUN/user.sock 2>&1)"
+expect pass "a member reads the figures"                       sock itq-user user.sock GET /v1/status
+expect fail "an unrelated user cannot reach user.sock"         sock itq-other user.sock GET /v1/status
+expect fail "Heimdall's user cannot reach user.sock"           sock itq-heimdall user.sock GET /v1/status
+expect fail "Sarina's user cannot reach user.sock"             sock itq-agent user.sock GET /v1/status
+[ "$(code itq-user user.sock POST /v1/settings '{"ask_password":false}')" = 404 ] && ok "a member has no route to the switch" || bad "switch route on user.sock"
+[ "$(code itq-user user.sock POST /v1/instances/x/start)" = 403 ] && ok "with the switch on (default) a member's change is refused" || bad "change allowed with the switch on"
 
 # --- a guest to quarantine ---------------------------------------------------
 cat >"$WORK/$GUEST.json" <<EOF
