@@ -182,7 +182,7 @@ registered instances kept elsewhere; the other figures are parts of it.
  "cpus": 2, "memory_mb": 4096, "network": "none",
  "disk": {"base_bytes": 2147483648, "own_bytes": 52428800, "virtual_bytes": 21474836480, "disk_gb": 0},
  "shared_folder": "off", "clipboard": "off", "devices": [], "disposable": false,
- "owner": "matt", "mine": true,
+ "owner": "ada", "mine": true,
  "hold": null, "held_by_heimdall": false,
  "pending": false, "license": "",
  "overrides": {"cpus": 2}}

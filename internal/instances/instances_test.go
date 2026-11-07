@@ -83,13 +83,13 @@ func setup(t *testing.T) (*Service, *fakeGuests, fakeHolds, *fakeEvents) {
 	if _, err := s.Add(testManifest("lab"), "", root); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Add(testManifest("matts"), "matt", root); err != nil {
+	if _, err := s.Add(testManifest("adas"), "ada", root); err != nil {
 		t.Fatal(err)
 	}
 	return s, g, h, ev
 }
 
-var member = Caller{UID: 1000, User: "matt"}
+var member = Caller{UID: 1000, User: "ada"}
 var other = Caller{UID: 1002, User: "guest"}
 
 func code(err error) string {
@@ -122,7 +122,7 @@ func TestListShowsInstancesRunsAndHandStartedGuests(t *testing.T) {
 	if got["r0123abcd"].Kind != "run" || got["r0123abcd"].State != "running" || got["manual"].Kind != "manual" {
 		t.Fatalf("others: %+v", vs)
 	}
-	if got["matts"].Mine || !got["lab"].Mine {
+	if got["adas"].Mine || !got["lab"].Mine {
 		t.Fatal("ownership")
 	}
 	if got["lab"].Devices == nil {
@@ -176,10 +176,10 @@ func TestOwnerAndHoldRulesHoldForUsersNotRoot(t *testing.T) {
 	s, _, h, _ := setup(t)
 	ctx := context.Background()
 	n := 3
-	if _, err := s.Configure(ctx, "matts", Change{CPUs: &n}, other); code(err) != CodeNotOwner {
+	if _, err := s.Configure(ctx, "adas", Change{CPUs: &n}, other); code(err) != CodeNotOwner {
 		t.Fatalf("not owner: %v", err)
 	}
-	if _, err := s.Configure(ctx, "matts", Change{CPUs: &n}, member); err != nil {
+	if _, err := s.Configure(ctx, "adas", Change{CPUs: &n}, member); err != nil {
 		t.Fatal(err)
 	}
 	h["lab"] = quarantine.Record{ID: "q1", Status: quarantine.StatusOpen, Source: "heimdall:x"}
