@@ -23,3 +23,22 @@ func TestRootUsesTheDaemonsStateFolder(t *testing.T) {
 		t.Fatal("an ordinary user keeps their own folder")
 	}
 }
+
+func TestNetworkChangeReadsAllowEntries(t *testing.T) {
+	n, err := networkChange("allowlist", "192.0.2.10:tcp:443, fd00::1:udp:53,10.0.0.0/24:tcp:22")
+	if err != nil {
+		t.Fatal(err)
+	}
+	list := n["allow"].([]map[string]any)
+	if n["mode"] != "allowlist" || len(list) != 3 || list[1]["addr"] != "fd00::1" || list[1]["proto"] != "udp" || list[1]["port"] != 53 || list[2]["addr"] != "10.0.0.0/24" {
+		t.Fatalf("%v", n)
+	}
+	for _, bad := range []string{"192.0.2.10", "192.0.2.10:443", "192.0.2.10:tcp:https"} {
+		if _, err := networkChange("allowlist", bad); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+	if n, _ := networkChange("none", ""); len(n["allow"].([]map[string]any)) != 0 {
+		t.Fatal("no destinations for none")
+	}
+}

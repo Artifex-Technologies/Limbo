@@ -89,7 +89,10 @@ The page shows figures (instances, states, disk use, memory) even with the switc
 
 Possible additions:
 
-- per-guest network rules (which hosts a guest may reach);
+- per-guest network rules (which hosts a guest may reach): built 2026-11-07. `limbo instance set NAME --network
+  none|internet-only|allowlist [--allow ADDRESS:tcp|udp:PORT,...]`, root only (Settings: a selector on each guest's row,
+  which asks for the password every time), never for a held guest, in force from the guest's next start. The address lists are
+  set on the command line for now;
 - snapshots ("go back to how it was yesterday");
 - a default memory and processor limit for new guests;
 - the audit log in plain words;

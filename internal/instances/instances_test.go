@@ -172,6 +172,47 @@ func TestConfigureStaysInBoundsAndAppliesAtStart(t *testing.T) {
 	}
 }
 
+func TestOnlyRootChangesWhatAGuestMayReach(t *testing.T) {
+	s, _, h, ev := setup(t)
+	ctx := context.Background()
+	open := &manifest.Network{Mode: manifest.NetInternetOnly}
+	// the owner may change processors without the password, never the network
+	if _, err := s.Configure(ctx, "adas", Change{Network: open}, member); code(err) != CodeNotOwner {
+		t.Fatalf("owner opening the network: %v", err)
+	}
+	v, err := s.Configure(ctx, "adas", Change{Network: open}, Caller{Admin: true})
+	if err != nil || v.Network != manifest.NetInternetOnly {
+		t.Fatalf("root: %+v %v", v, err)
+	}
+	if ev.kinds[len(ev.kinds)-1] != EventChange {
+		t.Fatalf("not audited: %v", ev.kinds)
+	}
+	allow := &manifest.Network{Mode: manifest.NetAllowlist, Allow: []manifest.Allow{{Addr: "192.0.2.10", Proto: "tcp", Port: 443}}}
+	if v, err := s.Configure(ctx, "adas", Change{Network: allow}, Caller{Admin: true}); err != nil || v.Network != manifest.NetAllowlist {
+		t.Fatalf("allowlist: %+v %v", v, err)
+	}
+	// what Effective builds the next start from, and its rules: the one destination, nothing else
+	m, err := s.Effective(s.mustLoad(t, "adas"), s.overrides("adas"))
+	if err != nil || len(m.Network.Allow) != 1 || m.Network.Allow[0].Port != 443 {
+		t.Fatalf("effective: %+v %v", m, err)
+	}
+	for _, bad := range []*manifest.Network{
+		{Mode: manifest.NetAllowlist},                // no destination
+		{Mode: "everything"},                         // no such mode
+		{Mode: manifest.NetNone, Allow: allow.Allow}, // destinations only with allowlist
+		{Mode: manifest.NetAllowlist, Allow: []manifest.Allow{{Addr: "192.0.2.10", Proto: "icmp", Port: 1}}}, // tcp or udp
+	} {
+		if _, err := s.Configure(ctx, "adas", Change{Network: bad}, Caller{Admin: true}); code(err) != CodeOutOfRange {
+			t.Errorf("%+v accepted: %v", bad, err)
+		}
+	}
+	// a held guest's network stays as Heimdall left it, root included
+	h["adas"] = quarantine.Record{ID: "q2", Status: quarantine.StatusOpen, Source: "heimdall:x"}
+	if _, err := s.Configure(ctx, "adas", Change{Network: open}, Caller{Admin: true}); code(err) != CodeHeld {
+		t.Fatalf("held: %v", err)
+	}
+}
+
 func TestOwnerAndHoldRulesHoldForUsersNotRoot(t *testing.T) {
 	s, _, h, _ := setup(t)
 	ctx := context.Background()
@@ -268,4 +309,13 @@ func TestSpaceCountsGuestsDisks(t *testing.T) {
 	if sp.GuestsBytes == 0 || sp.ImagesBytes == 0 || sp.TotalBytes < sp.GuestsBytes+sp.ImagesBytes {
 		t.Fatalf("%+v", sp)
 	}
+}
+
+func (s *Service) mustLoad(t *testing.T, name string) *Entry {
+	t.Helper()
+	e, err := s.load(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return e
 }

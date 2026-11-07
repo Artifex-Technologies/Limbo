@@ -114,6 +114,8 @@ type Overrides struct {
 	SharedFolder string    `json:"shared_folder,omitempty"` // "", "off" or "on"
 	Clipboard    string    `json:"clipboard,omitempty"`
 	Devices      *[]string `json:"devices,omitempty"` // a subset of the manifest's devices.pci
+	// Network replaces the manifest's network profile (none, internet-only, or allowlist with its destinations).
+	Network *manifest.Network `json:"network,omitempty"`
 }
 
 // Change is a request to change an instance. Every field is optional; what is absent stays as it is.
@@ -124,6 +126,9 @@ type Change struct {
 	SharedFolder *string   `json:"shared_folder"`
 	Clipboard    *string   `json:"clipboard"`
 	Devices      *[]string `json:"devices"`
+	// Network: what the guest may reach. Root only (Settings asks for the password every time), never on a held guest, and
+	// in force from the guest's next start.
+	Network *manifest.Network `json:"network"`
 }
 
 // Hold describes why a guest is held.
@@ -297,6 +302,9 @@ func (s *Service) Effective(e *Entry, o Overrides) (*manifest.Manifest, error) {
 	}
 	if o.Devices != nil {
 		m.Devices.PCI = append([]string(nil), (*o.Devices)...)
+	}
+	if o.Network != nil {
+		m.Network = manifest.Network{Mode: o.Network.Mode, Allow: append([]manifest.Allow(nil), o.Network.Allow...)}
 	}
 	if err := m.Validate(); err != nil {
 		return nil, refuse(http.StatusBadRequest, CodeOutOfRange, "choose values the guest's manifest allows", "%v", err)
@@ -671,13 +679,32 @@ func (s *Service) Configure(ctx context.Context, name string, ch Change, c Calle
 		o.Devices = &d
 		changed = append(changed, "devices")
 	}
+	detail := map[string]string{}
+	if ch.Network != nil {
+		// What a guest may reach is the one setting that can open the way to this computer's network: root decides it, every
+		// time, whatever "ask for my password" says, and never for a guest Heimdall holds.
+		if !c.Admin {
+			return View{}, refuse(http.StatusForbidden, CodeNotOwner, "Settings asks for the password and changes it as root", "a guest's network is changed by an administrator only")
+		}
+		if h, held := s.hold(name); held {
+			return View{}, refuse(http.StatusConflict, CodeHeld, "decide about it on Heimdall's page (Settings > Security) first", "instance %q is held (%s): its network stays as it is", name, h.ID)
+		}
+		n := manifest.Network{Mode: ch.Network.Mode, Allow: append([]manifest.Allow(nil), ch.Network.Allow...)}
+		if err := n.Validate(); err != nil {
+			return bad("none, internet-only, or allowlist with at least one address:proto:port", "%v", err)
+		}
+		o.Network = &n
+		changed = append(changed, "network")
+		detail["network"] = n.Mode
+	}
 	if len(changed) == 0 {
-		return bad("send at least one of cpus, memory_mb, disk_gb, shared_folder, clipboard, devices", "nothing to change")
+		return bad("send at least one of cpus, memory_mb, disk_gb, shared_folder, clipboard, devices, network", "nothing to change")
 	}
 	if _, err := s.Effective(e, o); err != nil {
 		return View{}, err
 	}
-	if err := s.audit(EventChange, name, c, map[string]string{"changed": strings.Join(changed, ",")}); err != nil {
+	detail["changed"] = strings.Join(changed, ",")
+	if err := s.audit(EventChange, name, c, detail); err != nil {
 		return View{}, err
 	}
 	if err := s.saveOverrides(name, o); err != nil {

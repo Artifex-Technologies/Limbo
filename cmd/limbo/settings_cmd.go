@@ -266,6 +266,8 @@ func instanceCmd(args []string) error {
 	shared := fs.String("shared-folder", "", "set: on|off")
 	clip := fs.String("clipboard", "", "set: off|text")
 	devices := fs.String("devices", "\x00", "set: comma-separated PCI addresses (from the manifest's own list; empty for none)")
+	network := fs.String("network", "", "set (root): none, internet-only, or allowlist (with --allow); from the guest's next start")
+	allow := fs.String("allow", "", "set --network allowlist: comma-separated ADDRESS[/BITS]:tcp|udp:PORT, e.g. 1.2.3.4:tcp:443")
 	owner := fs.String("owner", "", "add: the account that may change it without the password (default: the sudo user)")
 	deleteDisk := fs.Bool("delete-disk", false, "remove: also delete the guest's own disk")
 	yes := fs.Bool("yes", false, "free-space: do not ask")
@@ -273,7 +275,7 @@ func instanceCmd(args []string) error {
 	if err != nil {
 		return err
 	}
-	usage := errors.New("usage: limbo instance list | show NAME | start NAME | stop NAME | set NAME [--cpus N] [--memory-mb N] [--disk-gb N] [--shared-folder on|off] [--clipboard off|text] [--devices A,B] | free-space NAME [--yes] | add MANIFEST [--owner USER] (root) | remove NAME [--delete-disk] (root)")
+	usage := errors.New("usage: limbo instance list | show NAME | start NAME | stop NAME | set NAME [--cpus N] [--memory-mb N] [--disk-gb N] [--shared-folder on|off] [--clipboard off|text] [--devices A,B] [--network none|internet-only|allowlist --allow A:tcp:443,...] | free-space NAME [--yes] | add MANIFEST [--owner USER] (root) | remove NAME [--delete-disk] (root)")
 	if len(pos) == 0 {
 		return usage
 	}
@@ -329,6 +331,15 @@ func instanceCmd(args []string) error {
 				}
 			}
 			ch["devices"] = list
+		}
+		if *network != "" {
+			n, err := networkChange(*network, *allow)
+			if err != nil {
+				return err
+			}
+			ch["network"] = n
+		} else if *allow != "" {
+			return errors.New("set: --allow goes with --network allowlist")
 		}
 		raw, err = c.do("POST", "/v1/instances/"+pos[1]+"/settings", ch)
 	case "free-space":
@@ -576,4 +587,26 @@ func lookupUserName(uid string) string {
 		return u.Username
 	}
 	return ""
+}
+
+// networkChange reads --network and --allow ("1.2.3.4:tcp:443,10.0.0.0/24:udp:53") into the network a guest may reach; the
+// service validates it again.
+func networkChange(mode, allow string) (map[string]any, error) {
+	list := []map[string]any{}
+	for _, a := range strings.Split(allow, ",") {
+		if a = strings.TrimSpace(a); a == "" {
+			continue
+		}
+		i := strings.LastIndex(a, ":")
+		j := strings.LastIndex(a[:max(i, 0)], ":")
+		if i < 0 || j < 0 {
+			return nil, fmt.Errorf("--allow %q: write ADDRESS:tcp|udp:PORT", a)
+		}
+		port, err := strconv.Atoi(a[i+1:])
+		if err != nil {
+			return nil, fmt.Errorf("--allow %q: the port is not a number", a)
+		}
+		list = append(list, map[string]any{"addr": a[:j], "proto": a[j+1 : i], "port": port})
+	}
+	return map[string]any{"mode": mode, "allow": list}, nil
 }
