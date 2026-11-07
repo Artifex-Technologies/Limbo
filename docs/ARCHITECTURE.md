@@ -244,6 +244,11 @@ guest-agent      Windows-side helper: app discovery, health, event report
 packaging/arch   PKGBUILD, systemd user unit, sysusers
 ```
 
+As built (§12) the names differ: one binary, `cmd/limbo`, whose `limbo serve` is the
+daemon (a root system unit, not per-user); the packages live under `internal/`, and
+the broker is `internal/exchange` (guest outboxes) plus the manifest's clipboard
+setting. There are no libvirt bindings: the engine drives `virsh`.
+
 Language: **Go** is the working assumption — it matches Heimdall, builds to one
 binary, and has libvirt bindings. Note that Heimdall is stdlib-only by its own
 rule; that rule is Heimdall's, not Limbo's, and Limbo will need libvirt
@@ -300,20 +305,24 @@ decision recorded there, with a `CONTRACT:` note, before anything is built.
 
 ## 10. Roadmap
 
-- **M0 — verify assumptions.** On a real Linux box: libvirt Linux guest, then
+- **M0 — verify assumptions. (done)** On a real Linux box: libvirt Linux guest, then
   read current WinApps, Bottles and macos-parallels-build-vms for what
   transfers. Decide libvirt binding approach. Amend this document with what
-  held.
-- **M1 — one Linux guest, seamless app. (code written, untested on a real hypervisor)** `limbod` builds a guest from a
-  scripted install, snapshots it, launches one app as a host window. Network
-  profile `none`/`internet-only`, no shares.
-- **M2 — sandbox profiles and broker. (profiles + nftables done; broker not)** Profile format, nftables generation,
-  exchange directory, clipboard policy, disposable mode.
-- **M3 — event log + Heimdall source.** `events.jsonl`, `limbosource`,
-  detectors, evidence-oriented report output.
-- **M4 — quarantine actions.** Local API, human-approved flow, Heimdall wiring.
-- **M5 — Windows guest (license-gated).** Same manifest, RDP RemoteApp,
-  guest agent. Starts when the user supplies a license and ISO.
+  held. Decided: no bindings, `virsh` through a `Runner`; what held is in §12.
+- **M1 — one Linux guest, seamless app. (built; real-guest tested: 66/66 and 24/24 on 2026-11-05)** `limbo`
+  (`cmd/limbo`; planned as `limbod`) builds a guest from a scripted install, snapshots it, launches one app as a
+  host window. Network profile `none`/`internet-only`, no shares. Not yet seen: a real window (waypipe is not
+  installed; `limbo launch --check` passes).
+- **M2 — sandbox profiles and broker. (built)** Profile format, nftables generation,
+  exchange directory, clipboard policy, disposable mode. The broker is `internal/exchange`
+  (planned as `broker/`): guest outboxes, ClamAV-scanned copies out, known files held.
+- **M3 — event log + Heimdall source. (built)** `events.jsonl`, `limbosource`,
+  detectors, evidence-oriented report output (`limbo report`).
+- **M4 — quarantine actions. (built)** Local API, human-approved flow, Heimdall wiring
+  (`control.sock`, restrict-only; `docs/QUARANTINE.md`).
+- **M5 — Windows guest (license-gated; not started).** Same manifest, RDP RemoteApp,
+  guest agent. Starts when the user supplies a license and ISO. (The license store
+  and the FreeRDP argv exist; no Windows installer.)
 - **M6 — Wine backend, GUI.** Later.
 
 ## 11. What was and was not verified
@@ -323,7 +332,7 @@ contracts, Chymaera OS's layout), by reading their CLAUDE.md files.
 
 Not verified: everything about WinApps, Bottles, Prism, VirtualBox, the
 macOS-Parallels repo's contents, and waypipe/RDP behaviour on Hyprland; any
-performance figure. No code has been run.
+performance figure. No code had been run when this was written; §12 says what has run since.
 
 ## 12. Implementation status
 
@@ -489,18 +498,20 @@ Not built / not verified:
   real window is waypipe on both sides and a Wayland session.
 - A real model's advisory quality, and Sarina choosing to call `limbo_validate`
   well. Everything model-facing was tested with a fake model that records requests.
-- Heimdall's response to anything other than `guest.start` / `policy.remove`
-  (deliberately narrow). Since 2026-11-05 Limbo emits guest network events
-  (`net.flow`, `net.blocked`, `net.anomaly`, `net.capped`; docs/EVENTS.md) and
-  outbox events (`exchange.*`), but Heimdall does not act on them yet (its detector
-  ignores kinds it does not know; see the Coordination Log in CLAUDE.md).
+- Heimdall's response to a real guest's network and outbox events. Since 2026-11-05
+  Limbo emits guest network events (`net.flow`, `net.blocked`, `net.anomaly`,
+  `net.capped`; docs/EVENTS.md) and outbox events (`exchange.*`). Heimdall reads and
+  acts on them (Heimdall `f84191c`, `0f80ee0`): `net.anomaly` host_probe / lan_probe /
+  scan and `exchange.held` restrict the guest through `control.sock`. Heimdall tested
+  that with a sample log and a fake control socket, not with a live probing guest.
 - The guest outbox (package exchange: ClamAV-scanned copies, held files) is
   unit-tested only; no guest has written to a real writable virtiofs share, because
   `/var/lib/limbo` on the owner's PC is not a nosuid,nodev mount (an owner step),
   and virtiofs itself has not been exercised.
 - `user.sock` and the Settings routes are tested over a real unix socket with the
-  kernel's peer credentials, but not under the installed daemon yet (owner step:
-  install and restart). The Settings page itself (Yggdrasil) is not built.
+  kernel's peer credentials, and the installed daemon (r38) serves them
+  (`/run/limbo/user.sock`, group `limbo-users`). The Settings page is built
+  (Yggdrasil `0b176b7`, Settings > Security > Limbo).
 - Windows licenses are stored, masked and assigned; nothing hands a key to a guest
   yet, because there is no Windows installer.
 - Wine backend, GUI, guest agent.

@@ -5,11 +5,15 @@ network/infrastructure security analysis and reporting. Read
 `docs/ARCHITECTURE.md` before making design decisions; it records the
 reasoning and what is unverified.
 
+Push every commit as you make it; don't ask me first. Before pushing, check the
+diff names no host name, network address, SSID or MAC address.
+
 ## State
 
 Go module, stdlib only. First slice built (see `docs/ARCHITECTURE.md` §12 for the
-per-package verification table and known weaknesses). Nothing has been run
-against real libvirt or a live guest.
+per-package verification table and known weaknesses). Run against real libvirt
+and live guests since 2026-10-14 (latest: 66/66 and 24/24 on 2026-11-05; the
+Coordination Log has the details).
 
 ```bash
 go vet ./... && go test ./...      # Linux (the code uses Linux syscalls; it no longer builds for Windows)
@@ -109,7 +113,7 @@ Commit per logical section, with the Co-Authored-By trailer.
   has no socket route and must never get one. Never add a way for
   `agent.sock`/`control.sock` to choose a device or approve a window.
   **Unverified**: no real VFIO device has been passed through yet. Labyrinth
-  (CachyOS-based) must ship `ID=labyrinth` in its os-release; it does not yet.
+  (CachyOS-based) ships `ID=labyrinth` in its os-release, which `internal/hostpolicy` relies on.
 - **Write our own implementations of what the references do.** Owner's
   decision (2026-10-04): the references are for ideas, not code. Limbo is MPL-2.0
   (owner's decision, 2026-10-05); Bottles and Prism Launcher are GPL-3.0, so copy
@@ -127,9 +131,24 @@ Siblings: `Chymaera_OS` (host distro, Arch/Hyprland), `Heimdall`
 (Go security daemon), `Sarina` (agent). Heimdall integration is specified in
 `docs/ARCHITECTURE.md` §8. Anything that changes a cross-repo contract needs
 `CONTRACT:` in the commit message and a matching update in the other repo's
-CLAUDE.md. Heimdall currently has no write path into other projects beyond one
-narrow exception; Limbo quarantine actions need an explicit decision there
-first.
+CLAUDE.md. Heimdall's one way to act on Limbo is `control.sock` (restrict-only,
+live; `docs/QUARANTINE.md`).
+
+## Asks from Heimdall (open, not built)
+
+From Heimdall's CLAUDE.md Coordination Log. Nothing here is implemented yet.
+
+- **`scope` on `net.anomaly`** (Heimdall 2026-11-05 (2)): carry the guest's `scope` like
+  `net.blocked` does, so a reader need not re-derive it from `reason`. Additive.
+- **A read-only "does this guest exist" route on `control.sock`** (Heimdall 2026-11-05 (2)):
+  so Heimdall can skip a hold for a torn-down validation run (today Limbo answers 404 and
+  Heimdall records `limbo_quarantine_failed`). It must stay read-only: no loosening route.
+- **A "strings worth a rule" section in `limbo-decompile triage`** (Heimdall 2026-11-05):
+  stable, unique strings with offsets, so YARA rule drafts need less guessing.
+- **Contract, already relied on** (Heimdall 2026-11-07 (3)): Heimdall's `remote-access`
+  detector treats a tap `vl-<guest>` on its bridge `lb-<guest>` as Limbo's own
+  (`internal/virt/names.go`, `TapName` / `BridgeName`). Renaming them is a contract change:
+  `CONTRACT:` in the commit and an update on Heimdall's board.
 
 ## Coordination Log (newest first)
 

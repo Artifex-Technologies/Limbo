@@ -1,16 +1,18 @@
 # Owner steps, 2026-11-05 (Limbo)
 
-What Limbo's work today needs from Matt, as exact commands. Nothing here was run for him. Another session merges these into
+What Limbo's work today needs from me, as exact commands. Nothing here was run for me. Another session merges these into
 `~/Desktop/finish-todo.sh`. Run them **after 04:20** (Sarina's night run uses Limbo from 22:30) or on a day off.
 
 ## 1. Install the new Limbo and restart it (needed for everything below)
+
+Done since: `limbo-git` r38 is installed and `/run/limbo/user.sock` is up.
 
 Today's work is committed and pushed but not installed: the PC still runs `limbo-git` r16, so `user.sock`, the Settings page
 routes, the guest network events and the other fixes are not live yet.
 
 ```bash
 cd ~/Documents/Github/Labyrinth_OS/packages/pkgbuilds/limbo-git
-makepkg -f                                   # as Matt, not root: builds from the local Limbo checkout and runs its tests
+makepkg -f                                   # as myself, not root: builds from the local Limbo checkout and runs its tests
 sudo pacman -U ./limbo-git-0.1.0.r*.pkg.tar.zst   # pick the newest file; pacman's sysusers hook creates the group limbo-users
 sudo systemctl restart limbo                 # the new daemon: user.sock appears, guest network events start
 systemctl is-active limbo && ls -l /run/limbo/

@@ -1,12 +1,12 @@
 # Limbo in Settings (approved 2026-11-04, backend built 2026-11-05)
 
-Matt's idea (2026-11-04): a Limbo page in Yggdrasil's Settings where the person using the computer decides whether Limbo changes ask
+My idea (2026-11-04): a Limbo page in Yggdrasil's Settings where the person using the computer decides whether Limbo changes ask
 for their password, plus figures such as how much space each instance uses.
 
 Status (2026-11-05): Limbo's side is built and unit-tested (the socket, the switch, instances, licenses, outboxes, the CLI); see
-"Protocol" below, which the Settings page is written against. Not yet installed on the owner's PC (it needs the new package and a
-restart of `limbo.service`), so `user.sock` has not served a real page yet. The page itself (Rust, Yggdrasil) is another session's
-work.
+"Protocol" below, which the Settings page is written against. Installed on the owner's PC since (`limbo-git` r38; the daemon
+serves `/run/limbo/user.sock`, group `limbo-users`). The page itself is built in Yggdrasil (`0b176b7`, Settings > Security >
+Limbo).
 
 ## Today
 
@@ -31,7 +31,7 @@ Settings > Security > Limbo (next to Heimdall):
 3. **Quarantine:** not on this page. Heimdall decides what is held (files on the host, and guests it asks Limbo to restrict), so
    the quarantine screen and the Safe / Dangerous verdict live on Heimdall's page (Settings > Security). That one screen shows held
    files and held guests together. Here, a held guest's row says "held by Heimdall" and links to it. Limbo still keeps a guest's
-   verdict record, because it owns the guest, and still requires the password for it (Matt agreed, 2026-11-04).
+   verdict record, because it owns the guest, and still requires the password for it (I agreed, 2026-11-04).
 4. **Ask for my password for Limbo changes:** on by default, which is how Limbo works today. Turning it off or back on always
    asks for the password (pkexec).
 
@@ -54,7 +54,7 @@ password, malware in a browser could declare its own sample safe or free a guest
 
 ## Windows licenses
 
-Matt's addition (2026-11-04): license key management on the same page, for programs that need more of Windows than Wine can give.
+My addition (2026-11-04): license key management on the same page, for programs that need more of Windows than Wine can give.
 
 What it is for:
 
@@ -97,9 +97,9 @@ Possible additions:
 
 ## Decided
 
-- 2026-11-04 (Matt): quarantine verdicts and loosening a restricted guest always need the password, whatever the switch says. The
+- 2026-11-04 (my decision): quarantine verdicts and loosening a restricted guest always need the password, whatever the switch says. The
   quarantine screen belongs with Heimdall.
-- 2026-11-04 (Matt): the "Later, if wanted" items are wanted.
+- 2026-11-04 (my decision): the "Later, if wanted" items are wanted.
 
 ## Protocol
 
