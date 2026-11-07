@@ -93,7 +93,7 @@ Possible additions:
 - snapshots ("go back to how it was yesterday");
 - a default memory and processor limit for new guests;
 - the audit log in plain words;
-- a one-click `limbo report`.
+- a one-click `limbo report` (built 2026-11-07: Settings > Limbo, "Save a report…", Yggdrasil b735099).
 
 ## Decided
 
