@@ -22,6 +22,10 @@ func DomainName(m *manifest.Manifest) string { return "limbo-" + m.Name }
 func NetworkName(m *manifest.Manifest) string { return "limbo-" + m.Name }
 
 // BridgeName is the host bridge for the guest's private network.
+//
+// CONTRACT (Heimdall relies on it, 2026-11-07): Heimdall's remote-access detector treats a tap named TapName on the bridge
+// named BridgeName as Limbo's own guest, not a stranger's interface. Renaming either is a contract change: say CONTRACT: in
+// the commit and tell Heimdall's board.
 func BridgeName(m *manifest.Manifest) string { return "lb-" + m.Name }
 
 // TapName is the guest's host-side interface, pinned in the domain XML instead

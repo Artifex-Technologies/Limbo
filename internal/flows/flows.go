@@ -318,7 +318,12 @@ func (a *Aggregator) anomaly(st *guestState, p Packet, reason string) {
 		return
 	}
 	st.lastAnom[reason] = now
-	d := map[string]string{"reason": reason, "proto": p.Proto, "dst": p.Dst.String(), "count": fmt.Sprint(st.anomCount[reason])}
+	// where the destination is, as net.blocked says it (Heimdall reads it rather than working it out from the reason)
+	scope := Scope(p.Dst)
+	if p.Verdict == VerdictHost {
+		scope = "host"
+	}
+	d := map[string]string{"reason": reason, "proto": p.Proto, "dst": p.Dst.String(), "scope": scope, "count": fmt.Sprint(st.anomCount[reason])}
 	if p.DPort > 0 {
 		d["dport"] = fmt.Sprint(p.DPort)
 	}

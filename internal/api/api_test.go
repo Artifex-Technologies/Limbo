@@ -125,6 +125,10 @@ func TestRouteTablesPerPrincipal(t *testing.T) {
 		{Agent, "POST", "/v1/quarantine", `{"guest":"lab","reason":"x"}`, 404},
 		{Agent, "POST", "/v1/quarantine/" + id + "/verdict", `{"verdict":"safe"}`, 404},
 		{Agent, "POST", "/v1/guests/lab/down", `{}`, 404},
+		// Whether a guest still exists: read-only, on control and admin, not the agent's.
+		{Control, "GET", "/v1/guests/lab", "", 200},
+		{Admin, "GET", "/v1/guests/lab", "", 200},
+		{Agent, "GET", "/v1/guests/lab", "", 404},
 		// Admin has the verdict.
 		{Admin, "POST", "/v1/quarantine/" + id + "/verdict", `{"verdict":"dangerous","by":"me"}`, 200},
 	}
@@ -133,6 +137,18 @@ func TestRouteTablesPerPrincipal(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("%s %s %s: got %d, want %d", tc.who, tc.method, tc.path, got, tc.want)
 		}
+	}
+}
+
+func TestAGuestThatIsGoneIsNotFound(t *testing.T) {
+	s, _, _ := newServer(t)
+	got, body := call(t, s.Handler(Control), "GET", "/v1/guests/lab", "")
+	if got != 200 || body["exists"] != true || body["name"] != "lab" {
+		t.Fatalf("lab: %d %v", got, body)
+	}
+	got, body = call(t, s.Handler(Control), "GET", "/v1/guests/torn-down", "")
+	if got != 404 || body["exists"] != false {
+		t.Fatalf("torn-down: %d %v", got, body)
 	}
 }
 

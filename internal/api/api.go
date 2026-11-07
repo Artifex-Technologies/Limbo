@@ -100,6 +100,8 @@ func (s *Server) Handler(p Principal) http.Handler {
 		mux.HandleFunc("GET /v1/quarantine/{id}", s.wrap(p, s.get))
 		mux.HandleFunc("POST /v1/quarantine/{id}/raise", s.wrap(p, s.raise))
 		mux.HandleFunc("POST /v1/quarantine/{id}/advisory", s.wrap(p, s.advisory))
+		// read-only: whether a guest still exists (Heimdall skips a hold on one already torn down)
+		mux.HandleFunc("GET /v1/guests/{name}", s.wrap(p, s.guestExists))
 	}
 	if p == Admin {
 		mux.HandleFunc("POST /v1/quarantine/{id}/verdict", s.wrap(p, s.verdict))
@@ -410,6 +412,15 @@ func (s *Server) closeRec(w http.ResponseWriter, r *http.Request, p Principal) (
 	}
 	_ = s.audit(r, p, events.QuarantineVerdict, rec.Guest, map[string]string{"id": rec.ID, "verdict": "closed", "by": by})
 	return rec, http.StatusOK, nil
+}
+
+// guestExists answers whether a guest is there: 200 with its name, or 404. It reads and changes nothing else.
+func (s *Server) guestExists(w http.ResponseWriter, r *http.Request, p Principal) (any, int, error) {
+	m, err := s.Actions.Guest(r.PathValue("name"))
+	if err != nil || m == nil {
+		return map[string]any{"exists": false}, http.StatusNotFound, nil
+	}
+	return map[string]any{"name": m.Name, "exists": true}, http.StatusOK, nil
 }
 
 func (s *Server) down(w http.ResponseWriter, r *http.Request, p Principal) (any, int, error) {

@@ -134,21 +134,23 @@ Siblings: `Chymaera_OS` (host distro, Arch/Hyprland), `Heimdall`
 CLAUDE.md. Heimdall's one way to act on Limbo is `control.sock` (restrict-only,
 live; `docs/QUARANTINE.md`).
 
-## Asks from Heimdall (open, not built)
+## Asks from Heimdall
 
-From Heimdall's CLAUDE.md Coordination Log. Nothing here is implemented yet.
+From Heimdall's CLAUDE.md Coordination Log.
 
-- **`scope` on `net.anomaly`** (Heimdall 2026-11-05 (2)): carry the guest's `scope` like
-  `net.blocked` does, so a reader need not re-derive it from `reason`. Additive.
-- **A read-only "does this guest exist" route on `control.sock`** (Heimdall 2026-11-05 (2)):
-  so Heimdall can skip a hold for a torn-down validation run (today Limbo answers 404 and
-  Heimdall records `limbo_quarantine_failed`). It must stay read-only: no loosening route.
-- **A "strings worth a rule" section in `limbo-decompile triage`** (Heimdall 2026-11-05):
-  stable, unique strings with offsets, so YARA rule drafts need less guessing.
-- **Contract, already relied on** (Heimdall 2026-11-07 (3)): Heimdall's `remote-access`
-  detector treats a tap `vl-<guest>` on its bridge `lb-<guest>` as Limbo's own
-  (`internal/virt/names.go`, `TapName` / `BridgeName`). Renaming them is a contract change:
-  `CONTRACT:` in the commit and an update on Heimdall's board.
+- Done 2026-11-07: **`scope` on `net.anomaly`** (as `net.blocked` has it; `internal/flows`).
+- Done 2026-11-07: **a read-only "does this guest exist" route on `control.sock`**:
+  `GET /v1/guests/{name}` (200 with the name, or 404); on admin too, not on agent.sock.
+  Heimdall can skip a hold on a torn-down validation run instead of recording
+  `limbo_quarantine_failed`. Pinned in `internal/api/api_test.go`.
+- Written down 2026-11-07: **the tap and bridge names are a contract** (Heimdall's
+  `remote-access` detector treats a tap `vl-<guest>` on its bridge `lb-<guest>` as Limbo's
+  own): a CONTRACT note on `BridgeName` in `internal/virt/names.go`. Renaming them is a
+  contract change: `CONTRACT:` in the commit and an update on Heimdall's board.
+- Open: **a "strings worth a rule" section in `limbo-decompile triage`** (Heimdall
+  2026-11-05): stable, unique strings with offsets, so YARA rule drafts need less guessing.
+  `limbo-decompile` lives in the decompile guest image, which is not built from this
+  repository; it waits for that image's recipe.
 
 ## Coordination Log (newest first)
 

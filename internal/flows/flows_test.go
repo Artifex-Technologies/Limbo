@@ -196,6 +196,9 @@ func TestAnomaliesAreQuietForTenMinutesAndCountMeanwhile(t *testing.T) {
 	if r.anomalies()[ReasonHostProbe] != 2 || last["count"] != "5" {
 		t.Fatalf("%v %v", r.anomalies(), last)
 	}
+	if last["scope"] == "" {
+		t.Fatalf("an anomaly says where its destination is, as net.blocked does: %v", last)
+	}
 }
 
 func TestScanAndBudget(t *testing.T) {

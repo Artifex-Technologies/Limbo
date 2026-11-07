@@ -84,7 +84,9 @@ the guest chose: data, not names to look up.
 
 "First time" is per guest while `limbo serve` runs; it is forgotten when the guest is torn
 down (the name may be reused) and when serve restarts. Heimdall may raise a finding on
-`net.anomaly` and restrict the guest through `control.sock`; Limbo itself only reports.
+`net.anomaly` and restrict the guest through `control.sock`; Limbo itself only reports. Since 2026-11-07 `net.anomaly`
+carries `scope` too (`host`, `lan`, `loopback`, `internet` or `other`, as `net.blocked` does), so a reader need not work it
+out from `reason`.
 
 ## The Settings page (docs/SETTINGS_PAGE.md)
 
