@@ -28,7 +28,7 @@ were already disposable); guest subnets are allocated instead of hashed (runs ar
 ## 2. Let your account read Limbo's figures without a password
 
 ```bash
-sudo gpasswd -a zlothra limbo-users          # then log out and in again (group membership is read at login)
+sudo gpasswd -a "$USER" limbo-users          # then log out and in again (group membership is read at login)
 limbo settings show                          # should print the status and the instances table, without sudo
 ```
 
