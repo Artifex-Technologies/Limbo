@@ -1,6 +1,6 @@
 // Package hostpolicy decides whether the machine Limbo is running on permits a
-// guest to be given real hardware (PCI passthrough), and whether now is a safe
-// moment to do it.
+// guest to be given real hardware (PCI passthrough, and single USB devices since
+// 2026-11-08), and whether now is a safe moment to do it.
 //
 // A profile can only ask for a device. Whether the host grants it is settled
 // here, from facts a profile cannot touch: the host's own os-release, a
@@ -15,7 +15,8 @@
 //     hard-coded, under both IDs, so no config file, however edited, turns it
 //     on there.
 //   - Labyrinth OS allows it, but only for devices listed in the config's
-//     pci_allow, and only if the device is safe to hand over (see Check).
+//     pci_allow (PCI addresses) or usb_allow (USB vendor:product IDs), and only
+//     if the device is safe to hand over (see Check).
 //   - Any other OS is refused.
 //
 // Beyond "may this host ever" (Check) there is "may it be done right now"
@@ -43,6 +44,7 @@ const (
 	configRel     = "etc/limbo/host-policy.json"
 	osReleaseRel  = "etc/os-release"
 	pciRel        = "sys/bus/pci/devices"
+	usbRel        = "sys/bus/usb/devices"
 )
 
 // neverOS are os-release IDs on which passthrough is refused regardless of config.
@@ -65,8 +67,10 @@ func deny(format string, a ...any) error { return &Denied{Reason: fmt.Sprintf(fo
 
 // Config is /etc/limbo/host-policy.json: root-written, never by Limbo or an agent.
 type Config struct {
-	// PCIAllow lists the only devices that may ever be passed through on this host.
+	// PCIAllow lists the only PCI devices that may ever be passed through on this host.
 	PCIAllow []string `json:"pci_allow"`
+	// USBAllow lists the only USB devices (vendor:product, "5059:4040") that may ever be passed through on this host.
+	USBAllow []string `json:"usb_allow"`
 }
 
 // Policy checks guests against the host. The zero value uses the real host.
@@ -84,6 +88,8 @@ type Policy struct {
 	OpenFiles func() map[string][]string
 	// Driver names the host driver a PCI device is bound to ("" if none).
 	Driver func(addr string) string
+	// USBDriver names the host driver a USB interface ("1-9:1.0") is bound to ("" if none).
+	USBDriver func(iface string) string
 }
 
 func (p *Policy) root() fs.FS {
@@ -124,7 +130,7 @@ func (p *Policy) HostID() string {
 // group holds nothing but the requested devices and PCI bridges (a group is
 // passed through whole; anything else in it would go to the guest too).
 func (p *Policy) Check(m *manifest.Manifest) error {
-	if len(m.Devices.PCI) == 0 {
+	if !m.Devices.Any() {
 		return nil
 	}
 	root := p.root()
@@ -148,6 +154,9 @@ func (p *Policy) Check(m *manifest.Manifest) error {
 	allowed := map[string]bool{}
 	for _, a := range cfg.PCIAllow {
 		allowed[strings.ToLower(a)] = true
+	}
+	if err := checkUSB(root, m.Devices.USB, cfg.USBAllow); err != nil {
+		return err
 	}
 	want := map[string]bool{}
 	for _, a := range m.Devices.PCI {
@@ -178,6 +187,52 @@ func (p *Policy) Check(m *manifest.Manifest) error {
 		}
 	}
 	return nil
+}
+
+// checkUSB refuses a USB device that is not on usb_allow, is not plugged in, is plugged in more than once (which one the
+// guest would get is then a guess), or is a hub (a hub would take everything plugged into it along).
+func checkUSB(root fs.FS, ids, allow []string) error {
+	ok := map[string]bool{}
+	for _, a := range allow {
+		ok[strings.ToLower(a)] = true
+	}
+	for _, id := range ids {
+		if !ok[id] {
+			return deny("USB device %s is not on the host's passthrough list", id)
+		}
+		devs := usbDevices(root, id)
+		switch {
+		case len(devs) == 0:
+			return deny("USB device %s is not plugged in", id)
+		case len(devs) > 1:
+			return deny("%d USB devices with ID %s are plugged in; leave only the one to pass through", len(devs), id)
+		case readTrim(root, usbRel+"/"+devs[0]+"/bDeviceClass") == "09":
+			return deny("USB device %s is a hub", id)
+		}
+	}
+	return nil
+}
+
+// usbDevices names the sysfs entries ("1-9") of the plugged-in USB devices with this vendor:product ID. Interfaces
+// ("1-9:1.0") and root hubs' controllers are skipped by their names.
+func usbDevices(root fs.FS, id string) []string {
+	vendor, product, _ := strings.Cut(id, ":")
+	ents, err := fs.ReadDir(root, usbRel)
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, e := range ents {
+		n := e.Name()
+		if strings.Contains(n, ":") {
+			continue
+		}
+		dir := usbRel + "/" + n
+		if strings.ToLower(readTrim(root, dir+"/idVendor")) == vendor && strings.ToLower(readTrim(root, dir+"/idProduct")) == product {
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 // isBridge reports PCI class 0x0604xx (PCI-to-PCI bridge). Bridges in a group are

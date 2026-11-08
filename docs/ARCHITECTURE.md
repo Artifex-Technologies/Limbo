@@ -159,8 +159,28 @@ real GPU.
 Example `/etc/limbo/host-policy.json`:
 
 ```json
-{ "pci_allow": ["0000:03:00.0", "0000:03:00.1"] }
+{ "pci_allow": ["0000:03:00.0", "0000:03:00.1"], "usb_allow": ["5059:4040"] }
 ```
+
+### 4.2 Built: USB passthrough of single devices (2026-11-08, unverified)
+
+The owner's decision (2026-11-08): hardware whose maker ships only a Windows program (vehicle tuners first: the SCT X4,
+`5059:4040`) is reached from a guest, never from the host. The same safeguards as 4.1:
+
+- **Request vs grant.** A profile asks with `manifest.devices.usb`, vendor:product IDs in lowercase hex, at most four,
+  disposable Linux guests only. The host decides (`internal/hostpolicy`): LykanOS refuses (hard-coded), Labyrinth allows
+  only IDs listed in `usb_allow` of the root-owned host policy, any other OS refuses.
+- **Per-device checks.** The device must be plugged in exactly once (two with the same ID: which one the guest would get
+  is a guess, so refused) and must not be a hub (it would take everything behind it along).
+- **Now or never.** `sudo limbo passthrough approve 5059:4040` at a terminal, typed "yes", time-limited; its warning says
+  the guest can send the device anything, firmware updates included. Refused while a host process holds the device's node
+  (`/dev/bus/usb/BBB/DDD`) or a host kernel driver holds one of its interfaces (a USB stick's storage driver, say); `usbfs`
+  (a program's own libusb claim) shows up as that program instead.
+- **The guest.** libvirt `<hostdev type='usb'>` by vendor and product; QEMU claims the device through usbfs for the
+  guest's lifetime, so nothing has to be rebound afterwards (4.1's driver check after teardown is PCI only).
+- **Validation runs, instances, events** treat a USB ID like a PCI address: one guest at a time, never in a sealed sample
+  analysis, a subset chosen in Settings, `usb` beside `pci` in `guest.define` and `gate.blocked`.
+- **Not done / unverified.** No USB device has been passed through for real yet; tests use a fake filesystem.
 
 ## 5. Sandbox model
 

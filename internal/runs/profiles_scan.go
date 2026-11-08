@@ -157,7 +157,7 @@ func (m *Manager) Details() any {
 	ok, _ := m.scan()
 	out := []ProfileInfo{}
 	for _, s := range ok {
-		out = append(out, ProfileInfo{Name: s.name, Network: s.profile.Manifest.Network.Mode, Sudo: s.profile.Manifest.Access.Sudo, Passthrough: len(s.profile.Manifest.Devices.PCI) > 0, MaxSeconds: s.profile.MaxSeconds})
+		out = append(out, ProfileInfo{Name: s.name, Network: s.profile.Manifest.Network.Mode, Sudo: s.profile.Manifest.Access.Sudo, Passthrough: s.profile.Manifest.Devices.Any(), MaxSeconds: s.profile.MaxSeconds})
 	}
 	return out
 }

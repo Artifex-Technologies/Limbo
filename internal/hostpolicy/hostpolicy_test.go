@@ -2,6 +2,8 @@ package hostpolicy
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -280,5 +282,105 @@ func TestRevoke(t *testing.T) {
 	}
 	if err := h.p.Revoke(); err != nil || h.p.Approval() != nil {
 		t.Fatalf("revoke failed: %v", err)
+	}
+}
+
+const x4 = "5059:4040"
+
+// usbHost is newHost with a usb_allow list and USB interface drivers.
+func usbHost(t *testing.T, osID string, allow ...string) (*host, map[string]string) {
+	t.Helper()
+	h := newHost(t, osID)
+	list := `{"pci_allow":[],"usb_allow":[`
+	for i, a := range allow {
+		if i > 0 {
+			list += ","
+		}
+		list += `"` + a + `"`
+	}
+	h.file("etc/limbo/host-policy.json", list+`]}`)
+	drv := map[string]string{}
+	h.p.USBDriver = func(i string) string { return drv[i] }
+	return h, drv
+}
+
+// usb adds a plugged-in USB device ("1-9") with one interface ("1-9:1.0").
+func (h *host) usb(dev, id, class string, bus, num int) {
+	v, p, _ := strings.Cut(id, ":")
+	d := "sys/bus/usb/devices/" + dev + "/"
+	h.file(d+"idVendor", v+"\n")
+	h.file(d+"idProduct", p+"\n")
+	h.file(d+"bDeviceClass", class+"\n")
+	h.file(d+"busnum", fmt.Sprintf("%d\n", bus))
+	h.file(d+"devnum", fmt.Sprintf("%d\n", num))
+	h.file("sys/bus/usb/devices/"+dev+":1.0/bInterfaceClass", "ff\n")
+}
+
+func usbGuest(ids ...string) *manifest.Manifest {
+	return &manifest.Manifest{Name: "lab", OS: manifest.OSLinux, Disposable: true, Devices: manifest.Devices{USB: ids}}
+}
+
+func TestUSBListedDeviceAllowed(t *testing.T) {
+	h, _ := usbHost(t, "labyrinth", x4)
+	h.usb("1-9", x4, "00", 1, 8)
+	if err := h.p.Check(usbGuest(x4)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestUSBRefusals(t *testing.T) {
+	h, _ := usbHost(t, "labyrinth", x4)
+	denied(t, h.p.Check(usbGuest(x4))) // listed, not plugged in
+	h.usb("1-9", x4, "00", 1, 8)
+	denied(t, h.p.Check(usbGuest("0403:cc4c"))) // plugged in elsewhere, not listed
+	h.usb("2-1", x4, "00", 2, 3)
+	denied(t, h.p.Check(usbGuest(x4))) // two of them: which one would the guest get?
+
+	hub, _ := usbHost(t, "labyrinth", "05e3:0610")
+	hub.usb("1-4", "05e3:0610", "09", 1, 2)
+	denied(t, hub.p.Check(usbGuest("05e3:0610")))
+
+	for _, id := range []string{"lykanos", "niflheim", "chymaera", "arch"} {
+		n, _ := usbHost(t, id, x4)
+		n.usb("1-9", x4, "00", 1, 8)
+		denied(t, n.p.Check(usbGuest(x4)))
+	}
+}
+
+func TestUSBApproveThenReady(t *testing.T) {
+	h, _ := usbHost(t, "labyrinth", x4)
+	h.usb("1-9", x4, "00", 1, 8)
+	var na *NeedsApproval
+	if err := h.p.Ready(usbGuest(x4)); !errors.As(err, &na) {
+		t.Fatalf("want NeedsApproval, got %v", err)
+	}
+	if _, err := h.p.Approve([]string{x4}, 30*time.Minute, "tester"); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.p.Ready(usbGuest(x4)); err != nil {
+		t.Fatal(err)
+	}
+	h.now = h.now.Add(31 * time.Minute)
+	if err := h.p.Ready(usbGuest(x4)); !errors.As(err, &na) {
+		t.Fatalf("an expired approval still counted: %v", err)
+	}
+}
+
+func TestUSBBusy(t *testing.T) {
+	h, drv := usbHost(t, "labyrinth", x4)
+	h.usb("1-9", x4, "00", 1, 8)
+	var busy *Busy
+	h.open["SCTUpdater (412)"] = []string{"/dev/bus/usb/001/008"}
+	if err := h.p.CanApprove([]string{x4}); !errors.As(err, &busy) || busy.Who[0] != "SCTUpdater (412)" {
+		t.Fatalf("a program holding the device's node did not count: %v", err)
+	}
+	delete(h.open, "SCTUpdater (412)")
+	drv["1-9:1.0"] = "usb-storage"
+	if err := h.p.CanApprove([]string{x4}); !errors.As(err, &busy) || busy.Who[0] != "the host's usb-storage driver" {
+		t.Fatalf("a kernel driver on the interface did not count: %v", err)
+	}
+	drv["1-9:1.0"] = "usbfs"
+	if err := h.p.CanApprove([]string{x4}); err != nil {
+		t.Fatalf("usbfs (a program's claim through libusb) is not a host driver: %v", err)
 	}
 }

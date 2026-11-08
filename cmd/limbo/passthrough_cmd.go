@@ -13,9 +13,11 @@ import (
 
 	"github.com/Artifex-Technologies/Limbo/internal/events"
 	"github.com/Artifex-Technologies/Limbo/internal/hostpolicy"
+	"github.com/Artifex-Technologies/Limbo/internal/manifest"
 )
 
-// passthroughCmd is the only way to approve a GPU test window. It runs as root at
+// passthroughCmd is the only way to approve a passthrough window (a GPU for driver
+// tests, or a USB device such as a vehicle tuner). It runs as root at
 // a terminal and writes a root-only file: there is deliberately no socket route
 // for it, so Sarina and Heimdall cannot approve anything, only a person can.
 func passthroughCmd(args []string) error {
@@ -52,7 +54,7 @@ func passthroughCmd(args []string) error {
 func passthrough(pos []string, d time.Duration, p *hostpolicy.Policy, log interface {
 	Emit(kind, guest string, detail map[string]string) error
 }, in io.Reader, out io.Writer, tty bool, who string) error {
-	const usage = "usage: limbo passthrough status | approve [--minutes N] ADDR... | revoke | clear"
+	const usage = "usage: limbo passthrough status | approve [--minutes N] DEVICE... | revoke | clear  (DEVICE: a PCI address 0000:03:00.0 or a USB ID 5059:4040)"
 	if len(pos) == 0 {
 		return errors.New(usage)
 	}
@@ -87,11 +89,21 @@ func passthrough(pos []string, d time.Duration, p *hostpolicy.Policy, log interf
 	return errors.New(usage)
 }
 
+// usbOnly reports whether every named device is a USB ID (vendor:product), so the warning shown is the USB one.
+func usbOnly(devs []string) bool {
+	for _, d := range devs {
+		if !manifest.USBRe.MatchString(d) {
+			return false
+		}
+	}
+	return len(devs) > 0
+}
+
 func approvePassthrough(devs []string, d time.Duration, p *hostpolicy.Policy, log interface {
 	Emit(kind, guest string, detail map[string]string) error
 }, in io.Reader, out io.Writer, tty bool, who string) error {
 	if len(devs) == 0 {
-		return errors.New("approve: name the device(s), e.g. 0000:03:00.0 0000:03:00.1")
+		return errors.New("approve: name the device(s), e.g. 0000:03:00.0 0000:03:00.1, or a USB device by its ID, e.g. 5059:4040")
 	}
 	if !tty {
 		return errors.New("approve: run this from a terminal; it asks you to confirm")
@@ -110,11 +122,25 @@ func approvePassthrough(devs []string, d time.Duration, p *hostpolicy.Policy, lo
 				fmt.Fprintln(out, "  "+w)
 			}
 			fmt.Fprintln(out, "Save your work and close them, then run this again.")
-			fmt.Fprintln(out, "(If it is your desktop session, the display must run on the other GPU first.)")
+			if !usbOnly(devs) {
+				fmt.Fprintln(out, "(If it is your desktop session, the display must run on the other GPU first.)")
+			}
 		}
 		return err
 	}
-	fmt.Fprintf(out, `GPU test approval for: %s
+	if usbOnly(devs) {
+		fmt.Fprintf(out, `USB passthrough approval for: %s
+For the next %s, guests that ask for this device may take it from the host.
+
+  - While a guest holds it, programs on the host cannot reach it.
+  - The guest gets the device's raw USB traffic: it can send the device anything, including
+    commands that change its contents or update its firmware. Approve only a device you
+    accept may be changed.
+  - Nothing on the host is using it right now.
+
+Type "yes" to approve: `, strings.Join(devs, ", "), d)
+	} else {
+		fmt.Fprintf(out, `GPU test approval for: %s
 For the next %s, validation runs (Sarina's) may take this device away from the host.
 
   - While a run holds it, the host cannot use it. Anything using it fails or is killed.
@@ -125,6 +151,7 @@ For the next %s, validation runs (Sarina's) may take this device away from the h
     and close anything that draws on this GPU (games, video, compositors, AI models).
 
 Type "yes" to approve: `, strings.Join(devs, ", "), d)
+	}
 	line, _ := bufio.NewReader(in).ReadString('\n')
 	if strings.TrimSpace(line) != "yes" {
 		fmt.Fprintln(out, "not approved")

@@ -124,6 +124,28 @@ func TestHostdevOnlyWhenRequested(t *testing.T) {
 	}
 }
 
+func TestUSBHostdev(t *testing.T) {
+	out, err := DomainXML(parse(t, `"disposable":true,"devices":{"usb":["5059:4040"]},`), "/x.qcow2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(out)
+	if err := xml.Unmarshal(out, new(struct{ XMLName xml.Name })); err != nil {
+		t.Fatalf("not well-formed: %v", err)
+	}
+	for _, want := range []string{`<hostdev mode="subsystem" type="usb">`, `<vendor id="0x5059"></vendor>`, `<product id="0x4040"></product>`} {
+		if !strings.Contains(s, want) {
+			t.Errorf("missing %s in: %s", want, s)
+		}
+	}
+	if strings.Contains(s, "<address") || strings.Contains(s, `managed=`) {
+		t.Errorf("a USB hostdev has no PCI address and no managed attribute: %s", s)
+	}
+	if _, err := usbHostdev("5059:4040'/><x"); err == nil {
+		t.Error("a bad ID reached the XML")
+	}
+}
+
 func TestTheShareIsReadOnlyUnlessAskedOtherwise(t *testing.T) {
 	ro, _ := DomainXML(parse(t, `"exchange_dir":"/srv/limbo/lab",`), "/state/lab.overlay.qcow2")
 	if !strings.Contains(string(ro), "<readonly></readonly>") {

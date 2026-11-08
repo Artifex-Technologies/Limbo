@@ -265,7 +265,7 @@ func instanceCmd(args []string) error {
 	diskGB := fs.Int("disk-gb", 0, "set: disk size in GiB (grows only)")
 	shared := fs.String("shared-folder", "", "set: on|off")
 	clip := fs.String("clipboard", "", "set: off|text")
-	devices := fs.String("devices", "\x00", "set: comma-separated PCI addresses (from the manifest's own list; empty for none)")
+	devices := fs.String("devices", "\x00", "set: comma-separated PCI addresses or USB IDs (vendor:product), from the manifest's own list; empty for none")
 	network := fs.String("network", "", "set (root): none, internet-only, or allowlist (with --allow); from the guest's next start")
 	allow := fs.String("allow", "", "set --network allowlist: comma-separated ADDRESS[/BITS]:tcp|udp:PORT, e.g. 1.2.3.4:tcp:443")
 	owner := fs.String("owner", "", "add: the account that may change it without the password (default: the sudo user)")

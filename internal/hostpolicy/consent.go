@@ -100,13 +100,27 @@ func (p *Policy) CanApprove(devs []string) error {
 	if p.Blocked() {
 		return &RebootNeeded{}
 	}
-	if err := p.Check(&manifest.Manifest{Devices: manifest.Devices{PCI: devs}}); err != nil {
+	d := split(devs)
+	if err := p.Check(&manifest.Manifest{Devices: d}); err != nil {
 		return err
 	}
-	if who := p.busy(devs); len(who) > 0 {
+	if who := p.busy(d); len(who) > 0 {
 		return &Busy{Who: who}
 	}
 	return nil
+}
+
+// split sorts named devices into PCI addresses and USB IDs by their form (a USB ID is vendor:product, "5059:4040").
+func split(devs []string) manifest.Devices {
+	var d manifest.Devices
+	for _, x := range devs {
+		if manifest.USBRe.MatchString(x) {
+			d.USB = append(d.USB, x)
+		} else {
+			d.PCI = append(d.PCI, x)
+		}
+	}
+	return d
 }
 
 // Approve records a human's approval of devs for d, after the same checks as
@@ -170,7 +184,7 @@ func (p *Policy) block(why string) {
 // the host is using the devices. It returns *RebootNeeded, *NeedsApproval or
 // *Busy. A guest that asks for nothing is always ready.
 func (p *Policy) Ready(m *manifest.Manifest) error {
-	if len(m.Devices.PCI) == 0 {
+	if !m.Devices.Any() {
 		return nil
 	}
 	if p.Blocked() {
@@ -184,26 +198,47 @@ func (p *Policy) Ready(m *manifest.Manifest) error {
 	for _, d := range a.Devices {
 		have[d] = true
 	}
-	for _, d := range m.Devices.PCI {
+	for _, d := range m.Devices.All() {
 		if !have[d] {
 			return &NeedsApproval{}
 		}
 	}
-	if who := p.busy(m.Devices.PCI); len(who) > 0 {
+	if who := p.busy(m.Devices); len(who) > 0 {
 		return &Busy{Who: who}
 	}
 	return nil
 }
 
 // busy lists host processes holding open a device node that belongs to one of the
-// devices: its DRM nodes, the NVIDIA control nodes for an NVIDIA card, and the
-// sound card on an audio function. Detaching a device from under such a process
-// kills or wedges it, which is why a person is asked to close things first.
-func (p *Policy) busy(devs []string) []string {
+// devices: its DRM nodes, the NVIDIA control nodes for an NVIDIA card, the sound
+// card on an audio function, and a USB device's own node (/dev/bus/usb/BBB/DDD).
+// Detaching a device from under such a process kills or wedges it, which is why a
+// person is asked to close things first. A USB device whose interface a host
+// kernel driver holds (a USB stick's storage driver, say) counts as busy too: the
+// guest taking it would pull it from under that driver.
+func (p *Policy) busy(d manifest.Devices) []string {
 	root := p.root()
 	exact := map[string]bool{}
 	var prefix []string
-	for _, a := range devs {
+	var who []string
+	for _, id := range d.USB {
+		for _, dev := range usbDevices(root, id) {
+			dir := usbRel + "/" + dev
+			bus, _ := strconv.Atoi(readTrim(root, dir+"/busnum"))
+			num, _ := strconv.Atoi(readTrim(root, dir+"/devnum"))
+			exact[fmt.Sprintf("/dev/bus/usb/%03d/%03d", bus, num)] = true
+			ents, _ := fs.ReadDir(root, usbRel)
+			for _, e := range ents {
+				if !strings.HasPrefix(e.Name(), dev+":") {
+					continue
+				}
+				if drv := p.usbDriver(e.Name()); drv != "" && drv != "usbfs" {
+					who = append(who, "the host's "+drv+" driver")
+				}
+			}
+		}
+	}
+	for _, a := range d.PCI {
 		dev := pciRel + "/" + a
 		if ents, err := fs.ReadDir(root, dev+"/drm"); err == nil {
 			for _, e := range ents {
@@ -225,7 +260,6 @@ func (p *Policy) busy(devs []string) []string {
 	if open == nil {
 		open = scanProc
 	}
-	var who []string
 	for label, files := range open() {
 		for _, f := range files {
 			hit := exact[f]
@@ -272,6 +306,18 @@ func scanProc() map[string][]string {
 		out[strings.TrimSpace(string(comm))+" ("+pid+")"] = files
 	}
 	return out
+}
+
+// usbDriver names the host driver bound to a USB interface ("1-9:1.0"), "" if none.
+func (p *Policy) usbDriver(iface string) string {
+	if p.USBDriver != nil {
+		return p.USBDriver(iface)
+	}
+	t, err := os.Readlink("/sys/bus/usb/devices/" + iface + "/driver")
+	if err != nil {
+		return ""
+	}
+	return filepath.Base(t)
 }
 
 func (p *Policy) driver(addr string) string {

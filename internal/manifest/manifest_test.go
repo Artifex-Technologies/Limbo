@@ -44,6 +44,12 @@ func TestParseRejects(t *testing.T) {
 		{"pci bad address", `"app":`, `"disposable":true,"devices":{"pci":["03:00.0"]},"app":`, "PCI address"},
 		{"pci uppercase", `"app":`, `"disposable":true,"devices":{"pci":["0000:0A:00.0"]},"app":`, "PCI address"},
 		{"pci duplicate", `"app":`, `"disposable":true,"devices":{"pci":["0000:03:00.0","0000:03:00.0"]},"app":`, "twice"},
+		{"usb not disposable", `"app":`, `"devices":{"usb":["5059:4040"]},"app":`, "disposable Linux"},
+		{"usb windows", `"os":"linux"`, `"os":"windows","disposable":true,"devices":{"usb":["5059:4040"]}`, "disposable Linux"},
+		{"usb bad id", `"app":`, `"disposable":true,"devices":{"usb":["5059-4040"]},"app":`, "USB ID"},
+		{"usb uppercase", `"app":`, `"disposable":true,"devices":{"usb":["5059:40AB"]},"app":`, "USB ID"},
+		{"usb duplicate", `"app":`, `"disposable":true,"devices":{"usb":["5059:4040","5059:4040"]},"app":`, "twice"},
+		{"usb too many", `"app":`, `"disposable":true,"devices":{"usb":["5059:4040","5059:4080","0403:cc4c","0403:6001","1a86:7523"]},"app":`, "more than"},
 		{"pci too many", `"app":`, `"disposable":true,"devices":{"pci":["0000:03:00.0","0000:03:00.1","0000:04:00.0","0000:04:00.1","0000:05:00.0"]},"app":`, "more than"},
 	}
 	for _, tc := range tests {
@@ -72,7 +78,17 @@ func TestNoDevicesByDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(m.Devices.PCI) != 0 {
-		t.Fatalf("a manifest that names no devices got %v", m.Devices.PCI)
+	if m.Devices.Any() {
+		t.Fatalf("a manifest that names no devices got %v", m.Devices.All())
+	}
+}
+
+func TestUSBDevicesParse(t *testing.T) {
+	m, err := Parse([]byte(strings.Replace(good, `"app":`, `"disposable":true,"devices":{"usb":["5059:4040"]},"app":`, 1)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !m.Devices.Any() || len(m.Devices.USB) != 1 || m.Devices.All()[0] != "5059:4040" {
+		t.Fatalf("usb device not kept: %+v", m.Devices)
 	}
 }

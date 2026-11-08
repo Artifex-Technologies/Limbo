@@ -78,3 +78,28 @@ func TestApproveRefusesWhileDeviceInUse(t *testing.T) {
 		t.Fatalf("the person must be told what to close:\n%s", out)
 	}
 }
+
+func TestApproveUSBShowsItsOwnWarning(t *testing.T) {
+	fs := fstest.MapFS{
+		"etc/os-release":                              {Data: []byte("ID=labyrinth\n")},
+		"etc/limbo/host-policy.json":                  {Data: []byte(`{"usb_allow":["5059:4040"]}`)},
+		"sys/bus/usb/devices/1-9/idVendor":            {Data: []byte("5059\n")},
+		"sys/bus/usb/devices/1-9/idProduct":           {Data: []byte("4040\n")},
+		"sys/bus/usb/devices/1-9/bDeviceClass":        {Data: []byte("00\n")},
+		"sys/bus/usb/devices/1-9/busnum":              {Data: []byte("1\n")},
+		"sys/bus/usb/devices/1-9/devnum":              {Data: []byte("8\n")},
+		"sys/bus/usb/devices/1-9:1.0/bInterfaceClass": {Data: []byte("ff\n")},
+	}
+	p := &hostpolicy.Policy{Root: fs, StateDir: t.TempDir(), RunDir: t.TempDir(),
+		OpenFiles: func() map[string][]string { return nil }, USBDriver: func(string) string { return "" }}
+	var out bytes.Buffer
+	if err := passthrough([]string{"approve", "5059:4040"}, 30*time.Minute, p, &nopLog{}, strings.NewReader("yes\n"), &out, true, "me"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "USB passthrough approval") || !strings.Contains(out.String(), "firmware") || strings.Contains(out.String(), "GPU") {
+		t.Fatalf("the USB warning is not the one shown:\n%s", out.String())
+	}
+	if a := p.Approval(); a == nil || a.Devices[0] != "5059:4040" {
+		t.Fatalf("not approved: %+v", a)
+	}
+}

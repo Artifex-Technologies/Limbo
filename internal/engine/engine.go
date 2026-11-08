@@ -77,7 +77,7 @@ var ErrHardwareDenied = errors.New("engine: hardware passthrough denied")
 // CheckHardware applies the host policy to a guest's device request. A guest that
 // asks for nothing always passes; one that asks while no policy is set never does.
 func (e *Engine) CheckHardware(m *manifest.Manifest) error {
-	if len(m.Devices.PCI) == 0 {
+	if !m.Devices.Any() {
 		return nil
 	}
 	if e == nil || e.Hardware == nil { // nil Engine: `limbo doctor` scans profiles without one
@@ -92,7 +92,7 @@ func (e *Engine) CheckHardware(m *manifest.Manifest) error {
 // ReadyHardware asks whether handing the guest its devices right now is safe. The
 // error wraps the policy's own type (approval needed, device busy, reboot needed).
 func (e *Engine) ReadyHardware(m *manifest.Manifest) error {
-	if len(m.Devices.PCI) == 0 {
+	if !m.Devices.Any() {
 		return nil
 	}
 	if e == nil || e.Hardware == nil {
@@ -125,7 +125,7 @@ func (e *Engine) Up(ctx context.Context, m *manifest.Manifest) (err error) {
 	}
 	for _, check := range []func(*manifest.Manifest) error{e.CheckHardware, e.ReadyHardware} {
 		if err := check(m); err != nil {
-			_ = e.Events.Emit(events.GateBlocked, g, map[string]string{"reason": err.Error(), "pci": strings.Join(m.Devices.PCI, ",")})
+			_ = e.Events.Emit(events.GateBlocked, g, map[string]string{"reason": err.Error(), "pci": strings.Join(m.Devices.PCI, ","), "usb": strings.Join(m.Devices.USB, ",")})
 			return err
 		}
 	}
@@ -193,6 +193,9 @@ func (e *Engine) Up(ctx context.Context, m *manifest.Manifest) (err error) {
 	define := map[string]string{"os": m.OS, "network": m.Network.Mode}
 	if len(m.Devices.PCI) > 0 {
 		define["pci"] = strings.Join(m.Devices.PCI, ",") // additive: hardware handed to this guest
+	}
+	if len(m.Devices.USB) > 0 {
+		define["usb"] = strings.Join(m.Devices.USB, ",") // additive: USB devices handed to this guest (vendor:product)
 	}
 	if err := e.Events.Emit(events.GuestDefine, g, define); err != nil {
 		return err

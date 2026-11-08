@@ -81,20 +81,42 @@ type devices struct {
 	Hostdev    []hostdev `xml:"hostdev"`
 }
 
-// hostdev is a whole host PCI device given to the guest through VFIO. managed=yes
-// has libvirt unbind it from its host driver at start and rebind it at teardown.
+// hostdev is a whole host PCI device given to the guest through VFIO (managed=yes
+// has libvirt unbind it from its host driver at start and rebind it at teardown),
+// or a single host USB device named by vendor and product (QEMU claims it through
+// usbfs for the guest's lifetime; managed is not used for USB).
 type hostdev struct {
 	Mode    string `xml:"mode,attr"`
 	Type    string `xml:"type,attr"`
-	Managed string `xml:"managed,attr"`
+	Managed string `xml:"managed,attr,omitempty"`
 	Source  struct {
-		Address struct {
-			Domain   string `xml:"domain,attr"`
-			Bus      string `xml:"bus,attr"`
-			Slot     string `xml:"slot,attr"`
-			Function string `xml:"function,attr"`
-		} `xml:"address"`
+		Address *pciAddress `xml:"address"`
+		Vendor  *usbID      `xml:"vendor"`
+		Product *usbID      `xml:"product"`
 	} `xml:"source"`
+}
+
+type pciAddress struct {
+	Domain   string `xml:"domain,attr"`
+	Bus      string `xml:"bus,attr"`
+	Slot     string `xml:"slot,attr"`
+	Function string `xml:"function,attr"`
+}
+
+type usbID struct {
+	ID string `xml:"id,attr"`
+}
+
+// usbHostdev turns "5059:4040" into a hostdev. The ID was validated by the manifest; it is re-checked and re-split here
+// rather than spliced into the XML as one string.
+func usbHostdev(id string) (hostdev, error) {
+	var h hostdev
+	if !manifest.USBRe.MatchString(id) {
+		return h, fmt.Errorf("virt: bad USB ID %q", id)
+	}
+	h.Mode, h.Type = "subsystem", "usb"
+	h.Source.Vendor, h.Source.Product = &usbID{ID: "0x" + id[0:4]}, &usbID{ID: "0x" + id[5:9]}
+	return h, nil
 }
 
 // pciHostdev turns "0000:03:00.0" into a hostdev. The address was validated by the
@@ -107,8 +129,7 @@ func pciHostdev(addr string) (hostdev, error) {
 	}
 	dom, bus, slot, fn = addr[0:4], addr[5:7], addr[8:10], addr[11:12]
 	h.Mode, h.Type, h.Managed = "subsystem", "pci", "yes"
-	a := &h.Source.Address
-	a.Domain, a.Bus, a.Slot, a.Function = "0x"+dom, "0x"+bus, "0x"+slot, "0x"+fn
+	h.Source.Address = &pciAddress{Domain: "0x" + dom, Bus: "0x" + bus, Slot: "0x" + slot, Function: "0x" + fn}
 	return h, nil
 }
 
@@ -227,6 +248,13 @@ func DomainXML(m *manifest.Manifest, rootDisk string) ([]byte, error) {
 
 	for _, a := range m.Devices.PCI {
 		h, err := pciHostdev(a)
+		if err != nil {
+			return nil, err
+		}
+		d.Devices.Hostdev = append(d.Devices.Hostdev, h)
+	}
+	for _, id := range m.Devices.USB {
+		h, err := usbHostdev(id)
 		if err != nil {
 			return nil, err
 		}

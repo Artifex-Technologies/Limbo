@@ -113,7 +113,7 @@ type Overrides struct {
 	DiskGB       int       `json:"disk_gb,omitempty"`
 	SharedFolder string    `json:"shared_folder,omitempty"` // "", "off" or "on"
 	Clipboard    string    `json:"clipboard,omitempty"`
-	Devices      *[]string `json:"devices,omitempty"` // a subset of the manifest's devices.pci
+	Devices      *[]string `json:"devices,omitempty"` // a subset of the manifest's devices.pci and devices.usb
 	// Network replaces the manifest's network profile (none, internet-only, or allowlist with its destinations).
 	Network *manifest.Network `json:"network,omitempty"`
 }
@@ -279,6 +279,7 @@ func (s *Service) saveOverrides(name string, o Overrides) error {
 func (s *Service) Effective(e *Entry, o Overrides) (*manifest.Manifest, error) {
 	m := e.Manifest // copy
 	m.Devices.PCI = append([]string(nil), e.Manifest.Devices.PCI...)
+	m.Devices.USB = append([]string(nil), e.Manifest.Devices.USB...)
 	if o.CPUs > 0 {
 		m.CPUs = o.CPUs
 	}
@@ -301,7 +302,15 @@ func (s *Service) Effective(e *Entry, o Overrides) (*manifest.Manifest, error) {
 		m.Clipboard = o.Clipboard
 	}
 	if o.Devices != nil {
-		m.Devices.PCI = append([]string(nil), (*o.Devices)...)
+		// one list for both kinds; a USB ID (vendor:product) is told from a PCI address by its form
+		m.Devices.PCI, m.Devices.USB = nil, nil
+		for _, d := range *o.Devices {
+			if manifest.USBRe.MatchString(d) {
+				m.Devices.USB = append(m.Devices.USB, d)
+			} else {
+				m.Devices.PCI = append(m.Devices.PCI, d)
+			}
+		}
 	}
 	if o.Network != nil {
 		m.Network = manifest.Network{Mode: o.Network.Mode, Allow: append([]manifest.Allow(nil), o.Network.Allow...)}
@@ -340,7 +349,7 @@ func shared(m *manifest.Manifest) string {
 func (s *Service) view(m *manifest.Manifest, kind string, e *Entry, o Overrides, running map[string]bool, c Caller) View {
 	v := View{
 		Name: m.Name, Kind: kind, OS: m.OS, CPUs: m.CPUs, MemoryMB: m.MemoryMB, Network: m.Network.Mode,
-		SharedFolder: shared(m), Clipboard: m.Clipboard, Devices: append([]string{}, m.Devices.PCI...),
+		SharedFolder: shared(m), Clipboard: m.Clipboard, Devices: append([]string{}, m.Devices.All()...),
 		Disposable: m.Disposable, Overrides: o,
 	}
 	v.Running = running[virt.DomainName(m)]
@@ -369,7 +378,7 @@ func (s *Service) view(m *manifest.Manifest, kind string, e *Entry, o Overrides,
 			// What runs is the manifest it was started from; a newer change waits for the next start.
 			if cur, err := s.startedFrom(m.Name); err == nil {
 				v.Pending = cur.CPUs != m.CPUs || cur.MemoryMB != m.MemoryMB || cur.DiskGB != m.DiskGB ||
-					shared(cur) != shared(m) || cur.Clipboard != m.Clipboard || strings.Join(cur.Devices.PCI, ",") != strings.Join(m.Devices.PCI, ",")
+					shared(cur) != shared(m) || cur.Clipboard != m.Clipboard || strings.Join(cur.Devices.All(), ",") != strings.Join(m.Devices.All(), ",")
 			}
 		}
 	}
@@ -665,7 +674,7 @@ func (s *Service) Configure(ctx context.Context, name string, ch Change, c Calle
 	}
 	if ch.Devices != nil {
 		allowed := map[string]bool{}
-		for _, d := range e.Manifest.Devices.PCI {
+		for _, d := range e.Manifest.Devices.All() {
 			allowed[d] = true
 		}
 		seen := map[string]bool{}

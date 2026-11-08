@@ -85,7 +85,17 @@ type Devices struct {
 	// ("0000:03:00.0"). Meant for driver testing only: the guest gets direct DMA-capable
 	// access to the device, so it is limited to disposable Linux guests.
 	PCI []string `json:"pci"`
+	// USB lists single host USB devices passed through by vendor and product ID ("5059:4040"), for hardware whose maker
+	// ships only a Windows program (a vehicle tuner). The guest gets that device's raw USB traffic and nothing else. Owner's
+	// decision 2026-11-08: the same limits as PCI (disposable Linux guests only, the host's own list, a person's approval).
+	USB []string `json:"usb"`
 }
+
+// Any reports whether the guest asks for any host hardware at all.
+func (d Devices) Any() bool { return len(d.PCI)+len(d.USB) > 0 }
+
+// All lists every requested device, PCI addresses first, as the approval file records them.
+func (d Devices) All() []string { return append(append([]string(nil), d.PCI...), d.USB...) }
 
 // MaxDiskGB bounds disk_gb (4 TiB).
 const MaxDiskGB = 4096
@@ -93,7 +103,13 @@ const MaxDiskGB = 4096
 // maxPCI bounds how many devices one guest may take; a GPU and its audio function is the usual need.
 const maxPCI = 4
 
+// maxUSB bounds the USB devices one guest may take; a tuner and its cable is the usual need.
+const maxUSB = 4
+
 var pciRe = regexp.MustCompile(`^[0-9a-f]{4}:[0-9a-f]{2}:[0-1][0-9a-f]\.[0-7]$`)
+
+// USBRe is a USB vendor:product ID in lowercase hex ("5059:4040").
+var USBRe = regexp.MustCompile(`^[0-9a-f]{4}:[0-9a-f]{4}$`)
 
 // Image is the base disk. SHA256 is mandatory so a swapped or corrupted image
 // is caught before it boots, mirroring the checksum file the reference build
@@ -261,11 +277,27 @@ func (m *Manifest) Validate() error {
 }
 
 func (d Devices) validate(m *Manifest) error {
-	if len(d.PCI) == 0 {
+	if !d.Any() {
 		return nil
 	}
 	if !m.Disposable || m.OS != OSLinux {
+		if len(d.PCI) == 0 {
+			return fmt.Errorf("manifest: devices.usb requires a disposable Linux guest")
+		}
 		return fmt.Errorf("manifest: devices.pci requires a disposable Linux guest")
+	}
+	if len(d.USB) > maxUSB {
+		return fmt.Errorf("manifest: devices.usb lists more than %d devices", maxUSB)
+	}
+	seenUSB := map[string]bool{}
+	for _, id := range d.USB {
+		if !USBRe.MatchString(id) {
+			return fmt.Errorf("manifest: devices.usb %q is not a USB ID like 5059:4040 (vendor:product, lowercase hex)", id)
+		}
+		if seenUSB[id] {
+			return fmt.Errorf("manifest: devices.usb lists %q twice", id)
+		}
+		seenUSB[id] = true
 	}
 	if len(d.PCI) > maxPCI {
 		return fmt.Errorf("manifest: devices.pci lists more than %d devices", maxPCI)

@@ -304,7 +304,7 @@ func (m *Manager) start(ctx context.Context, profile, command string, bundle, sa
 	}
 	if kind == kindSample {
 		mf := p.Manifest
-		if !p.AllowSample || mf.Network.Mode != "none" || mf.Access.Sudo || mf.ExchangeDir != "" || len(mf.Devices.PCI) > 0 {
+		if !p.AllowSample || mf.Network.Mode != "none" || mf.Access.Sudo || mf.ExchangeDir != "" || mf.Devices.Any() {
 			return "", newErr(CodeProfileInvalid, "use a sealed profile with allow_sample (no network, no sudo, no shared folder, no devices)", "profile %q may not analyse samples", profile)
 		}
 		if _, ok := m.Exec.(SampleExecutor); !ok {
@@ -360,7 +360,7 @@ func (m *Manager) start(ctx context.Context, profile, command string, bundle, sa
 		return "", newErr(CodeBusy, "wait about a minute and retry", "%d validation runs are already in progress", maxConcurrent)
 	}
 	// A passed-through device belongs to one guest at a time.
-	for _, d := range p.Manifest.Devices.PCI {
+	for _, d := range p.Manifest.Devices.All() {
 		for _, held := range m.devHeld {
 			for _, h := range held {
 				if h == d {
@@ -372,11 +372,11 @@ func (m *Manager) start(ctx context.Context, profile, command string, bundle, sa
 	}
 	m.active++
 	id := newRunID()
-	if len(p.Manifest.Devices.PCI) > 0 {
+	if p.Manifest.Devices.Any() {
 		if m.devHeld == nil {
 			m.devHeld = map[string][]string{}
 		}
-		m.devHeld[id] = p.Manifest.Devices.PCI
+		m.devHeld[id] = p.Manifest.Devices.All()
 	}
 	res := &Result{ID: id, Profile: profile, Status: Running, Started: time.Now().UTC()}
 	m.results[id] = res
