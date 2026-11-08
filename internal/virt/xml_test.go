@@ -169,7 +169,7 @@ func TestWindowsGuestBootsItsInstallationCD(t *testing.T) {
 	}
 	x := string(b)
 	for _, want := range []string{
-		`<boot dev="hd"></boot>`, `<boot dev="cdrom"></boot>`,
+		`<boot order="1"></boot>`, `<boot order="2"></boot>`,
 		`<source file="/home/me/limbo-seeds/windows/win11.iso"></source>`,
 		`<target dev="sda" bus="sata"></target>`, `<target dev="sdb" bus="sata"></target>`, `<target dev="sdc" bus="sata"></target>`,
 		`<source file="/home/me/limbo-seeds/windows/seed.iso"></source>`,

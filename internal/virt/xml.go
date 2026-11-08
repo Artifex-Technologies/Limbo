@@ -55,7 +55,6 @@ type domain struct {
 			Machine string `xml:"machine,attr"`
 			Value   string `xml:",chardata"`
 		} `xml:"type"`
-		Boot []attrs `xml:"boot"`
 	} `xml:"os"`
 	Features struct {
 		ACPI   struct{} `xml:"acpi"`
@@ -140,7 +139,13 @@ type disk struct {
 	Driver   attrs     `xml:"driver"`
 	Source   attrs     `xml:"source"`
 	Target   attrs     `xml:"target"`
+	Boot     *bootAt   `xml:"boot"`
 	ReadOnly *struct{} `xml:"readonly"`
+}
+
+// bootAt is a device's place in the boot order.
+type bootAt struct {
+	Order int `xml:"order,attr"`
 }
 
 type iface struct {
@@ -219,8 +224,6 @@ func DomainXML(m *manifest.Manifest, rootDisk string) ([]byte, error) {
 		bus, nic = "sata", "e1000e"
 		d.Features.HyperV = &hyperV{Relaxed: attrs{State: "on"}}
 		d.Features.HyperV.Spinlocks.State, d.Features.HyperV.Spinlocks.Retries = "on", 8191
-		// The disk first; an empty disk falls through to the installation CD.
-		d.OS.Boot = []attrs{{Dev: "hd"}, {Dev: "cdrom"}}
 	}
 
 	root := disk{
@@ -228,6 +231,11 @@ func DomainXML(m *manifest.Manifest, rootDisk string) ([]byte, error) {
 		Driver: attrs{Name: "qemu", Type: "qcow2"},
 		Source: attrs{File: rootDisk},
 		Target: attrs{Dev: rootDev, Bus: bus},
+	}
+	if m.OS == manifest.OSWindows && m.Windows.ISO != "" {
+		// The disk first; an empty disk falls through to the installation CD by name (a per-device order: the
+		// firmware tries only the first CD drive for a plain "cdrom", and that is the seed CD).
+		root.Boot = &bootAt{Order: 1}
 	}
 	d.Devices.Disk = []disk{root}
 	if m.Provision.SeedISO != "" {
@@ -246,6 +254,7 @@ func DomainXML(m *manifest.Manifest, rootDisk string) ([]byte, error) {
 			Driver:   attrs{Name: "qemu", Type: "raw"},
 			Source:   attrs{File: m.Windows.ISO},
 			Target:   attrs{Dev: "sdc", Bus: "sata"},
+			Boot:     &bootAt{Order: 2},
 			ReadOnly: &struct{}{},
 		})
 	}
