@@ -78,7 +78,7 @@ func TestNoDevicesAlwaysPasses(t *testing.T) {
 }
 
 func TestChymaeraNeverAllowsEvenWhenListed(t *testing.T) {
-	for _, id := range []string{"chymaera", "niflheim"} {
+	for _, id := range []string{"lykanos", "niflheim", "chymaera"} {
 		h := newHost(t, id, gpu)
 		h.device(gpu, "0x030000", false, gpu)
 		denied(t, h.p.Check(guest(gpu)))
