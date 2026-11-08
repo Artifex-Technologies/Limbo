@@ -170,7 +170,8 @@ func TestWindowsGuestBootsItsInstallationCD(t *testing.T) {
 	x := string(b)
 	for _, want := range []string{
 		`<boot dev="hd"></boot>`, `<boot dev="cdrom"></boot>`,
-		`<source file="/home/me/limbo-seeds/windows/win11.iso"></source>`, `<target dev="sdb" bus="sata"></target>`,
+		`<source file="/home/me/limbo-seeds/windows/win11.iso"></source>`,
+		`<target dev="sda" bus="sata"></target>`, `<target dev="sdb" bus="sata"></target>`, `<target dev="sdc" bus="sata"></target>`,
 		`<source file="/home/me/limbo-seeds/windows/seed.iso"></source>`,
 		`<model type="vga"></model>`, `<model type="e1000e"></model>`,
 		`<vendor id="0x5059"></vendor>`,
@@ -178,6 +179,9 @@ func TestWindowsGuestBootsItsInstallationCD(t *testing.T) {
 		if !strings.Contains(x, want) {
 			t.Errorf("missing %s in\n%s", want, x)
 		}
+	}
+	if strings.Contains(x, `dev="vda"`) {
+		t.Error("a SATA disk named vda")
 	}
 	if strings.Contains(x, "<graphics") {
 		t.Error("a display was attached")

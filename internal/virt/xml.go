@@ -208,8 +208,12 @@ func DomainXML(m *manifest.Manifest, rootDisk string) ([]byte, error) {
 	d.CPU = attrs{Mode: "host-passthrough"}
 	d.OnPoweroff, d.OnReboot, d.OnCrash = "destroy", "restart", "destroy"
 
+	// Disk names follow the bus: libvirt places a SATA disk by its sdX letter, so a SATA disk named vda would take the
+	// first CD's place (seen the first time a Windows guest was defined, 2026-11-08).
 	bus, nic := "virtio", "virtio"
+	rootDev, seedDev := "vda", "sda"
 	if m.OS == manifest.OSWindows {
+		rootDev, seedDev = "sda", "sdb"
 		// A stock Windows install has no virtio drivers; sata/e1000e boot
 		// everywhere. Switch once a driver ISO is part of the flow.
 		bus, nic = "sata", "e1000e"
@@ -223,7 +227,7 @@ func DomainXML(m *manifest.Manifest, rootDisk string) ([]byte, error) {
 		Type: "file", Device: "disk",
 		Driver: attrs{Name: "qemu", Type: "qcow2"},
 		Source: attrs{File: rootDisk},
-		Target: attrs{Dev: "vda", Bus: bus},
+		Target: attrs{Dev: rootDev, Bus: bus},
 	}
 	d.Devices.Disk = []disk{root}
 	if m.Provision.SeedISO != "" {
@@ -231,7 +235,7 @@ func DomainXML(m *manifest.Manifest, rootDisk string) ([]byte, error) {
 			Type: "file", Device: "cdrom",
 			Driver:   attrs{Name: "qemu", Type: "raw"},
 			Source:   attrs{File: m.Provision.SeedISO},
-			Target:   attrs{Dev: "sda", Bus: "sata"},
+			Target:   attrs{Dev: seedDev, Bus: "sata"},
 			ReadOnly: &struct{}{},
 		})
 	}
@@ -241,7 +245,7 @@ func DomainXML(m *manifest.Manifest, rootDisk string) ([]byte, error) {
 			Type: "file", Device: "cdrom",
 			Driver:   attrs{Name: "qemu", Type: "raw"},
 			Source:   attrs{File: m.Windows.ISO},
-			Target:   attrs{Dev: "sdb", Bus: "sata"},
+			Target:   attrs{Dev: "sdc", Bus: "sata"},
 			ReadOnly: &struct{}{},
 		})
 	}
