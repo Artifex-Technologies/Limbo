@@ -180,7 +180,9 @@ The owner's decision (2026-11-08): hardware whose maker ships only a Windows pro
   guest's lifetime, so nothing has to be rebound afterwards (4.1's driver check after teardown is PCI only).
 - **Validation runs, instances, events** treat a USB ID like a PCI address: one guest at a time, never in a sealed sample
   analysis, a subset chosen in Settings, `usb` beside `pci` in `guest.define` and `gate.blocked`.
-- **Not done / unverified.** No USB device has been passed through for real yet; tests use a fake filesystem.
+- **Verified 2026-11-08 on the owner's machine:** the SCT X4 (`5059:4040`), listed in `usb_allow` and approved at the
+  terminal, went into a disposable Arch Linux guest (`limbo up`): the guest's `lsusb` shows it, the host keeps no claim.
+  Not yet seen: a device going back to a host program after teardown (nothing needs rebinding, but it is unobserved).
 
 ## 5. Sandbox model
 

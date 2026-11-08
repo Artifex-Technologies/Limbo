@@ -116,7 +116,7 @@ Commit per logical section, with the Co-Authored-By trailer.
   **USB passthrough** (owner's decision, 2026-11-08, for vehicle tuners whose maker ships only a Windows program):
   `manifest.devices.usb` (vendor:product IDs), the same limits as PCI: disposable Linux guests, `usb_allow` in the same
   root-owned file, LykanOS hard-refused, a typed approval per window, refused while a host process or kernel driver uses
-  the device. Never a route on `agent.sock`/`control.sock`. Unverified until a real device has been passed through. Labyrinth
+  the device. Never a route on `agent.sock`/`control.sock`. First real run 2026-11-08: the SCT X4 seen in a disposable Arch guest. Labyrinth
   (CachyOS-based) ships `ID=labyrinth` in its os-release, which `internal/hostpolicy` relies on.
 - **Write our own implementations of what the references do.** Owner's
   decision (2026-10-04): the references are for ideas, not code. Limbo is MPL-2.0
