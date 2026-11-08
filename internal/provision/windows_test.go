@@ -44,7 +44,7 @@ func TestWindowsAnswerFile(t *testing.T) {
 		t.Error("the password went in unescaped")
 	}
 	s := string(files[SetupScript])
-	for _, want := range []string{"OpenSSH.Server", "administrators_authorized_keys", "fDisabledAllowList", "shutdown /s", "C:\\limbo-setup.done"} {
+	for _, want := range []string{"OpenSSH.Server", "administrators_authorized_keys", "fDisabledAllowList", "shutdown /s", "C:\\limbo-setup.done", "-Profile Any -Enabled True"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("setup script lacks %s", want)
 		}

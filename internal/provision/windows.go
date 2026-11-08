@@ -273,9 +273,12 @@ foreach ($f in 'ssh_host_ed25519_key', 'administrators_authorized_keys') {
   icacls (Join-Path $ssh $f) /inheritance:r /grant '*S-1-5-32-544:F' /grant '*S-1-5-18:F'
 }
 New-ItemProperty -Path HKLM:\SOFTWARE\OpenSSH -Name DefaultShell -Value 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe' -PropertyType String -Force | Out-Null
+# every network profile: a guest started from the finished image has a new network card address, so Windows sees a new
+# network, calls it Public, and a rule for Private only would drop Limbo's connections (seen 2026-11-08)
 if (-not (Get-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -ErrorAction SilentlyContinue)) {
-  New-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -DisplayName 'OpenSSH Server (sshd)' -Enabled True -Direction Inbound -Protocol TCP -LocalPort 22 -Action Allow | Out-Null
+  New-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -DisplayName 'OpenSSH Server (sshd)' -Enabled True -Direction Inbound -Protocol TCP -LocalPort 22 -Action Allow -Profile Any | Out-Null
 }
+Set-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -Profile Any -Enabled True
 Set-Service -Name sshd -StartupType Automatic
 Start-Service sshd
 Write-Output "sshd: $((Get-Service sshd).Status)"
