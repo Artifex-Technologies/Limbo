@@ -10,6 +10,7 @@
 //	limbo address  <manifest>     print the guest's address (given at up)
 //	limbo export   <manifest> <out.qcow2>   a stopped guest's disk as one standalone base image, with its SHA-256 (root)
 //	limbo screenshot <manifest> <out.ppm>   what the guest's screen shows (Windows guests; root)
+//	limbo capture [--seconds N] <manifest> <out.pcap>   the guest's USB devices' traffic, for Wireshark (root)
 //
 //	limbo serve                   run the control API: admin, control and agent sockets (Linux, root)
 //	limbo quarantine ...          list / show / restrict / verdict / close (admin socket; needs sudo)
@@ -26,6 +27,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"errors"
@@ -33,10 +35,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/Artifex-Technologies/Limbo/internal/api"
@@ -53,6 +57,7 @@ import (
 	"github.com/Artifex-Technologies/Limbo/internal/provision"
 	"github.com/Artifex-Technologies/Limbo/internal/quarantine"
 	"github.com/Artifex-Technologies/Limbo/internal/runner"
+	"github.com/Artifex-Technologies/Limbo/internal/usbcap"
 	"github.com/Artifex-Technologies/Limbo/internal/virt"
 )
 
@@ -70,7 +75,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: limbo <validate|plan|seed|up|launch|down|address|export|screenshot|version> <manifest> [args] | limbo serve | limbo quarantine ... | limbo report | limbo doctor | limbo setup | limbo passthrough ... | limbo analyze FILE | limbo settings|instance|license|exchange ...")
+		return errors.New("usage: limbo <validate|plan|seed|up|launch|down|address|export|screenshot|capture|version> <manifest> [args] | limbo serve | limbo quarantine ... | limbo report | limbo doctor | limbo setup | limbo passthrough ... | limbo analyze FILE | limbo settings|instance|license|exchange ...")
 	}
 	cmd, rest := args[0], args[1:]
 	switch cmd {
@@ -107,6 +112,7 @@ func run(args []string) error {
 	state := fs.String("state-dir", defaultStateDir(), "directory for event log and generated definitions")
 	iso := fs.String("iso", "", "seed: also build the seed CD at this path: cloud-init for Linux, the answer file for Windows (needs xorriso)")
 	iKnow := fs.Bool("i-know", false, "as root, allow a state folder other than the daemon's")
+	seconds := fs.Int("seconds", 120, "capture: how long to record (at most 3600)")
 	check := fs.Bool("check", false, "launch: run every check (hold, address, pinned key, ssh, the app and waypipe in the guest, waypipe and a display here) without opening a window")
 	identity := fs.String("identity", "", "launch: the ssh private key to use (default: your ssh defaults)")
 	if err := fs.Parse(rest); err != nil {
@@ -133,6 +139,14 @@ func run(args []string) error {
 		return seed(m, fs.Arg(1), *iso)
 	case "address":
 		return address(m, *state)
+	case "capture":
+		if fs.NArg() != 2 {
+			return errors.New("capture: manifest and output path required")
+		}
+		if geteuid() != 0 {
+			return errors.New("capture: must run as root (usbmon is root's)")
+		}
+		return capture(m, fs.Arg(1), *seconds)
 	case "export", "screenshot":
 		if fs.NArg() != 2 {
 			return fmt.Errorf("%s: manifest and output path required", cmd)
@@ -433,6 +447,48 @@ func screenshot(ctx context.Context, m *manifest.Manifest, out string) error {
 	giveToSudoUser(out)
 	fmt.Printf("wrote %s\n", out)
 	return nil
+}
+
+// capture records the guest's passed-through USB devices' traffic (package usbcap) into a pcap file Wireshark opens, for
+// the given seconds or until Ctrl+C: how a maker's program talking to its device in a guest is learned. Only those
+// devices' events are written; anything else on their bus is not.
+func capture(m *manifest.Manifest, out string, seconds int) error {
+	if len(m.Devices.USB) == 0 {
+		return fmt.Errorf("capture: %s's manifest names no USB device", m.Name)
+	}
+	if out == "" || !filepath.IsAbs(out) {
+		return errors.New("capture: the output file needs an absolute path")
+	}
+	if seconds < 1 || seconds > 3600 {
+		return errors.New("capture: --seconds must be 1 to 3600")
+	}
+	devs, err := usbcap.Find(nil, m.Devices.USB)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(fmt.Sprintf("/dev/usbmon%d", devs[0].Bus)); err != nil {
+		_ = exec.Command("modprobe", "usbmon").Run()
+	}
+	f, err := os.OpenFile(out, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	giveToSudoUser(out)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	ctx, cancel := context.WithTimeout(ctx, time.Duration(seconds)*time.Second)
+	defer cancel()
+	for _, d := range devs {
+		fmt.Fprintf(os.Stderr, "recording %s (bus %d, device %d) for %d s (Ctrl+C stops)...\n", d.ID, d.Bus, d.Dev, seconds)
+	}
+	w := bufio.NewWriter(f)
+	n, err := usbcap.Capture(ctx, devs, w)
+	if ferr := w.Flush(); err == nil {
+		err = ferr
+	}
+	fmt.Printf("%d events written to %s\n", n, out)
+	return err
 }
 
 // giveToSudoUser hands a file root made to the person who ran sudo, so they can open it.

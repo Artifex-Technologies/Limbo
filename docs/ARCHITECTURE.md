@@ -189,6 +189,11 @@ The owner's decision (2026-11-08): hardware whose maker ships only a Windows pro
 - **Windows guests too (2026-11-08).** A disposable Windows guest may take a USB device, for makers' programs that need
   their own Windows kernel driver (the SCT X4's Jungo WinDriver; Wine loads no Windows kernel drivers). PCI devices still
   go to disposable Linux guests only.
+- **Recording the conversation (2026-11-08).** `sudo limbo capture [--seconds N] GUEST.json OUT.pcap` records the
+  manifest's USB devices' traffic into a pcap file Wireshark opens (`internal/usbcap`): usbmon's binary interface for the
+  device's bus (the text one keeps only 32 bytes of each transfer), only that device's events written (a keyboard on the
+  same bus is read by the kernel interface and dropped), usbmon's own 64-byte header per record (LINKTYPE 220). That is
+  how a maker's program in a guest teaching its device is learned, for Icarus's own driver.
 - **The guest.** libvirt `<hostdev type='usb'>` by vendor and product; QEMU claims the device through usbfs for the
   guest's lifetime, so nothing has to be rebound afterwards (4.1's driver check after teardown is PCI only).
 - **Validation runs, instances, events** treat a USB ID like a PCI address: one guest at a time, never in a sealed sample
