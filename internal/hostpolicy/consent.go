@@ -180,7 +180,8 @@ func (p *Policy) block(why string) {
 }
 
 // Ready says whether handing the guest its devices right now is safe: no earlier
-// run left a device in a bad state, a human approved this window, and nothing on
+// run left a device in a bad state, a human approved this window (or, for a USB
+// device, gave it a standing approval in the host policy: Standing), and nothing on
 // the host is using the devices. It returns *RebootNeeded, *NeedsApproval or
 // *Busy. A guest that asks for nothing is always ready.
 func (p *Policy) Ready(m *manifest.Manifest) error {
@@ -190,12 +191,14 @@ func (p *Policy) Ready(m *manifest.Manifest) error {
 	if p.Blocked() {
 		return &RebootNeeded{}
 	}
-	a := p.Approval()
-	if a == nil {
-		return &NeedsApproval{}
-	}
 	have := map[string]bool{}
-	for _, d := range a.Devices {
+	if a := p.Approval(); a != nil {
+		for _, d := range a.Devices {
+			have[d] = true
+		}
+	}
+	standing, _ := p.Standing()
+	for _, d := range standing {
 		have[d] = true
 	}
 	for _, d := range m.Devices.All() {

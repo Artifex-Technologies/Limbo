@@ -71,6 +71,46 @@ type Config struct {
 	PCIAllow []string `json:"pci_allow"`
 	// USBAllow lists the only USB devices (vendor:product, "5059:4040") that may ever be passed through on this host.
 	USBAllow []string `json:"usb_allow"`
+	// USBStanding lists USB devices approved for as long as they stay listed here, with no time window: by writing this
+	// root-only file a person decided the device may go to a guest whenever one asks (the owner's decision, 2026-11-08,
+	// for the SCT X4 and Icarus). Each must also be on usb_allow, and every other check still applies each time (plugged
+	// in once, not a hub, not in use on the host). PCI devices always need a time-limited approval.
+	USBStanding []string `json:"usb_standing"`
+}
+
+// config reads the host policy file. Any read or parse error is a refusal for the caller to report.
+func (p *Policy) config() (*Config, error) {
+	b, err := fs.ReadFile(p.root(), configRel)
+	if err != nil {
+		return nil, deny("the host has no passthrough device list")
+	}
+	var cfg Config
+	if err := json.Unmarshal(b, &cfg); err != nil {
+		return nil, deny("the host's passthrough device list is unreadable")
+	}
+	return &cfg, nil
+}
+
+// Standing returns the USB devices with a standing approval: listed in usb_standing, well formed and on usb_allow.
+// Ignored lists usb_standing entries that are not (shown by `limbo passthrough status`, never honoured).
+func (p *Policy) Standing() (standing, ignored []string) {
+	cfg, err := p.config()
+	if err != nil {
+		return nil, nil
+	}
+	allowed := map[string]bool{}
+	for _, a := range cfg.USBAllow {
+		allowed[strings.ToLower(a)] = true
+	}
+	for _, s := range cfg.USBStanding {
+		id := strings.ToLower(s)
+		if manifest.USBRe.MatchString(id) && allowed[id] {
+			standing = append(standing, id)
+		} else {
+			ignored = append(ignored, s)
+		}
+	}
+	return standing, ignored
 }
 
 // Policy checks guests against the host. The zero value uses the real host.
@@ -143,13 +183,9 @@ func (p *Policy) Check(m *manifest.Manifest) error {
 		return deny("this host's OS does not allow hardware passthrough")
 	}
 
-	b, err := fs.ReadFile(root, configRel)
+	cfg, err := p.config()
 	if err != nil {
-		return deny("the host has no passthrough device list")
-	}
-	var cfg Config
-	if err := json.Unmarshal(b, &cfg); err != nil {
-		return deny("the host's passthrough device list is unreadable")
+		return err
 	}
 	allowed := map[string]bool{}
 	for _, a := range cfg.PCIAllow {

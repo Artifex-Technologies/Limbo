@@ -384,3 +384,49 @@ func TestUSBBusy(t *testing.T) {
 		t.Fatalf("usbfs (a program's claim through libusb) is not a host driver: %v", err)
 	}
 }
+
+func TestUSBStandingApproval(t *testing.T) {
+	h, drv := usbHost(t, "labyrinth", x4)
+	h.file("etc/limbo/host-policy.json", `{"usb_allow":["5059:4040"],"usb_standing":["5059:4040","0403:cc4c","0000:03:00.0"]}`)
+	h.usb("1-9", x4, "00", 1, 8)
+	if err := h.p.Ready(usbGuest(x4)); err != nil {
+		t.Fatalf("a standing approval did not count: %v", err)
+	}
+	h.now = h.now.Add(400 * 24 * time.Hour)
+	if err := h.p.Ready(usbGuest(x4)); err != nil {
+		t.Fatalf("a standing approval expired: %v", err)
+	}
+	standing, ignored := h.p.Standing()
+	if strings.Join(standing, ",") != x4 || strings.Join(ignored, ",") != "0403:cc4c,0000:03:00.0" {
+		t.Fatalf("standing %v, ignored %v: only USB IDs on usb_allow count", standing, ignored)
+	}
+	var na *NeedsApproval
+	h.usb("1-4", "0403:cc4c", "00", 1, 3)
+	if err := h.p.Ready(usbGuest("0403:cc4c")); !errors.As(err, &na) {
+		t.Fatalf("a device standing but not on usb_allow was approved: %v", err)
+	}
+	if err := h.p.Ready(usbGuest(x4, "0403:cc4c")); !errors.As(err, &na) {
+		t.Fatalf("one standing device approved a guest asking for another too: %v", err)
+	}
+	var busy *Busy
+	drv["1-9:1.0"] = "usb-storage"
+	if err := h.p.Ready(usbGuest(x4)); !errors.As(err, &busy) {
+		t.Fatalf("a standing approval skipped the in-use check: %v", err)
+	}
+	delete(drv, "1-9:1.0")
+	h.p.block("test")
+	var rb *RebootNeeded
+	if err := h.p.Ready(usbGuest(x4)); !errors.As(err, &rb) {
+		t.Fatalf("a standing approval skipped the reboot-needed marker: %v", err)
+	}
+}
+
+func TestStandingNeverCoversPCI(t *testing.T) {
+	h := newHost(t, "labyrinth", gpu)
+	h.file("etc/limbo/host-policy.json", `{"pci_allow":["`+gpu+`"],"usb_allow":[],"usb_standing":["`+gpu+`"]}`)
+	h.device(gpu, "0x030000", false, gpu)
+	var na *NeedsApproval
+	if err := h.p.Ready(guest(gpu)); !errors.As(err, &na) {
+		t.Fatalf("a PCI device got a standing approval: %v", err)
+	}
+}

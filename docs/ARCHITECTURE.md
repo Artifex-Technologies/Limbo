@@ -176,6 +176,16 @@ The owner's decision (2026-11-08): hardware whose maker ships only a Windows pro
   the guest can send the device anything, firmware updates included. Refused while a host process holds the device's node
   (`/dev/bus/usb/BBB/DDD`) or a host kernel driver holds one of its interfaces (a USB stick's storage driver, say); `usbfs`
   (a program's own libusb claim) shows up as that program instead.
+- **Standing approval** (the owner's decision, 2026-11-08: "There are no malicious concerns with the SCT, so it can be
+  enabled as long as needed for Icarus"). A USB ID listed in `usb_standing` of the host policy, and on `usb_allow`, is
+  approved with no time window, for as long as it stays listed. Only a person can write that root-owned file, so it is the
+  same kind of decision as a typed approval, made once. Every other check still runs on each start (plugged in once, not a
+  hub, not in use on the host, no reboot-needed marker). PCI devices never get one: a GPU's window stays at most 2 h.
+  `limbo passthrough status` shows standing approvals, and entries it ignores (not a USB ID, or not on `usb_allow`).
+
+  ```json
+  { "usb_allow": ["5059:4040"], "usb_standing": ["5059:4040"] }
+  ```
 - **The guest.** libvirt `<hostdev type='usb'>` by vendor and product; QEMU claims the device through usbfs for the
   guest's lifetime, so nothing has to be rebound afterwards (4.1's driver check after teardown is PCI only).
 - **Validation runs, instances, events** treat a USB ID like a PCI address: one guest at a time, never in a sealed sample

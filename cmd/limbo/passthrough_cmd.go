@@ -64,7 +64,14 @@ func passthrough(pos []string, d time.Duration, p *hostpolicy.Policy, log interf
 		if a := p.Approval(); a != nil {
 			fmt.Fprintf(out, "approved: %s until %s (by %s)\n", strings.Join(a.Devices, ", "), a.Expires.Local().Format(time.RFC3339), a.By)
 		} else {
-			fmt.Fprintln(out, "approved: nothing (guests asking for a device are refused)")
+			fmt.Fprintln(out, "approved: nothing for now")
+		}
+		standing, ignored := p.Standing()
+		if len(standing) > 0 {
+			fmt.Fprintf(out, "standing approval: %s (usb_standing in /etc/limbo/host-policy.json; lasts until removed there)\n", strings.Join(standing, ", "))
+		}
+		if len(ignored) > 0 {
+			fmt.Fprintf(out, "ignored in usb_standing: %s (not a USB ID on usb_allow)\n", strings.Join(ignored, ", "))
 		}
 		if p.Blocked() {
 			fmt.Fprintln(out, "BLOCKED: an earlier run left a device unusable; reboot the host (or 'limbo passthrough clear' once you have recovered it)")
