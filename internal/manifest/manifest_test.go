@@ -44,8 +44,8 @@ func TestParseRejects(t *testing.T) {
 		{"pci bad address", `"app":`, `"disposable":true,"devices":{"pci":["03:00.0"]},"app":`, "PCI address"},
 		{"pci uppercase", `"app":`, `"disposable":true,"devices":{"pci":["0000:0A:00.0"]},"app":`, "PCI address"},
 		{"pci duplicate", `"app":`, `"disposable":true,"devices":{"pci":["0000:03:00.0","0000:03:00.0"]},"app":`, "twice"},
-		{"usb not disposable", `"app":`, `"devices":{"usb":["5059:4040"]},"app":`, "disposable Linux"},
-		{"usb windows", `"os":"linux"`, `"os":"windows","disposable":true,"devices":{"usb":["5059:4040"]}`, "disposable Linux"},
+		{"usb not disposable", `"app":`, `"devices":{"usb":["5059:4040"]},"app":`, "requires a disposable guest"},
+		{"usb windows not disposable", `"os":"linux"`, `"os":"windows","devices":{"usb":["5059:4040"]}`, "requires a disposable guest"},
 		{"usb bad id", `"app":`, `"disposable":true,"devices":{"usb":["5059-4040"]},"app":`, "USB ID"},
 		{"usb uppercase", `"app":`, `"disposable":true,"devices":{"usb":["5059:40AB"]},"app":`, "USB ID"},
 		{"usb duplicate", `"app":`, `"disposable":true,"devices":{"usb":["5059:4040","5059:4040"]},"app":`, "twice"},
@@ -90,5 +90,22 @@ func TestUSBDevicesParse(t *testing.T) {
 	}
 	if !m.Devices.Any() || len(m.Devices.USB) != 1 || m.Devices.All()[0] != "5059:4040" {
 		t.Fatalf("usb device not kept: %+v", m.Devices)
+	}
+}
+
+// A disposable Windows guest may take a USB device (a tuner whose maker's program needs its own Windows driver); a GPU
+// still goes to Linux guests only.
+func TestUSBDevicesInADisposableWindowsGuest(t *testing.T) {
+	win := strings.Replace(good, `"os":"linux"`, `"os":"windows","disposable":true,"devices":{"usb":["5059:4040"]}`, 1)
+	m, err := Parse([]byte(win))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.OS != OSWindows || len(m.Devices.USB) != 1 {
+		t.Fatalf("not kept: %+v", m)
+	}
+	both := strings.Replace(good, `"os":"linux"`, `"os":"windows","disposable":true,"devices":{"usb":["5059:4040"],"pci":["0000:03:00.0"]}`, 1)
+	if _, err := Parse([]byte(both)); err == nil || !strings.Contains(err.Error(), "devices.pci requires a disposable Linux guest") {
+		t.Fatalf("a GPU went to a Windows guest: %v", err)
 	}
 }

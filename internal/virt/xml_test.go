@@ -156,3 +156,36 @@ func TestTheShareIsReadOnlyUnlessAskedOtherwise(t *testing.T) {
 		t.Errorf("exchange_writable must leave it writable:\n%s", rw)
 	}
 }
+
+func TestWindowsGuestBootsItsInstallationCD(t *testing.T) {
+	m := &manifest.Manifest{Name: "win", OS: manifest.OSWindows, CPUs: 4, MemoryMB: 8192, Disposable: true,
+		Network: manifest.Network{Mode: manifest.NetInternetOnly}}
+	m.Windows.ISO = "/home/me/limbo-seeds/windows/win11.iso"
+	m.Provision.SeedISO = "/home/me/limbo-seeds/windows/seed.iso"
+	m.Devices.USB = []string{"5059:4040"}
+	b, err := DomainXML(m, "/var/lib/limbo/state/win.qcow2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	x := string(b)
+	for _, want := range []string{
+		`<boot dev="hd"></boot>`, `<boot dev="cdrom"></boot>`,
+		`<source file="/home/me/limbo-seeds/windows/win11.iso"></source>`, `<target dev="sdb" bus="sata"></target>`,
+		`<source file="/home/me/limbo-seeds/windows/seed.iso"></source>`,
+		`<model type="vga"></model>`, `<model type="e1000e"></model>`,
+		`<vendor id="0x5059"></vendor>`,
+	} {
+		if !strings.Contains(x, want) {
+			t.Errorf("missing %s in\n%s", want, x)
+		}
+	}
+	if strings.Contains(x, "<graphics") {
+		t.Error("a display was attached")
+	}
+	// a Linux guest is unchanged: no boot order, no display adapter
+	l := &manifest.Manifest{Name: "lin", OS: manifest.OSLinux, CPUs: 2, MemoryMB: 2048}
+	lb, _ := DomainXML(l, "/x.qcow2")
+	if strings.Contains(string(lb), "<boot") || !strings.Contains(string(lb), `<model type="none"></model>`) {
+		t.Errorf("Linux guest changed:\n%s", lb)
+	}
+}

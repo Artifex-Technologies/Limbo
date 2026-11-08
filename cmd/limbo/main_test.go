@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestRootUsesTheDaemonsStateFolder(t *testing.T) {
 	defer func(f func() int) { geteuid = f }(geteuid)
@@ -40,5 +43,22 @@ func TestNetworkChangeReadsAllowEntries(t *testing.T) {
 	}
 	if n, _ := networkChange("none", ""); len(n["allow"].([]map[string]any)) != 0 {
 		t.Fatal("no destinations for none")
+	}
+}
+
+func TestWindowsPasswords(t *testing.T) {
+	seen := map[string]bool{}
+	for i := 0; i < 50; i++ {
+		p := newPassword()
+		if len(p) != 20 || strings.ContainsAny(p, "0O1lI") {
+			t.Fatalf("bad password %q", p)
+		}
+		if !strings.ContainsAny(p[:1], "abcdefghijkmnopqrstuvwxyz") || !strings.ContainsAny(p[1:2], "ABCDEFGHJKLMNPQRSTUVWXYZ") || !strings.ContainsAny(p[2:3], "23456789") {
+			t.Fatalf("missing a kind of character: %q", p)
+		}
+		if seen[p] {
+			t.Fatal("the same password twice")
+		}
+		seen[p] = true
 	}
 }

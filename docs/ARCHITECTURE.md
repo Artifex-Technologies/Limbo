@@ -168,7 +168,7 @@ The owner's decision (2026-11-08): hardware whose maker ships only a Windows pro
 `5059:4040`) is reached from a guest, never from the host. The same safeguards as 4.1:
 
 - **Request vs grant.** A profile asks with `manifest.devices.usb`, vendor:product IDs in lowercase hex, at most four,
-  disposable Linux guests only. The host decides (`internal/hostpolicy`): LykanOS refuses (hard-coded), Labyrinth allows
+  disposable guests only (Linux, and Windows since 2026-11-08). The host decides (`internal/hostpolicy`): LykanOS refuses (hard-coded), Labyrinth allows
   only IDs listed in `usb_allow` of the root-owned host policy, any other OS refuses.
 - **Per-device checks.** The device must be plugged in exactly once (two with the same ID: which one the guest would get
   is a guess, so refused) and must not be a hub (it would take everything behind it along).
@@ -186,6 +186,9 @@ The owner's decision (2026-11-08): hardware whose maker ships only a Windows pro
   ```json
   { "usb_allow": ["5059:4040"], "usb_standing": ["5059:4040"] }
   ```
+- **Windows guests too (2026-11-08).** A disposable Windows guest may take a USB device, for makers' programs that need
+  their own Windows kernel driver (the SCT X4's Jungo WinDriver; Wine loads no Windows kernel drivers). PCI devices still
+  go to disposable Linux guests only.
 - **The guest.** libvirt `<hostdev type='usb'>` by vendor and product; QEMU claims the device through usbfs for the
   guest's lifetime, so nothing has to be rebound afterwards (4.1's driver check after teardown is PCI only).
 - **Validation runs, instances, events** treat a USB ID like a PCI address: one guest at a time, never in a sealed sample
@@ -259,6 +262,25 @@ and product key/license that the user points Limbo at; if absent, `limbo`
 reports "Windows guest not configured" and does nothing else. Windows-specific
 code is written but cannot be exercised end to end until the user provides
 those, and it will be labelled **unverified** until then.
+
+**The installer (2026-11-08).** The owner chose a Windows guest for a vehicle tuner whose maker's program needs its
+own Windows kernel driver, which Wine cannot load (the SCT X4: Jungo WinDriver), starting with Microsoft's 90-day
+evaluation of Windows 11 Enterprise LTSC (downloaded by the owner's choice; Limbo still downloads nothing) and a bought
+license later. The path:
+
+1. `limbo seed WIN.json DIR --iso SEED.iso` writes the unattended answer file and a first-logon script
+   (`internal/provision/windows.go`) onto a small CD: the whole disk as one partition, Windows 11's TPM, Secure Boot and
+   memory checks skipped (SeaBIOS, no TPM: a lab guest, not a supported configuration), a local administrator
+   (`access.user`) with a password made once and kept in `DIR/windows-password`, no Microsoft account or online
+   screens, Remote Desktop with RemoteApp for any program, Windows' own OpenSSH server with Limbo's key and a host key
+   made on the host (pinned in the manifest, as for Linux guests). A license assigned to the guest in Limbo's store goes
+   into the answer file when seed runs as root; without one Windows installs keyless (an evaluation edition).
+2. A persistent Windows instance whose base image is an empty disk, with `windows.iso` (attached as a second CD; the
+   guest boots the disk first, so an empty disk falls through to it) and the seed CD: `limbo up` installs Windows,
+   and the script shuts the guest down when it is done. `limbo screenshot` shows its screen meanwhile (Windows guests
+   get a VGA adapter with no display attached; Linux guests still get none).
+3. `limbo down`, then `limbo export WIN.json OUT.qcow2`: the installed disk as one standalone base image, with the
+   SHA-256 for manifests. Disposable Windows guests start from it.
 
 ## 7. Components
 

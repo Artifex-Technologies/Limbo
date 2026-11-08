@@ -2,11 +2,14 @@
 //
 //	limbo validate <manifest>     check a manifest
 //	limbo plan     <manifest>     print everything `up` would apply; changes nothing
-//	limbo seed     <manifest> <dir>   write cloud-init user-data/meta-data (Linux guests)
+//	limbo seed     <manifest> <dir> [--iso F]   Linux: cloud-init user-data/meta-data; Windows: the unattended answer
+//	                              file and first-logon script (a CD for the guest with --iso)
 //	limbo up       <manifest>     verify, configure firewall, start the guest (Linux host, root)
 //	limbo launch   <manifest>     show the guest's application as a host window (--check: every check, no window)
 //	limbo down     <manifest>     stop the guest and remove its network and firewall table
 //	limbo address  <manifest>     print the guest's address (given at up)
+//	limbo export   <manifest> <out.qcow2>   a stopped guest's disk as one standalone base image, with its SHA-256 (root)
+//	limbo screenshot <manifest> <out.ppm>   what the guest's screen shows (Windows guests; root)
 //
 //	limbo serve                   run the control API: admin, control and agent sockets (Linux, root)
 //	limbo quarantine ...          list / show / restrict / verdict / close (admin socket; needs sudo)
@@ -24,6 +27,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"flag"
 	"fmt"
@@ -31,6 +35,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,6 +44,7 @@ import (
 	"github.com/Artifex-Technologies/Limbo/internal/events"
 	"github.com/Artifex-Technologies/Limbo/internal/hostfw"
 	"github.com/Artifex-Technologies/Limbo/internal/hostpolicy"
+	"github.com/Artifex-Technologies/Limbo/internal/image"
 	"github.com/Artifex-Technologies/Limbo/internal/instances"
 	"github.com/Artifex-Technologies/Limbo/internal/launch"
 	"github.com/Artifex-Technologies/Limbo/internal/license"
@@ -64,7 +70,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: limbo <validate|plan|seed|up|launch|down|address|version> <manifest> [args] | limbo serve | limbo quarantine ... | limbo report | limbo doctor | limbo setup | limbo passthrough ... | limbo analyze FILE | limbo settings|instance|license|exchange ...")
+		return errors.New("usage: limbo <validate|plan|seed|up|launch|down|address|export|screenshot|version> <manifest> [args] | limbo serve | limbo quarantine ... | limbo report | limbo doctor | limbo setup | limbo passthrough ... | limbo analyze FILE | limbo settings|instance|license|exchange ...")
 	}
 	cmd, rest := args[0], args[1:]
 	switch cmd {
@@ -99,7 +105,7 @@ func run(args []string) error {
 
 	fs := flag.NewFlagSet(cmd, flag.ContinueOnError)
 	state := fs.String("state-dir", defaultStateDir(), "directory for event log and generated definitions")
-	iso := fs.String("iso", "", "seed: also build a cloud-init ISO at this path (needs xorriso)")
+	iso := fs.String("iso", "", "seed: also build the seed CD at this path: cloud-init for Linux, the answer file for Windows (needs xorriso)")
 	iKnow := fs.Bool("i-know", false, "as root, allow a state folder other than the daemon's")
 	check := fs.Bool("check", false, "launch: run every check (hold, address, pinned key, ssh, the app and waypipe in the guest, waypipe and a display here) without opening a window")
 	identity := fs.String("identity", "", "launch: the ssh private key to use (default: your ssh defaults)")
@@ -127,6 +133,20 @@ func run(args []string) error {
 		return seed(m, fs.Arg(1), *iso)
 	case "address":
 		return address(m, *state)
+	case "export", "screenshot":
+		if fs.NArg() != 2 {
+			return fmt.Errorf("%s: manifest and output path required", cmd)
+		}
+		if err := checkRootStateDir(*state, *iKnow); err != nil {
+			return err
+		}
+		if geteuid() != 0 {
+			return fmt.Errorf("%s: must run as root (the guest's disk and libvirt are root's)", cmd)
+		}
+		if cmd == "export" {
+			return export(context.Background(), m, *state, fs.Arg(1))
+		}
+		return screenshot(context.Background(), m, fs.Arg(1))
 	case "up", "down", "launch":
 		if err := checkRootStateDir(*state, *iKnow); err != nil {
 			return err
@@ -215,7 +235,7 @@ var keygen = func(path, comment string) error {
 // guestHostKey makes the guest's host key pair in dir the first time (and reuses it after), so the host knows the key
 // before the guest boots. A manifest that pins a different key is refused; one that pins none is told what to add.
 func guestHostKey(m *manifest.Manifest, dir string) (*provision.HostKey, error) {
-	if m.OS != manifest.OSLinux {
+	if m.OS != manifest.OSLinux && m.OS != manifest.OSWindows {
 		return nil, nil
 	}
 	priv := filepath.Join(dir, hostKeyFile)
@@ -274,6 +294,9 @@ func seed(m *manifest.Manifest, dir, isoPath string) error {
 	if err != nil {
 		return err
 	}
+	if m.OS == manifest.OSWindows {
+		return seedWindows(m, dir, isoPath, hk)
+	}
 	s, err := provision.BuildWithHostKey(m, hk)
 	if err != nil {
 		return err
@@ -294,6 +317,131 @@ func seed(m *manifest.Manifest, dir, isoPath string) error {
 	}
 	fmt.Printf("wrote seed disk %s\n", isoPath)
 	return nil
+}
+
+// windowsPasswordFile holds a Windows guest's local password, beside its seed (0600): made once, kept for limbo launch.
+const windowsPasswordFile = "windows-password"
+
+// seedWindows writes a Windows guest's answer file and first-logon script (package provision) into DIR/cd, and with
+// --iso puts them on a CD for the guest. The password is made once and kept in DIR/windows-password. A product key is
+// used only when this runs as root and Limbo's license store has a license assigned to the guest (it goes into the
+// answer file and nowhere else); without one the guest installs an edition that takes no key, such as an evaluation.
+func seedWindows(m *manifest.Manifest, dir, isoPath string, hk *provision.HostKey) error {
+	pwPath := filepath.Join(dir, windowsPasswordFile)
+	pw, err := os.ReadFile(pwPath)
+	if os.IsNotExist(err) {
+		pw = []byte(newPassword())
+		err = os.WriteFile(pwPath, append(pw, '\n'), 0o600)
+	}
+	if err != nil {
+		return err
+	}
+	key := ""
+	if geteuid() == 0 {
+		if st, err := license.OpenStore(license.DefaultDir); err == nil {
+			if k, err := st.KeyForInstall(m.Name); err == nil {
+				key = k
+			}
+		}
+	}
+	files, err := provision.BuildWindows(m, provision.WindowsOptions{Password: strings.TrimSpace(string(pw)), ProductKey: key, HostKey: hk})
+	if err != nil {
+		return err
+	}
+	cd := filepath.Join(dir, "cd")
+	if err := os.MkdirAll(cd, 0o700); err != nil {
+		return err
+	}
+	for name, body := range files {
+		if err := os.WriteFile(filepath.Join(cd, name), body, 0o600); err != nil {
+			return err
+		}
+	}
+	if key != "" {
+		fmt.Println("the license assigned to this guest goes into its answer file")
+	} else {
+		fmt.Println("no license is assigned to this guest: its Windows installs without a product key (an evaluation edition)")
+	}
+	fmt.Printf("the local account %q's password is in %s (limbo launch asks for it)\n", m.Access.User, pwPath)
+	if isoPath == "" {
+		fmt.Printf("wrote %s; add --iso PATH to build the seed CD\n", cd)
+		return nil
+	}
+	out, err := exec.Command("xorriso", "-as", "mkisofs", "-o", isoPath, "-V", "LIMBOSEED", "-J", "-r", cd).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("xorriso: %w: %s", err, out)
+	}
+	_ = os.Chmod(isoPath, 0o600) // it holds the password and the guest's host key
+	fmt.Printf("wrote seed CD %s (Windows Setup finds autounattend.xml on it)\n", isoPath)
+	return nil
+}
+
+// newPassword is 20 characters from an alphabet without look-alikes (no 0/O, 1/l/I), with at least one of each kind
+// Windows asks for.
+func newPassword() string {
+	const lower, upper, digits = "abcdefghijkmnopqrstuvwxyz", "ABCDEFGHJKLMNPQRSTUVWXYZ", "23456789"
+	all := lower + upper + digits
+	b := make([]byte, 20)
+	_, _ = rand.Read(b)
+	out := make([]byte, len(b))
+	for i, x := range b {
+		out[i] = all[int(x)%len(all)]
+	}
+	out[0], out[1], out[2] = lower[int(b[0])%len(lower)], upper[int(b[1])%len(upper)], digits[int(b[2])%len(digits)]
+	return string(out)
+}
+
+// export turns a stopped guest's disk (its overlay and the base image under it) into one standalone image at out, and
+// prints its SHA-256 for a manifest: how a Windows guest installed by its answer file becomes a base image. The file is
+// given to the person who ran sudo.
+func export(ctx context.Context, m *manifest.Manifest, state, out string) error {
+	if out == "" || !filepath.IsAbs(out) {
+		return errors.New("export: the output image needs an absolute path")
+	}
+	if _, err := os.Lstat(out); err == nil {
+		return fmt.Errorf("export: %s exists; pick a new name", out)
+	}
+	if st, err := exec.CommandContext(ctx, "virsh", "-c", "qemu:///system", "domstate", virt.DomainName(m)).Output(); err == nil &&
+		!strings.Contains(string(st), "shut off") {
+		return fmt.Errorf("export: %s is %s; it must be shut off (limbo down after it finishes)", m.Name, strings.TrimSpace(string(st)))
+	}
+	disk := filepath.Join(state, virt.DiskName(m))
+	if _, err := os.Stat(disk); err != nil {
+		return fmt.Errorf("export: %s has no disk in %s (a disposable guest's disk is gone after down)", m.Name, state)
+	}
+	if b, err := exec.CommandContext(ctx, "qemu-img", "convert", "-O", "qcow2", disk, out).CombinedOutput(); err != nil {
+		return fmt.Errorf("qemu-img convert: %w: %s", err, b)
+	}
+	giveToSudoUser(out)
+	sum, err := image.SHA256(out)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("wrote %s\n  \"image\": {\"path\": %q, \"sha256\": %q}\n", out, out, sum)
+	return nil
+}
+
+// screenshot saves what a guest's screen shows (Windows guests have a display adapter, with no display attached, for
+// this): the way to follow an unattended installation.
+func screenshot(ctx context.Context, m *manifest.Manifest, out string) error {
+	if out == "" || !filepath.IsAbs(out) {
+		return errors.New("screenshot: the output file needs an absolute path")
+	}
+	if b, err := exec.CommandContext(ctx, "virsh", "-c", "qemu:///system", "screenshot", virt.DomainName(m), out).CombinedOutput(); err != nil {
+		return fmt.Errorf("virsh screenshot: %w: %s", err, b)
+	}
+	giveToSudoUser(out)
+	fmt.Printf("wrote %s\n", out)
+	return nil
+}
+
+// giveToSudoUser hands a file root made to the person who ran sudo, so they can open it.
+func giveToSudoUser(path string) {
+	uid, err1 := strconv.Atoi(os.Getenv("SUDO_UID"))
+	gid, err2 := strconv.Atoi(os.Getenv("SUDO_GID"))
+	if geteuid() == 0 && err1 == nil && err2 == nil {
+		_ = os.Chown(path, uid, gid)
+	}
 }
 
 // launchOpts are launch's flags.

@@ -162,8 +162,10 @@ type Provision struct {
 	HostKey string `json:"host_key"`
 }
 
-// Windows holds what the user must supply before a Windows guest may exist.
-// See package license.
+// Windows holds what the user must supply before a Windows guest may exist (see package license). The ISO is also
+// attached to the guest as a second CD: a guest whose disk is still empty boots it, and `limbo seed` writes the
+// unattended answer file that installs Windows from it (an instance made that way is turned into a base image with
+// `limbo export`).
 type Windows struct {
 	ISO         string `json:"iso"`
 	LicenseFile string `json:"license_file"`
@@ -280,11 +282,14 @@ func (d Devices) validate(m *Manifest) error {
 	if !d.Any() {
 		return nil
 	}
-	if !m.Disposable || m.OS != OSLinux {
-		if len(d.PCI) == 0 {
-			return fmt.Errorf("manifest: devices.usb requires a disposable Linux guest")
-		}
+	// PCI devices (a GPU) go only to disposable Linux guests. USB devices go to disposable Linux or Windows guests: the
+	// owner's decision (2026-11-08) for vehicle tuners whose maker's program needs its own Windows kernel driver, which
+	// Wine cannot load (the SCT X4: Jungo WinDriver).
+	if len(d.PCI) > 0 && (!m.Disposable || m.OS != OSLinux) {
 		return fmt.Errorf("manifest: devices.pci requires a disposable Linux guest")
+	}
+	if !m.Disposable {
+		return fmt.Errorf("manifest: devices.usb requires a disposable guest")
 	}
 	if len(d.USB) > maxUSB {
 		return fmt.Errorf("manifest: devices.usb lists more than %d devices", maxUSB)

@@ -6,8 +6,8 @@
 // the pair into a "cidata" ISO is left to the caller (xorriso/genisoimage), so
 // Limbo carries no ISO-writing dependency.
 //
-// Windows is not handled here: an unattended answer file cannot be written
-// honestly without a Windows ISO to test against. See package license.
+// Windows guests get an answer file instead (windows.go): written 2026-11-08 once
+// a Windows ISO was there to test against. See package license.
 package provision
 
 import (

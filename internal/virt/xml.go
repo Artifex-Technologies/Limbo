@@ -55,6 +55,7 @@ type domain struct {
 			Machine string `xml:"machine,attr"`
 			Value   string `xml:",chardata"`
 		} `xml:"type"`
+		Boot []attrs `xml:"boot"`
 	} `xml:"os"`
 	Features struct {
 		ACPI   struct{} `xml:"acpi"`
@@ -214,6 +215,8 @@ func DomainXML(m *manifest.Manifest, rootDisk string) ([]byte, error) {
 		bus, nic = "sata", "e1000e"
 		d.Features.HyperV = &hyperV{Relaxed: attrs{State: "on"}}
 		d.Features.HyperV.Spinlocks.State, d.Features.HyperV.Spinlocks.Retries = "on", 8191
+		// The disk first; an empty disk falls through to the installation CD.
+		d.OS.Boot = []attrs{{Dev: "hd"}, {Dev: "cdrom"}}
 	}
 
 	root := disk{
@@ -233,6 +236,16 @@ func DomainXML(m *manifest.Manifest, rootDisk string) ([]byte, error) {
 		})
 	}
 
+	if m.OS == manifest.OSWindows && m.Windows.ISO != "" {
+		d.Devices.Disk = append(d.Devices.Disk, disk{
+			Type: "file", Device: "cdrom",
+			Driver:   attrs{Name: "qemu", Type: "raw"},
+			Source:   attrs{File: m.Windows.ISO},
+			Target:   attrs{Dev: "sdb", Bus: "sata"},
+			ReadOnly: &struct{}{},
+		})
+	}
+
 	d.Devices.Interface = iface{
 		Type:   "network",
 		MAC:    attrs{Address: Addr(m).MAC},
@@ -243,7 +256,13 @@ func DomainXML(m *manifest.Manifest, rootDisk string) ([]byte, error) {
 	d.Devices.Channel = channel{Type: "unix", Target: attrs{Type: "virtio", Name: "org.qemu.guest_agent.0"}}
 	// Headless: the application is shown over waypipe/RDP, not a console, so no
 	// display adapter is attached (and no virtio-gpu device model is required).
+	// Windows gets a plain VGA adapter with no display attached to it (no VNC or
+	// SPICE): its installer and boot screens expect one, and `limbo screenshot`
+	// reads it to see an installation's progress.
 	d.Devices.Video.Model = attrs{Type: "none"}
+	if m.OS == manifest.OSWindows {
+		d.Devices.Video.Model = attrs{Type: "vga"}
+	}
 	d.Devices.MemBalloon = attrs{Model: "none"}
 
 	for _, a := range m.Devices.PCI {

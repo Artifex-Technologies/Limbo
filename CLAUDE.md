@@ -96,10 +96,12 @@ Commit per logical section, with the Co-Authored-By trailer.
 - **Wine is not a security boundary.** The Wine backend must not run without
   bubblewrap-style confinement.
 - **No macOS guests.** Limbo is a Linux project; don't add macOS tooling.
-- **Windows is license-gated.** Never download, bundle or auto-install Windows.
+- **Windows is license-gated.** Limbo's code never downloads, bundles or installs Windows on its own.
   Windows code paths require a user-supplied ISO and license, no-op without
   them, and are labelled unverified until run for real. Build and test against
-  Linux guests first.
+  Linux guests first. The unattended installer (`limbo seed` for a Windows manifest, docs/ARCHITECTURE.md section 6)
+  installs only from the ISO the user names, when the user runs it. An ISO fetched at the owner's explicit request is
+  the owner supplying it (2026-11-08: Microsoft's 90-day Windows 11 Enterprise LTSC evaluation, a bought license later).
 - **CAD/GPU for desktop use is deferred.** Don't start it, and don't claim it works untested.
   The one exception (owner's decision, 2026-10-10) is **PCI passthrough for driver
   testing**: `manifest.devices.pci`, disposable Linux guests only, set by a
@@ -114,7 +116,8 @@ Commit per logical section, with the Co-Authored-By trailer.
   `agent.sock`/`control.sock` to choose a device or approve a window.
   **Unverified**: no real VFIO device has been passed through yet.
   **USB passthrough** (owner's decision, 2026-11-08, for vehicle tuners whose maker ships only a Windows program):
-  `manifest.devices.usb` (vendor:product IDs), the same limits as PCI: disposable Linux guests, `usb_allow` in the same
+  `manifest.devices.usb` (vendor:product IDs), the same limits as PCI: disposable guests (Linux, and since 2026-11-08
+  Windows: makers' programs that need their own Windows kernel driver, which Wine cannot load), `usb_allow` in the same
   root-owned file, LykanOS hard-refused, a typed approval per window, refused while a host process or kernel driver uses
   the device. A USB device may instead have a **standing approval** (`usb_standing` in the same root-owned file, also on
   `usb_allow`; owner's decision 2026-11-08 for the SCT X4 and Icarus): no time window, every other check still each time.
