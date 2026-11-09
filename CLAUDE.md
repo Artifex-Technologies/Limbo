@@ -102,6 +102,9 @@ Commit per logical section, with the Co-Authored-By trailer.
   Linux guests first. The unattended installer (`limbo seed` for a Windows manifest, docs/ARCHITECTURE.md section 6)
   installs only from the ISO the user names, when the user runs it. An ISO fetched at the owner's explicit request is
   the owner supplying it (2026-11-08: Microsoft's 90-day Windows 11 Enterprise LTSC evaluation, a bought license later).
+  Run for real since 2026-11-08: the installer, `limbo export`, `limbo screenshot`, `limbo capture` and USB passthrough
+  into a disposable Windows guest (docs/ARCHITECTURE.md section 6). Still unverified: a licence key from the store going
+  into the answer file, and `limbo launch` for Windows (RemoteApp).
 - **CAD/GPU for desktop use is deferred.** Don't start it, and don't claim it works untested.
   The one exception (owner's decision, 2026-10-10) is **PCI passthrough for driver
   testing**: `manifest.devices.pci`, disposable Linux guests only, set by a

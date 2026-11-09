@@ -201,6 +201,11 @@ The owner's decision (2026-11-08): hardware whose maker ships only a Windows pro
 - **Verified 2026-11-08 on the owner's machine:** the SCT X4 (`5059:4040`), listed in `usb_allow` and approved at the
   terminal, went into a disposable Arch Linux guest (`limbo up`): the guest's `lsusb` shows it, the host keeps no claim.
   Not yet seen: a device going back to a host program after teardown (nothing needs rebinding, but it is unobserved).
+- **Verified 2026-11-08, Windows:** the same X4, with its standing approval (`usb_standing`), went into a disposable
+  Windows 11 guest started from an image Limbo's installer made (`limbo seed`, `limbo up`, `limbo export`). Windows bound
+  the maker's own kernel driver to it (Jungo WinDriver, which Wine cannot load), the maker's program read the device and
+  its files, and `limbo capture` recorded the whole conversation (about 43,000 events, the device's only).
+  Also seen on a host device after a guest's teardown: the X4 went straight into the next guest.
 
 ## 5. Sandbox model
 
@@ -268,7 +273,7 @@ reports "Windows guest not configured" and does nothing else. Windows-specific
 code is written but cannot be exercised end to end until the user provides
 those, and it will be labelled **unverified** until then.
 
-**The installer (2026-11-08).** The owner chose a Windows guest for a vehicle tuner whose maker's program needs its
+**The installer (2026-11-08, run for real the same day).** The owner chose a Windows guest for a vehicle tuner whose maker's program needs its
 own Windows kernel driver, which Wine cannot load (the SCT X4: Jungo WinDriver), starting with Microsoft's 90-day
 evaluation of Windows 11 Enterprise LTSC (downloaded by the owner's choice; Limbo still downloads nothing) and a bought
 license later. The path:
@@ -286,6 +291,15 @@ license later. The path:
    get a VGA adapter with no display attached; Linux guests still get none).
 3. `limbo down`, then `limbo export WIN.json OUT.qcow2`: the installed disk as one standalone base image, with the
    SHA-256 for manifests. Disposable Windows guests start from it.
+
+First real run (Windows 11 Enterprise LTSC 2024 evaluation, build 26100): unattended from start to shutdown in about
+12 minutes, the export a 12 GB image. Three things it found, all fixed: a SATA disk named `vda` took the seed CD's slot
+(Windows guests' disks are `sda`/`sdb`/`sdc` now); the firmware tried only the first CD, the seed (a per-device boot
+order now: the disk, then the installation CD); and a guest started from the image has a new network card address, so
+Windows calls its network Public and the SSH rule made for Private dropped Limbo's connections (the rule covers every
+profile now). Not run yet: a licence key from the store (no licence bought yet), and `limbo launch` (RemoteApp) for a
+person; reaching the guest's desktop for a headless check needs more than RDP from an off-screen client (it stalled at
+sign-in).
 
 ## 7. Components
 
