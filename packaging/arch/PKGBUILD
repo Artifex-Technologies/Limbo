@@ -24,6 +24,8 @@ optdepends=(
 	'libisoburn: builds the cloud-init seed disk (installed by `limbo setup`)'
 	'waypipe: seamless windows for Linux guests'
 	'freerdp: seamless windows for Windows guests (RemoteApp)'
+	'bubblewrap: the sandbox of the Wine backend (limbo wine refuses to run without it)'
+	'wine: Windows programs on the desktop through limbo wine (or wine-staging)'
 )
 provides=('limbo')
 conflicts=('limbo')
@@ -46,8 +48,9 @@ build() {
 
 check() {
 	cd "$srcdir/Limbo"
-	# Unit tests only: the integration scripts need a hypervisor and root.
-	go test ./...
+	# Unit tests only: the integration scripts need a hypervisor and root, and -short skips the real Wine run
+	# (it makes a prefix, about a minute).
+	go test -short ./...
 }
 
 package() {
@@ -62,6 +65,17 @@ package() {
 	install -Dm644 packaging/arch/limbo.sysusers "$pkgdir/usr/lib/sysusers.d/limbo.conf"
 	install -Dm644 examples/validation-profile.json "$pkgdir/usr/share/doc/$pkgname/examples/validation-profile.json"
 	install -Dm644 examples/analysis-linux.json "$pkgdir/usr/share/doc/$pkgname/examples/analysis-linux.json"
+	install -Dm644 examples/wine-profile.json "$pkgdir/usr/share/doc/$pkgname/examples/wine-profile.json"
+
+	# Limbo's wine: programs that run `wine` from PATH land in Limbo's sandbox. Not on PATH by itself (nothing here
+	# changes what /usr/bin/wine is); a person links it from a folder before /usr/bin:
+	#   sudo ln -s /usr/lib/limbo/bin/wine /usr/local/bin/wine
+	# Wine's other command names (the ones Wine installs as links to its loader) are links to the shim, which runs
+	# the matching program inside the sandbox.
+	install -Dm755 packaging/wine/wine "$pkgdir/usr/lib/limbo/bin/wine"
+	for name in wineboot winecfg wineconsole winedbg winefile winemine winepath msiexec notepad regedit regsvr32; do
+		ln -s wine "$pkgdir/usr/lib/limbo/bin/$name"
+	done
 
 	# Validation profiles define what a validation run may do, so the directory
 	# is root-only writable (limbo serve refuses to load profiles from anywhere

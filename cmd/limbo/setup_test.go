@@ -225,6 +225,40 @@ func TestDoctorFlagsMissingKVMAndGroups(t *testing.T) {
 	}
 }
 
+// The Wine section says whether `wine` on PATH lands in Limbo's sandbox, and how to make it; it never changes whether
+// Limbo can run guests.
+func TestDoctorSaysWhetherWineGoesThroughLimbo(t *testing.T) {
+	for _, c := range []struct {
+		resolved string
+		want     string
+	}{
+		{wineShim, "ok       `wine` on PATH is Limbo's (/usr/local/bin/wine)"},
+		{"/usr/bin/wine", "NOTE     `wine` on PATH is /usr/local/bin/wine: a program that runs wine bypasses Limbo. To send it through Limbo: sudo ln -s " + wineShim + " /usr/local/bin/wine"},
+	} {
+		f := newFake(allDeps(), false)
+		look := f.env.look
+		f.env.look = func(file string) (string, error) {
+			if file == "wine" {
+				return "/usr/local/bin/wine", nil
+			}
+			return look(file)
+		}
+		f.env.exists = func(p string) bool { return p == "/dev/kvm" || p == "/usr/bin/bwrap" || p == "/usr/bin/wine" }
+		resolved := c.resolved
+		f.env.resolve = func(string) (string, error) { return resolved, nil }
+		if !doctor(f.env) {
+			t.Fatalf("the Wine section changed doctor's answer:\n%s", f.out)
+		}
+		if !strings.Contains(f.out.String(), c.want) || !strings.Contains(f.out.String(), "ok       bubblewrap") {
+			t.Errorf("missing %q in:\n%s", c.want, f.out)
+		}
+	}
+	f := newFake(allDeps(), false)
+	if !doctor(f.env) || !strings.Contains(f.out.String(), "NOTE     bubblewrap is not installed") {
+		t.Errorf("\n%s", f.out)
+	}
+}
+
 func TestDoctorOKWhenEverythingIsThere(t *testing.T) {
 	f := newFake(allDeps(), false)
 	if !doctor(f.env) {

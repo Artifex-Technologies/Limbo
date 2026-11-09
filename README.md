@@ -44,6 +44,28 @@ limbo exchange take GUEST FILE DEST          # a file out of a guest's outbox, s
 sudo limbo net watch                         # guests' connections and refusals, live (serve logs them as net.* events)
 ```
 
+## Windows programs with Wine: `limbo wine`
+
+Windows programs, games included, run with Wine on the desktop, each prefix inside its own bubblewrap sandbox, and
+Wine runs only through Limbo (Steam's Proton stays with Steam). By default the sandbox has the system read-only, the
+display (Wayland and X11), sound and the graphics card (Vulkan layers such as Kairos load), a private home holding only
+the prefix, and **no network and none of your files**; everything else is an explicit flag or profile setting.
+Details, and exactly what is shared: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) section 13.
+
+```
+limbo wine -- notepad                                    # prefix "default": ~/.local/share/limbo/wine/default
+limbo wine --prefix game --share ~/Downloads/Installers -- ~/Downloads/Installers/setup.exe
+limbo wine --prefix game --share-rw ~/Games/Foo --network -- 'C:\Program Files\Foo\Foo.exe'
+limbo wine --headless --trace --prefix tools --share ~/Tools -- ~/Tools/scan.exe   # no display or sound; a behaviour trace
+limbo wine --windows win7 --prefix old -- 'C:\Old\old.exe'   # new prefixes are 64-bit and report Windows 10
+limbo wine --dry-run -- notepad                          # the whole sandbox, changing nothing
+sudo ln -s /usr/lib/limbo/bin/wine /usr/local/bin/wine   # then anything that runs `wine` lands in the sandbox
+```
+
+Per-prefix settings live in `~/.config/limbo/wine/NAME.json` ([`examples/wine-profile.json`](examples/wine-profile.json)).
+Every run is logged (`wine.start`/`wine.stop` in `~/.local/state/limbo/events.jsonl`) with a `run.json` record. Files
+nobody trusts go to `limbo analyze` (a sealed VM), not here.
+
 ## Scope
 
 - Guests: **Linux** (built first, no license needed) and **Windows**
@@ -76,9 +98,11 @@ MPL-2.0, so nothing may be copied from them). What is adopted is recorded here.
 
 | Project | What it is | What Limbo takes from it |
 | --- | --- | --- |
-| [Bottles](https://github.com/bottlesdevs/Bottles) | Wine prefix manager | Per-app environments, runner and dependency management (Wine backend, later) |
+| [Bottles](https://github.com/bottlesdevs/Bottles) | Wine prefix manager | One prefix per app with its own settings (`limbo wine` profiles, built 2026-11-08); runner and dependency management later |
 | [Prism Launcher](https://github.com/PrismLauncher/PrismLauncher) | Minecraft launcher | UX model: one isolated instance per app, library-style GUI |
-| [Wine](https://github.com/wine-mirror/wine) | Windows API layer | Optional lightweight backend, always inside a sandbox |
+| [Wine](https://github.com/wine-mirror/wine) | Windows API layer | The backend for Windows programs on the desktop (`limbo wine`), always inside bubblewrap; run as a separate program |
+| [bubblewrap](https://github.com/containers/bubblewrap) | Unprivileged sandbox | The Wine backend's sandbox, run as a separate program (LGPL-2.0-or-later; nothing copied) |
+| [Flatpak](https://github.com/flatpak/flatpak) | Desktop app sandbox on bubblewrap | Ideas only: how a desktop app's sandbox reaches the display, sound and graphics card (Wayland/X11/PulseAudio sockets, a rewritten X authority) |
 | [macos-parallels-build-vms](https://github.com/paullalonde/macos-parallels-build-vms) | Scripted macOS VM builds on Parallels | How unattended guest builds are structured; translated to Windows/Linux on libvirt, nothing macOS- or Parallels-specific |
 | [VirtualBox](https://github.com/VirtualBox/virtualbox) | Hypervisor | Compared against and not chosen; KVM/libvirt is the target |
 | [WinApps](https://github.com/winapps-org/winapps) | Windows apps on Linux via RDP RemoteApp | The seamless-window mechanism for Windows guests |

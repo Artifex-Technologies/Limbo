@@ -24,6 +24,9 @@
 //	limbo license list | add --name N (key on stdin) | remove | reveal | assign | unassign
 //	limbo exchange list GUEST | take GUEST PATH DEST   (ClamAV scans before anything leaves a guest)
 //	limbo net watch [--seconds N]   guests' flows and refusals as they happen (root; limbo serve logs them itself)
+//
+//	limbo wine [options] [--] PROGRAM [ARGS]   a Windows program with Wine on the desktop, inside its prefix's
+//	                              bubblewrap sandbox (no network, no home, shares only as given; section 13)
 package main
 
 import (
@@ -66,6 +69,10 @@ const version = "0.1.0-dev"
 func main() {
 	api.Version = version
 	if err := run(os.Args[1:]); err != nil {
+		var status exitStatus
+		if errors.As(err, &status) {
+			os.Exit(int(status))
+		}
 		if err != errSilent {
 			fmt.Fprintln(os.Stderr, "limbo:", err)
 		}
@@ -73,9 +80,15 @@ func main() {
 	}
 }
 
+// exitStatus is a program's own exit status, which limbo exits with unchanged (limbo wine: callers such as
+// winetricks read the Windows program's status).
+type exitStatus int
+
+func (e exitStatus) Error() string { return "exit status " + strconv.Itoa(int(e)) }
+
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: limbo <validate|plan|seed|up|launch|down|address|export|screenshot|capture|version> <manifest> [args] | limbo serve | limbo quarantine ... | limbo report | limbo doctor | limbo setup | limbo passthrough ... | limbo analyze FILE | limbo settings|instance|license|exchange ...")
+		return errors.New("usage: limbo <validate|plan|seed|up|launch|down|address|export|screenshot|capture|version> <manifest> [args] | limbo serve | limbo quarantine ... | limbo report | limbo doctor | limbo setup | limbo passthrough ... | limbo analyze FILE | limbo settings|instance|license|exchange ... | limbo wine [options] -- PROGRAM [ARGS]")
 	}
 	cmd, rest := args[0], args[1:]
 	switch cmd {
@@ -106,6 +119,8 @@ func run(args []string) error {
 		return exchangeCmd(rest)
 	case "net":
 		return netCmd(rest)
+	case "wine":
+		return wineCmd(rest)
 	}
 
 	fs := flag.NewFlagSet(cmd, flag.ContinueOnError)

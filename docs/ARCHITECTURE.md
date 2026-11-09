@@ -31,8 +31,9 @@ Non-goals (for now)
   note, not a milestone.
 - **macOS guests** (section 6): Limbo is a Linux project; Windows and Linux
   guests only.
-- Running arbitrary games. Proton/Steam already does this well.
-- Being a Wine replacement. Limbo may *use* Wine, see section 3.
+- Replacing Steam's Proton. Steam games stay with Steam. Since the owner's decision of 2026-11-08 every other Windows
+  program, games included, runs with Wine through Limbo (`limbo wine`, section 13), never with Wine bare on the host.
+- Being a Wine replacement. Limbo *uses* Wine and confines it (sections 3 and 13).
 
 Assumption to confirm: "security analysis" means running assessment tooling
 (including Windows-only tools and Office for reporting) and safely opening
@@ -84,7 +85,8 @@ only.
 
 Recommended default: **VM for anything that handles untrusted documents or
 needs exact compatibility (Office); Wine where a specific app is known to run
-well and the user wants low overhead.**
+well and the user wants low overhead.** The Wine backend is built (2026-11-08, section 13); as built the two are
+separate commands (`limbo up`/`launch` for guests, `limbo wine` for Wine) rather than one manifest's choice.
 
 ## 4. Deferred: GPU for CAD in a VM
 
@@ -233,7 +235,7 @@ configured to preserve it. Defaults, all deny-first:
 - **Wine backend**: bubblewrap (as Flatpak uses) with a private mount
   namespace, network namespace and no access to `$HOME`. Wine is *not* a
   security boundary by itself and runs Windows code as the host user; this
-  backend must never run without the sandbox.
+  backend must never run without the sandbox. Built 2026-11-08: section 13 lists exactly what it shares.
 
 What this does not give you: protection from malware that stays inside the
 guest and abuses whatever the guest is allowed to reach. That is what the
@@ -320,7 +322,8 @@ packaging/arch   PKGBUILD, systemd user unit, sysusers
 As built (§12) the names differ: one binary, `cmd/limbo`, whose `limbo serve` is the
 daemon (a root system unit, not per-user); the packages live under `internal/`, and
 the broker is `internal/exchange` (guest outboxes) plus the manifest's clipboard
-setting. There are no libvirt bindings: the engine drives `virsh`.
+setting. There are no libvirt bindings: the engine drives `virsh`. `backends/wine` is `internal/wine` with `limbo wine`
+(section 13), run as the person, not by the daemon; runner management (other Wine builds) is not built.
 
 Language: **Go** is the working assumption — it matches Heimdall, builds to one
 binary, and has libvirt bindings. Note that Heimdall is stdlib-only by its own
@@ -396,7 +399,8 @@ decision recorded there, with a `CONTRACT:` note, before anything is built.
 - **M5 — Windows guest (license-gated; not started).** Same manifest, RDP RemoteApp,
   guest agent. Starts when the user supplies a license and ISO. (The license store
   and the FreeRDP argv exist; no Windows installer.)
-- **M6 — Wine backend, GUI.** Later.
+- **M6 — Wine backend, GUI.** Wine backend phase 1 built and run for real 2026-11-08 (section 13); its phase 2 and the
+  GUI later.
 
 ## 11. What was and was not verified
 
@@ -434,7 +438,8 @@ been verified:
 | `internal/exchange` | guest outboxes: ClamAV-scanned copies out, known files held | unit tests with a fake scanner |
 | `internal/flows` | NFLOG reader and the `net.*` events | unit tests on kernel-format messages; real kernel in `integration-linux-guest.sh` |
 | `internal/virt` (subnets) | allocated, recorded guest subnets | unit tests (254 at once); real guests |
-| `cmd/limbo` | CLI: up/down/plan/seed/launch/serve/quarantine/report, settings/instance/license/exchange/net/address | everything except `launch` exercised for real; the Settings commands against a stub socket |
+| `cmd/limbo` | CLI: up/down/plan/seed/launch/serve/quarantine/report, settings/instance/license/exchange/net/address, wine | everything except `launch` exercised for real; the Settings commands against a stub socket |
+| `internal/wine` | `limbo wine`: Wine inside bubblewrap, profiles, prefixes, run records, trace (section 13) | unit tests pin the bwrap arguments; real runs of Wine's own `cmd` and `cscript` in the real sandbox (`go test`, headless) |
 | `packaging/arch` | PKGBUILD, systemd unit, sysusers | `makepkg` builds it (with `check()`); the real units run under their hardening |
 
 Real-guest verification environment: Arch Linux WSL2 with nested KVM, libvirt
@@ -486,6 +491,209 @@ and from real unprivileged users:
   inside the sandbox, Heimdall (with the drop-in) reading the log and reaching
   `control.sock`, and that the Heimdall user and group can read but not write the
   audit log. 14 checks.
+
+## 13. The Wine backend: `limbo wine` (phase 1, built and run 2026-11-08)
+
+The owner's decision (2026-11-08): "the whole point of Limbo is to do what Wine does but better", so Windows programs
+run with Wine on the host desktop, confined by Limbo, and **Wine runs only through Limbo**. Steam's Proton is its own
+Wine with its own container and stays outside on purpose.
+
+**Why on the host and not in a VM.** A game needs the graphics card, and a VM does not get one (section 4: passthrough
+needs a second card, paravirtual 3D for Windows guests is unproven). Wine on the host uses the host's own driver
+directly (Vulkan, and DXVK/VKD3D on top of it later), the system's Vulkan layers (Kairos frame generation included),
+and its windows are ordinary host windows. The price is a weaker boundary: a process sandbox (bubblewrap), not a
+hypervisor. So this is for programs the person chose to run on the desktop. A file nobody trusts goes to
+`limbo analyze` (a sealed VM, docs/SAMPLES.md), never into this sandbox; Wine inside that guest is a later step.
+
+### Command
+
+```text
+limbo wine [options] [--] PROGRAM [ARGS]
+```
+
+| Option | Default | Does |
+| --- | --- | --- |
+| `--prefix NAME` | `default` | the prefix `~/.local/share/limbo/wine/NAME` and its profile `~/.config/limbo/wine/NAME.json` |
+| `--network` | off: no network at all | shares the host's network namespace (everything the host reaches; see below) |
+| `--share DIR` | none | a folder (or one file) the program may read, at the same path inside (repeatable) |
+| `--share-rw DIR` | none | the same, writable |
+| `--no-gpu` | graphics card on | software rendering |
+| `--no-audio` | sound on | |
+| `--no-x11` | X11 on | Wayland only (Wine's Wayland driver); X11 lets a program read other X11 programs' windows and keys |
+| `--no-display` | display on | no Wayland, no X11 |
+| `--headless` | | no display and no sound: console programs in the background |
+| `--env NAME=VALUE` | | one variable for the program (repeatable); Limbo's own (`HOME`, `WINEPREFIX`, `DISPLAY`, ...) are refused |
+| `--windows VERSION` | `win10` for a new prefix | the Windows version the prefix reports: win11, win10, win81, win8, win7, vista, winxp64, winxp, win2k, win98 |
+| `--arch win64\|win32` | `win64` | a new prefix's architecture (fixed once made) |
+| `--trace` | off | Wine's behaviour trace into the run's folder (below) |
+| `--dry-run` | | prints the checks, the steps and the whole bwrap command; changes nothing |
+| `--state-dir DIR` | `~/.local/state/limbo` | the event log and the run folders |
+| `--shim` | | used by Limbo's `wine` on PATH: the prefix comes from `WINEPREFIX` |
+
+`limbo wine` refuses to run as root, without bubblewrap (`/usr/bin/bwrap`), or without Wine (`/usr/bin/wine`); every
+refusal is logged. Its exit status is the Windows program's.
+
+**Profiles** (`~/.config/limbo/wine/NAME.json`, `examples/wine-profile.json`) hold a prefix's own settings, one file per
+app, as manifests do for guests: `network` (`none` or `host`), `gpu`, `audio`, `display`, `x11`, `share`, `share_rw`
+(absolute or `~/`), `env`, `windows`, `arch`, `trace`, and `program`/`args` (what `limbo wine --prefix NAME` runs when
+no program is given). Unknown fields are refused, so a typo cannot fall back to a default. The command line adds to a
+profile (shares, environment, the network) and can switch things off, but cannot switch back on what the profile
+switched off. The profile is outside every sandbox (no share may overlap its folder) and must be the person's own and
+not group- or world-writable: whoever can write it decides what the sandbox may reach, so a program can never rewrite
+the rules it runs under.
+
+### Prefixes: modern by default
+
+One prefix per app (or per profile), `~/.local/share/limbo/wine/NAME`, mounted at the same path inside, so the same
+`WINEPREFIX` names it inside and outside (host tools such as winetricks agree with the sandbox). Beside the prefixes, out
+of every sandbox's reach: `.NAME.lock` (one sandbox per prefix: each has its own `/tmp`, so two would start two
+wineservers on one registry and corrupt it; a second run is refused, naming the first's pid), `.NAME.json` (what Limbo
+last set), `.NAME.creating` (a prefix whose making was interrupted is made again). `~/.cache/limbo/wine/NAME` is the
+sandbox's `~/.cache`, so shader caches (NVIDIA's, Mesa's) and Wine's downloads persist per prefix.
+
+- **64-bit.** A new prefix is `win64`. 32-bit Windows programs run in it through Wine's own WoW64, as 64-bit Windows runs
+  them; Wine 11 is WoW64 by default. `win32` is only for the rare program that refuses to run on 64-bit Windows, needs
+  `--arch win32` or a profile's `"arch": "win32"`, and does not work with Arch's Wine 11 at all ("WINEARCH is set to
+  'win32' but this is not supported in wow64 mode", seen 2026-11-08); Limbo then says so. A prefix's architecture is
+  fixed when it is made.
+- **Windows 10.** A new prefix is made with `wineboot --init` and then `winecfg -v win10` inside the sandbox (headless;
+  checked: `cmd /c ver` reports 10.0.19045). Old programs that need it get another version with `--windows` or a
+  profile's `"windows"` (win7 reports 6.1.7601, winxp 5.1.2600, win11 10.0.22000). Limbo sets a version when the prefix
+  is made and again only when asked for one different from what it last set; what the program or winecfg changes inside
+  is the program's business.
+
+### What the sandbox gets, and what it does not
+
+| | Inside | Not inside |
+| --- | --- | --- |
+| System | `/usr` read-only, the merged-/usr links (`/bin`, `/lib`, ...); from `/etc` only the loader cache, fonts, `nsswitch.conf`, CA certificates, the time zone; `/var/cache/fontconfig` | the rest of `/etc` (the host's name, users, network setup, machine ID, keys), `/run` (Limbo's own sockets among them: the person's groups do reach the sandbox, `/run/limbo` does not), `/opt` (except driver folders the system's Vulkan/EGL files point into), `/srv`, `/mnt`, `/media`, other users' homes |
+| Account | a `passwd`/`group` with only this user (and root and nobody), no full name; host name `limbo` (Windows sees computer name LIMBO) | the real user list, the real host name |
+| Home | a private, empty tmpfs at the home's path holding only the prefix and its cache | everything else in the home |
+| Files | shares, exactly as given | anything not shared |
+| Temp | a private `/tmp` and `/dev/shm` | the host's `/tmp` (other programs' files and sockets) |
+| Display | the Wayland socket, Xwayland's socket and X authority (rewritten for the sandbox's host name), so both Wine drivers work | the D-Bus session bus, portals, the clipboard manager's socket, anything else in the runtime folder |
+| Sound | the PulseAudio socket (PipeWire's pulse server); PipeWire's own socket only when there is no PulseAudio one (Wine's ALSA driver reaches it) | PipeWire's socket otherwise (it reaches the whole media graph: cameras, screen casts) |
+| Graphics card | `/dev/dri`, NVIDIA's `/dev/nvidia*` nodes, and the sysfs the drivers read: the card's own device folder and `/sys/dev/char` (EGL), `/sys/module/nvidia*` (NVIDIA's Vulkan driver checks its kernel module there); `/etc/vulkan`, `/etc/glvnd`, `/etc/egl`, `/etc/nvidia` when present. Implicit layers in `/usr` load: Kairos verified | the rest of `/sys` (other devices, network cards' addresses), `/dev/nvidia-caps`, layers installed in the home (`~/.local/share/vulkan`) |
+| Devices | `/dev/ntsync` (Wine 11's fast synchronization), the usual `/dev/null` and friends | input devices, USB, sound devices, disks |
+| Network | none: only a loopback of its own | with `--network`: the host's whole network namespace, the LAN, services on the host's loopback (Ollama, CUPS, ...) and the host's abstract unix sockets. Finer modes (internet only, an allowlist, through a user-mode network such as pasta with its own firewall) are phase 2 |
+| Environment | `PATH=/usr/bin`, `HOME`, `USER`, locale, time zone, the display's and sound's variables Limbo sets, Wine's debugging/tuning variables (`WINEDEBUG`, `WINEDLLOVERRIDES`, `WINE_*`, ...), the graphics stack's (`DXVK_*`, `VKD3D_*`, `VK_*`, `__GL_*`, `__NV_*`, `MESA_*`, layer switches `ENABLE_*`/`DISABLE_*`, `KAIROS_*`, `MANGOHUD*`), and `--env` | everything else: tokens and keys in the environment, `SSH_AUTH_SOCK`, `DBUS_SESSION_BUS_ADDRESS`, `LD_PRELOAD`, a caller's `WINEPREFIX`, `WINEARCH`, `WINESERVER` |
+
+Isolation: new user (with `--disable-userns`: nothing inside can make namespaces of its own), PID, IPC, UTS and cgroup
+namespaces, and a network namespace unless `--network`; `--cap-drop ALL`; `--new-session` (the terminal is not the
+program's: no TIOCSTI typing into the person's shell); `--die-with-parent`. bwrap sets no_new_privs and mounts nosuid,
+so setuid programs in `/usr` gain nothing. Checked from inside the real sandbox: `CapEff: 0`, `NoNewPrivs: 1`, host name
+`limbo`, no `/etc/machine-id`, `/etc/hostname`, `/sys/class/net` or `/run/dbus`, the home holding only `.cache` and
+`.local`; an unprivileged `unshare -U` fails.
+
+**Shares refused** (both the path as given and its symlink-resolved source are checked): `/`, the home or anything holding
+it, `/proc`, `/sys`, `/dev`, `/run`, `/tmp` and `/var/tmp` themselves, anything overlapping Limbo's own folders (prefixes,
+profiles, the state folder), a hidden folder of the home as a whole (`~/.config`, `~/.local`, ...), anything inside
+`~/.ssh` or `~/.gnupg`, and anything writable inside a hidden folder (settings and startup files live there: a writable
+share could leave behind something the host later runs). A program given as a host path outside the sandbox is refused
+with the fix (`--share` its folder) instead of failing inside Wine.
+
+**The in-sandbox script** is a fixed `sh -c` text; the program and its arguments are its positional parameters (`"$@"`)
+and no shell ever parses them. It starts the prefix's wineserver with no persistence (`-p0`: the sandbox ends when the
+last Windows process does, not three seconds later), runs Wine, and waits for the wineserver (`-w`): it writes the
+registry out as it goes, and a launcher that starts a game and returns would otherwise take the game with it. A first
+Ctrl+C (SIGINT, SIGTERM, SIGHUP) asks the sandbox to stop: the script ends every Windows process in the prefix through
+the wineserver (`wineserver -k`); a second one, or ten seconds, kills the sandbox. bwrap runs in its own process group,
+so the terminal's Ctrl+C reaches limbo alone.
+
+**Known limits.** The Wayland socket is the compositor's own, so a program may use every protocol the compositor offers
+all clients; on wlroots-style compositors such as Hyprland that includes screen capture, a virtual keyboard and pointer
+and the clipboard managers' protocol, unless the compositor's own permission rules restrict them (Hyprland:
+`ecosystem:enforce_permissions`). Flatpak avoids this with Wayland's security-context protocol, which tells the
+compositor a client is sandboxed; Limbo should do the same (phase 2). X11 has no isolation between its clients (a
+program could read other X11 programs' windows and keys, not Wayland ones: `--no-x11` for programs that work with Wine's
+Wayland driver). The sound socket records as well as plays (the microphone): `--no-audio` drops it. A new IPC namespace
+means X11's SysV shared memory with the X server does not work; Wine falls back, Wayland and Vulkan are unaffected. No
+seccomp filter yet (the kernel keyring calls and the others Flatpak blocks are open).
+No game controllers yet (input devices are not shared). No portals: file dialogs show only the sandbox. Wine's own
+`wineserver -k` from outside does not reach a sandbox (Lutris's "kill Wine processes"): stop the program, or Ctrl+C
+`limbo wine`. A prefix is the program's own and holds whatever it wrote (symlinks included): host tools working on it
+should treat it as untrusted. The account's login name is visible inside (as `USERNAME`).
+
+### Limbo's `wine` on PATH
+
+The package installs `/usr/lib/limbo/bin/wine` (with Wine's other command names, the ones Wine itself installs as links
+to its loader: `wineboot`, `winecfg`, `msiexec`, `regedit`, `notepad`, ...), which runs `limbo wine --shim`. It is not
+on PATH by itself. A person puts it there with a link in a folder before `/usr/bin`, such as `/usr/local/bin` (it comes
+first in Arch's default PATH):
+
+```bash
+sudo ln -s /usr/lib/limbo/bin/wine /usr/local/bin/wine     # and winecfg, wineboot, ... the same way if wanted
+limbo doctor                                               # says whether `wine` on PATH is Limbo's
+```
+
+Then anything that runs `wine` from PATH (winetricks, Lutris's "system Wine", scripts) lands in the sandbox. The prefix
+comes from `WINEPREFIX`: unset is Limbo's `default`, `~/.local/share/limbo/wine/NAME` is prefix `NAME`, anything else
+(`~/.wine` included) is refused: mounting a folder some program named is a person's decision. What such a run may reach is
+that prefix's profile. For winetricks: `WINEPREFIX=~/.local/share/limbo/wine/NAME winetricks ...`, with its download
+cache shared read-only in the profile (`"share": ["~/.cache/winetricks"]`). **What bypasses it:** `/usr/bin/wine` by
+its full path, `wineserver` (not shimmed), Steam's Proton (its own Wine, outside on purpose), and Wine builds of their
+own (Lutris's Wine-GE runners, Bottles). Nothing on this machine used the system Wine when this was built.
+
+### Events, run records, trace
+
+Every run is in the person's own log, `~/.local/state/limbo/events.jsonl` (docs/EVENTS.md "The Wine backend"):
+`wine.setup` (a prefix made, or its Windows version set), `wine.start` (written before the sandbox starts; a run that
+cannot be logged does not happen), `wine.stop`, `wine.refused`. The guest field is `wine:NAME`, which no virtual machine
+can be called. Heimdall sees Wine use by reading that log (its `limbo_event_log` is a path; it does not watch user logs
+by default).
+
+Each run has a folder, `~/.local/state/limbo/wine-runs/<time>-<random>/` (the newest 200 kept), whose `run.json` is the
+machine-readable record the events point to (`record`): id, prefix, how it was started (`via`: `cli`, or `path` with the
+calling program's name), the profile and its SHA-256, the program, its arguments and, when it names a host file, that
+file's path, size and SHA-256 (up to 512 MiB), start and end times, status (`running`, `exited`, `stopped`,
+`setup_failed`, `sandbox_failed`, `not_started`), exit status, the signal it was stopped on, the prefix's architecture and Windows
+version, and what it was allowed: network, graphics card, display, sound, shares, the environment names set explicitly.
+
+`--trace` (or a profile's `"trace": true`) sets `WINEDEBUG` to a channel set for behaviour evidence and writes Wine's
+debug lines into the run's `trace.log` (16 MiB at most, then one line saying it was cut); the program's own error output
+still goes to the terminal. Channels: `process` and `exec` (processes started and their command lines, ShellExecute),
+`loaddll` (every DLL loaded), `seh` (exceptions), `service` (services created: persistence), `winsock`, `winhttp`,
+`wininet` (network use: with the network off an attempt shows as a failed one), with `fixme` off and timestamps and pids
+on. Left out on purpose: `reg` and `file`, which trace every registry and file call (millions of lines for an ordinary
+program). A small script's run traced 138 KB.
+
+### Verified 2026-11-08 (Labyrinth OS, bubblewrap 0.13.1, wine-staging 11.21, RTX 2080 Ti)
+
+`go test ./internal/wine` and `./cmd/limbo` run it for real (skipped with `-short`, without bwrap or Wine, or as root),
+with Wine's own built-in programs only and headless, so nothing reached a screen:
+`limbo wine --headless -- cmd /c echo hello` prints hello (the CLI, the probe of the real session, the event log); a
+new prefix is win64 and reports Windows 10; exit statuses pass through; a file in the home's place is not readable,
+a share is, and a read-only share cannot be written; WinHttp from Wine's script host cannot reach a listener on the host's
+loopback without `--network` and can with it; `--windows win7` is set once and reported; a traced run's file holds
+`loaddll` and `process` lines; a busy prefix is refused; a program outside the sandbox is refused with the fix; Ctrl+C
+stops a sleeping program through the wineserver and the record says `stopped`; through the shim the prefix comes from
+`WINEPREFIX` and the run is marked `via=path`; and, natively inside the same sandbox, Vulkan sees the RTX 2080 Ti with
+the Kairos layer inserted. A first prefix took about 3 s to make (381 MB on disk).
+
+Not verified: a window (the runs were headless by rule), sound, X11 authority on a desktop that uses one (Hyprland's
+Xwayland has none), a third-party Windows program, a game.
+
+### Phase 2
+
+- **DirectX through Vulkan** in each prefix: DXVK (Direct3D 8 to 11) and VKD3D-Proton (Direct3D 12), most of what makes
+  games run well; Limbo installs nothing that downloads by itself, so this needs a decision on where they come from
+  (Arch packages, or a pinned, checksummed release fetched at a person's request).
+- **Proton for non-Steam games** through umu-launcher instead of plain Wine.
+- **The Steam client inside a sandbox.** Steam's own container (pressure-vessel) uses bwrap too, so that profile would need
+  nested user namespaces (`--disable-userns` off for it); check they work.
+- **Wayland's security context** (wp_security_context_v1) for the sandbox's display connection, so the compositor can keep
+  screen capture, virtual input and the clipboard protocol from sandboxed programs.
+- Finer networks (internet only, an allowlist) through a user-mode network of the sandbox's own; game controllers
+  (opt-in `/dev/input`, hidraw, `/run/udev`); a seccomp filter; a second program joining a running prefix's sandbox;
+  `wineserver` through Limbo; other Wine builds (runner management); portals through a D-Bus filter; registry and file
+  changes as evidence (the prefix before and after a run).
+- **Sarina and Heimdall** (not wired yet; nothing here rules them out). Sarina's agents would ask through `agent.sock`
+  for a headless run under a profile a person wrote (the agent names the profile and the arguments, never a share or
+  the network; `--trace` on), and get the record and trace back labelled untrusted; `limbo wine` runs as the person, so
+  that needs the daemon to start it as the person (or a per-user service), never as root. Heimdall reads `wine.*` and the
+  run records (the user's log, or the daemon mirroring them), checks `sha256` against its known-bad list, and could stop
+  a run through a restrict-only `control.sock` route (stopping restricts). Suspicious `.exe` files go to Wine inside the
+  sealed `limbo analyze` guest, with the same trace channels, never to this sandbox.
 
 ## Shipping with LykanOS (formerly Niflheim OS and Chymaera OS)
 
@@ -587,7 +795,8 @@ Not built / not verified:
   (Yggdrasil `0b176b7`, Settings > Security > Limbo).
 - Windows licenses are stored, masked and assigned; nothing hands a key to a guest
   yet, because there is no Windows installer.
-- Wine backend, GUI, guest agent.
+- GUI, guest agent, and the Wine backend's phase 2 (section 13). No window of a Windows program through `limbo wine` has
+  been looked at yet: the real runs were headless, by rule.
 - Anything on bare-metal KVM or under load (only nested KVM was tested).
 
 Known weaknesses to fix before trusting it:

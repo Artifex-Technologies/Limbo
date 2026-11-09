@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/Artifex-Technologies/Limbo/internal/deps"
@@ -36,7 +37,13 @@ type setupEnv struct {
 	hasGroup func(name string) bool
 	// skippedProfiles lists validation profiles that exist but are not usable (nil: not checked).
 	skippedProfiles func() []runs.SkippedProfile
+	// resolve follows symlinks (filepath.EvalSymlinks), to tell whether `wine` on PATH is Limbo's shim (nil: not followed).
+	resolve func(string) (string, error)
 }
+
+// wineShim is Limbo's `wine` command, as the package installs it; a symlink to it earlier in PATH than /usr/bin (such
+// as /usr/local/bin/wine) is what makes programs that run `wine` land in Limbo's sandbox.
+const wineShim = "/usr/lib/limbo/bin/wine"
 
 func realSetupEnv() setupEnv {
 	return setupEnv{
@@ -63,6 +70,41 @@ func realSetupEnv() setupEnv {
 		skippedProfiles: func() []runs.SkippedProfile {
 			return (&runs.Manager{ProfileDir: "/etc/limbo/validation"}).SkippedAll()
 		},
+		resolve: filepath.EvalSymlinks,
+	}
+}
+
+// doctorWine reports the Wine backend (limbo wine). Informational: it does not decide whether Limbo can run guests.
+func doctorWine(env setupEnv) {
+	fmt.Fprintln(env.out, "\nWine backend (limbo wine; optional):")
+	line := func(good bool, okMsg, noteMsg string) {
+		if good {
+			fmt.Fprintln(env.out, "  ok       "+okMsg)
+		} else {
+			fmt.Fprintln(env.out, "  NOTE     "+noteMsg)
+		}
+	}
+	line(env.exists("/usr/bin/bwrap"), "bubblewrap (the sandbox every Wine run is in)",
+		"bubblewrap is not installed: limbo wine refuses to run without it (sudo pacman -S bubblewrap)")
+	hasWine := env.exists("/usr/bin/wine")
+	line(hasWine, "wine", "Wine is not installed (sudo pacman -S wine, or wine-staging)")
+	if !hasWine {
+		return
+	}
+	p, err := env.look("wine")
+	real := p
+	if err == nil && env.resolve != nil {
+		if r, rerr := env.resolve(p); rerr == nil {
+			real = r
+		}
+	}
+	switch {
+	case err == nil && real == wineShim:
+		line(true, "`wine` on PATH is Limbo's ("+p+"): programs that run wine land in the sandbox", "")
+	case err == nil:
+		line(false, "", "`wine` on PATH is "+p+": a program that runs wine bypasses Limbo. To send it through Limbo: sudo ln -s "+wineShim+" /usr/local/bin/wine")
+	default:
+		line(false, "", "no `wine` on PATH")
 	}
 }
 
@@ -109,6 +151,7 @@ func doctor(env setupEnv) bool {
 			}
 		}
 	}
+	doctorWine(env)
 	if len(missing) > 0 {
 		fmt.Fprintf(env.out, "\nFix: sudo limbo setup   (installs: %s)\n", strings.Join(deps.Packages(missing), " "))
 	}

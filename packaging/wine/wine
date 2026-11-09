@@ -1,0 +1,17 @@
+#!/bin/sh
+# Limbo's wine: a program that runs `wine` (winetricks, Lutris's "system Wine", a script) lands in Limbo's sandbox
+# instead of running Windows code bare on the host. Installed as /usr/lib/limbo/bin/wine, with Wine's other command
+# names (wineboot, winecfg, msiexec, regedit, ...) as links to it. It is on PATH once linked from a folder that comes
+# before /usr/bin, such as /usr/local/bin:
+#
+#     sudo ln -s /usr/lib/limbo/bin/wine /usr/local/bin/wine
+#
+# The prefix comes from WINEPREFIX: unset is Limbo's "default" prefix, ~/.local/share/limbo/wine/NAME is prefix NAME,
+# anything else is refused. What the sandbox may reach is that prefix's profile (~/.config/limbo/wine/NAME.json).
+# Not covered: /usr/bin/wine called by its full path, wineserver, and Steam's Proton (outside Limbo on purpose).
+# docs/ARCHITECTURE.md section 13.
+name=${0##*/}
+case "$name" in
+wine | wine64) exec /usr/bin/limbo wine --shim -- "$@" ;;
+*) exec /usr/bin/limbo wine --shim -- "$name" "$@" ;;
+esac

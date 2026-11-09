@@ -1,0 +1,14 @@
+{
+  "network": "none",
+  "gpu": true,
+  "audio": true,
+  "display": true,
+  "x11": true,
+  "windows": "win10",
+  "share": ["~/Downloads/Installers"],
+  "share_rw": ["~/Games/Example"],
+  "env": { "DXVK_HUD": "fps" },
+  "trace": false,
+  "program": "C:\\Program Files\\Example\\Example.exe",
+  "args": []
+}

@@ -113,4 +113,24 @@ requests are refused before anything is written).
 Heimdall may treat `exchange.held` as a finding (the sha256 names the held copy root can
 take into Heimdall's immunity quarantine). Nothing in Heimdall consumes these yet.
 
+## The Wine backend (package wine, docs/ARCHITECTURE.md section 13)
+
+Written by `limbo wine`, which runs as the person, into the person's own log
+(`~/.local/state/limbo/events.jsonl`, or `--state-dir`), not the daemon's. `guest` is
+`wine:<prefix>` (`wine` when a refusal comes before a prefix is known); no virtual machine can
+have that name. Every event carries `prefix`, `program` (as given: untrusted, control characters
+replaced, 200 bytes), `via` (`cli`, or `path` for Limbo's `wine` on PATH) and, for `via=path`,
+`parent` (the calling program's name, such as `winetricks`).
+
+| kind | when | detail |
+| --- | --- | --- |
+| `wine.setup` | before a prefix is made, or its Windows version set | `run`, `step` (`create` or `windows`), `arch` (create), `windows` |
+| `wine.start` | before a program's sandbox starts (a run that cannot be logged does not happen) | `run`, `record` (the run's `run.json`), `network` (`none` or `host`), `gpu` (`on`/`off`), `display` (`wayland,x11`, `wayland`, `x11` or `none`), `audio` (`pulse`, `pipewire` or `none`), `share` and `share_rw` (comma-separated paths, `%` and `,` escaped as `%25`/`%2C`), `sha256` (when the program names a host file), `trace` (`on` when traced) |
+| `wine.stop` | after the sandbox ended, or a prefix's setup failed | `run`, `record`, `exit_code`, `seconds`, `status` (`exited`, `stopped`, `sandbox_failed`, `setup_failed`), `stopped` (the signal limbo stopped it on), `during`=`setup` and `step` for a setup failure |
+| `wine.refused` | `limbo wine` refused to run: as root, without bubblewrap or Wine, a share it will not give, a program outside the sandbox, a busy prefix, a `WINEPREFIX` outside Limbo's prefixes | `reason` |
+
+The run record (`record`) is JSON with the run's whole story: profile and its SHA-256, program,
+arguments, the program file's SHA-256, times, status, exit status and what the sandbox was
+allowed. Heimdall's `limbo-guest` detector ignores these kinds today.
+
 Not yet emitted (planned): guest-agent health.

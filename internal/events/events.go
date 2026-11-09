@@ -47,6 +47,12 @@ const (
 	PassthroughApprove = "passthrough.approve" // a person approved a time-limited window at a terminal
 	PassthroughRevoke  = "passthrough.revoke"
 	HardwareStuck      = "hardware.stuck" // a device did not return to the host; reboot needed
+
+	// The Wine backend (docs/ARCHITECTURE.md section 13); guest is "wine:<prefix>".
+	WineStart   = "wine.start"   // before a Windows program's sandbox starts
+	WineStop    = "wine.stop"    // after it ended (or a prefix's setup failed)
+	WineSetup   = "wine.setup"   // before a prefix is made, or its Windows version set
+	WineRefused = "wine.refused" // limbo wine refused to run: no sandbox, a share it will not give, a busy prefix, ...
 )
 
 // Event is one line of the log. Detail holds kind-specific string fields; it is

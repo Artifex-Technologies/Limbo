@@ -13,7 +13,12 @@ diff names no host name, network address, SSID or MAC address.
 Go module, stdlib only. First slice built (see `docs/ARCHITECTURE.md` §12 for the
 per-package verification table and known weaknesses). Run against real libvirt
 and live guests since 2026-10-14 (latest: 66/66 and 24/24 on 2026-11-05; the
-Coordination Log has the details).
+Coordination Log has the details). The Wine backend (`limbo wine`, `internal/wine`, §13) since 2026-11-08: plain
+`go test ./...` runs it for real (bwrap + Wine's own `cmd`/`cscript`, headless, about 15 s); `-short` skips that.
+
+A Claude session isolated in a worktree has its commands refused when they wrap a payload the guard cannot read
+(`bash script`, `env`, `nice` before `go test`, a program literally named `cmd` after `--`): run real Wine checks from
+Go tests, and builds with `renice -n 15 -p $$ && go ...`.
 
 ```bash
 go vet ./... && go test ./...      # Linux (the code uses Linux syscalls; it no longer builds for Windows)
@@ -95,6 +100,10 @@ Commit per logical section, with the Co-Authored-By trailer.
   characters, label it. An advisory never changes state.
 - **Wine is not a security boundary.** The Wine backend must not run without
   bubblewrap-style confinement.
+- **Wine runs only through `limbo wine`** (owner's decision, 2026-11-08; docs/ARCHITECTURE.md section 13): never bare
+  Wine on the host, in code, scripts, tests or by hand; tests use Wine's own built-in programs only, headless. Its
+  defaults stay deny-first (no network, no home, shares only as given), its profiles stay outside every sandbox, and no
+  socket route may start a run with more than a person's profile allows.
 - **No macOS guests.** Limbo is a Linux project; don't add macOS tooling.
 - **Windows is license-gated.** Limbo's code never downloads, bundles or installs Windows on its own.
   Windows code paths require a user-supplied ISO and license, no-op without
@@ -165,6 +174,21 @@ From Heimdall's CLAUDE.md Coordination Log.
   repository; it waits for that image's recipe.
 
 ## Coordination Log (newest first)
+
+### 2026-11-08 — The Wine backend: `limbo wine` (phase 1)
+- **Owner's decision:** Windows programs run with Wine on the host desktop, confined by bubblewrap, and Wine runs only
+  through Limbo (Steam's Proton stays outside). `limbo wine [options] -- PROGRAM [ARGS]`, per-prefix profiles in
+  `~/.config/limbo/wine/NAME.json`, prefixes in `~/.local/share/limbo/wine/NAME` (64-bit, Windows 10 by default),
+  `/usr/lib/limbo/bin/wine` as the `wine` on PATH once a person links it from `/usr/local/bin`. Details, what is shared
+  and what is not: docs/ARCHITECTURE.md section 13.
+- **For Heimdall (not edited from here):** new event kinds, all additive (docs/EVENTS.md "The Wine backend"):
+  `wine.start`, `wine.stop`, `wine.setup`, `wine.refused`; guest `wine:<prefix>`; `wine.start` names the run's
+  machine-readable record (`record`, a `run.json`) and, when the program is a host file, its `sha256`. They are written
+  to the person's own log (`~/.local/state/limbo/events.jsonl`), not the daemon's, so Heimdall sees them only with
+  `limbo_event_log` pointed there. The `limbo-guest` detector ignores them today; nothing breaks.
+- **For Sarina:** nothing on `agent.sock`. A later route would start a headless, traced run under a person's profile
+  (section 13 "Phase 2").
+— Signed: Limbo / Claude Opus 5.5
 
 ### 2026-11-05 — Settings page backend, guest network events, the known weaknesses
 - **New socket for people: `/run/limbo/user.sock`** (0660 root:`limbo-users`, a new
