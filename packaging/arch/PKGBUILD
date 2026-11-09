@@ -1,4 +1,4 @@
-# Maintainer: Matthew Gregory <gregoma@pm.me>
+# Maintainer: Artifex Technologies (https://github.com/Artifex-Technologies)
 #
 # Limbo ships as a small package of its own (one static binary, a unit, docs).
 # Its heavy runtime (libvirt, QEMU, dnsmasq, ...) is deliberately NOT in
