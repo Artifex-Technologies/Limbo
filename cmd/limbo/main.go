@@ -16,6 +16,8 @@
 //	limbo quarantine ...          list / show / restrict / verdict / close (admin socket; needs sudo)
 //	limbo report [--guest G] [--since 7d] [--out F]   Markdown evidence report
 //	limbo doctor                  what is installed and what is missing
+//	limbo image list | verify     base images proven by a full hash (a start skips the hash while the file is
+//	                              provably unchanged); verify hashes each again (weekly, limbo-image-verify.timer)
 //	limbo setup [--yes] [--upgrade] [--enable-service]   install the runtime (libvirt, QEMU, ...) and enable it
 //
 //	The Settings page (docs/SETTINGS_PAGE.md); --json prints the socket's answer:
@@ -88,7 +90,7 @@ func (e exitStatus) Error() string { return "exit status " + strconv.Itoa(int(e)
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: limbo <validate|plan|seed|up|launch|down|address|export|screenshot|capture|version> <manifest> [args] | limbo serve | limbo quarantine ... | limbo report | limbo doctor | limbo setup | limbo passthrough ... | limbo analyze FILE | limbo settings|instance|license|exchange ... | limbo wine [options] -- PROGRAM [ARGS]")
+		return errors.New("usage: limbo <validate|plan|seed|up|launch|down|address|export|screenshot|capture|version> <manifest> [args] | limbo serve | limbo quarantine ... | limbo report | limbo doctor | limbo setup | limbo passthrough ... | limbo analyze FILE | limbo settings|instance|license|exchange ... | limbo image list|verify | limbo wine [options] -- PROGRAM [ARGS]")
 	}
 	cmd, rest := args[0], args[1:]
 	switch cmd {
@@ -121,6 +123,8 @@ func run(args []string) error {
 		return netCmd(rest)
 	case "wine":
 		return wineCmd(rest)
+	case "image":
+		return imageCmd(rest)
 	}
 
 	fs := flag.NewFlagSet(cmd, flag.ContinueOnError)
@@ -543,7 +547,8 @@ func act(cmd string, m *manifest.Manifest, state string, lo launchOpts) error {
 		return err
 	}
 	e := &engine.Engine{Runner: runner.Exec{}, Events: log, StateDir: state, Holds: store, Hardware: &hostpolicy.Policy{StateDir: state}, UFWActive: hostfw.UFWActive,
-		ExchangeRoot: instances.DefaultExchangeRoot, Subnets: &virt.Subnets{Path: filepath.Join(state, "subnets.json")}}
+		ExchangeRoot: instances.DefaultExchangeRoot, Subnets: &virt.Subnets{Path: filepath.Join(state, "subnets.json")},
+		Images: &image.Proofs{Path: filepath.Join(state, image.ProofsFile)}}
 
 	switch cmd {
 	case "up":

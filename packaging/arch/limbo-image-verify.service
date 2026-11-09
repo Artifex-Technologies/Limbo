@@ -1,0 +1,40 @@
+[Unit]
+Description=Limbo: hash every proven base image in full again, and refuse any that changed
+Documentation=https://github.com/Artifex-Technologies/Limbo/blob/main/docs/ARCHITECTURE.md
+# Nothing to re-check until a start has proven an image (limbo serve or limbo up, as root).
+ConditionPathExists=/var/lib/limbo/state/image-proofs.json
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/limbo image verify --state-dir /var/lib/limbo/state
+# A background chore: last in line for the processor and the disk. The hash also tells the kernel not to keep what it
+# read in the page cache (posix_fadvise), so a 12 GB image does not push other programs' cached files out.
+Nice=19
+CPUSchedulingPolicy=idle
+CPUWeight=idle
+IOSchedulingClass=idle
+IOWeight=1
+# Root only to read root's images and renew root's record; nothing else.
+NoNewPrivileges=yes
+PrivateNetwork=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/limbo/state
+# An image may live under /home: readable, never writable.
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE

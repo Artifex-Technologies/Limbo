@@ -3,10 +3,23 @@ post_install() {
 	echo "    Check what is missing:   limbo doctor"
 	echo "    Install and enable it:   sudo limbo setup"
 	echo "    (If pacman reports a stale database, run: sudo pacman -Syu  first.)"
+	start_image_timer
 }
 
 post_upgrade() {
 	if ! command -v virsh >/dev/null 2>&1; then
 		post_install
+		return
+	fi
+	start_image_timer
+}
+
+# The weekly image re-check's timer is wanted by timers.target from the package; start it now rather than at the next
+# boot (as Yggdrasil's game time does with its catch-up timer). It does nothing until a start has proven an image.
+# Inside a chroot (an ISO build) there is no running systemd, and the package's link enables it at boot.
+start_image_timer() {
+	if [ -d /run/systemd/system ]; then
+		systemctl daemon-reload >/dev/null 2>&1 || true
+		systemctl --no-block start limbo-image-verify.timer >/dev/null 2>&1 || true
 	fi
 }

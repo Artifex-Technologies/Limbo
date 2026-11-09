@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/Artifex-Technologies/Limbo/internal/deps"
+	"github.com/Artifex-Technologies/Limbo/internal/image"
 	"github.com/Artifex-Technologies/Limbo/internal/runs"
 )
 
@@ -68,7 +69,10 @@ func realSetupEnv() setupEnv {
 		},
 		hasGroup: func(name string) bool { return exec.Command("getent", "group", name).Run() == nil },
 		skippedProfiles: func() []runs.SkippedProfile {
-			return (&runs.Manager{ProfileDir: "/etc/limbo/validation"}).SkippedAll()
+			// The daemon's image proofs: as root an image proven by a full hash is not read again; anyone else cannot
+			// read the record (root's, in a root-only folder) and hashes in full, as before.
+			images := &image.Proofs{Path: filepath.Join(daemonStateDir, image.ProofsFile)}
+			return (&runs.Manager{ProfileDir: "/etc/limbo/validation", Images: images}).SkippedAll()
 		},
 		resolve: filepath.EvalSymlinks,
 	}

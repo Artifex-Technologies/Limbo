@@ -1,0 +1,13 @@
+[Unit]
+Description=Limbo: weekly full re-check of proven base images
+Documentation=https://github.com/Artifex-Technologies/Limbo/blob/main/docs/ARCHITECTURE.md
+
+[Timer]
+OnCalendar=weekly
+# Spread over the week's first day, and run at the next boot if the computer was off.
+RandomizedDelaySec=12h
+AccuracySec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

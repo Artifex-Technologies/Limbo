@@ -23,6 +23,7 @@ import (
 	"github.com/Artifex-Technologies/Limbo/internal/flows"
 	"github.com/Artifex-Technologies/Limbo/internal/hostfw"
 	"github.com/Artifex-Technologies/Limbo/internal/hostpolicy"
+	"github.com/Artifex-Technologies/Limbo/internal/image"
 	"github.com/Artifex-Technologies/Limbo/internal/instances"
 	"github.com/Artifex-Technologies/Limbo/internal/license"
 	"github.com/Artifex-Technologies/Limbo/internal/policy"
@@ -84,7 +85,8 @@ func serve(args []string) error {
 	}
 	agg := newAggregator(log, *state)
 	e := &engine.Engine{Runner: runner.Exec{}, Events: forgetting{log, agg}, StateDir: *state, Holds: store, Hardware: &hostpolicy.Policy{StateDir: *state, RunDir: *runDir}, UFWActive: hostfw.UFWActive,
-		ExchangeRoot: *exchangeRoot, Subnets: &virt.Subnets{Path: filepath.Join(*state, "subnets.json")}}
+		ExchangeRoot: *exchangeRoot, Subnets: &virt.Subnets{Path: filepath.Join(*state, "subnets.json")},
+		Images: &image.Proofs{Path: filepath.Join(*state, image.ProofsFile)}}
 	mgr := runs.NewManager(*profiles, *state, e, runs.SSH{}, log)
 	if err := os.MkdirAll(*inbox, 0o700); err != nil {
 		return err
