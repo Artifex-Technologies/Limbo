@@ -42,6 +42,8 @@ limbo instance start|stop|set NAME ...       # needs the password unless "Ask fo
 sudo limbo settings password on|off          # that switch
 limbo exchange take GUEST FILE DEST          # a file out of a guest's outbox, scanned by ClamAV first
 sudo limbo net watch                         # guests' connections and refusals, live (serve logs them as net.* events)
+sudo limbo image list                        # base images proven by a full hash: a start skips the hash while unchanged
+sudo limbo image verify                      # hash each again (weekly by limbo-image-verify.timer); refuses any that changed
 ```
 
 ## Windows programs with Wine: `limbo wine`

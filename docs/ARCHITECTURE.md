@@ -429,7 +429,7 @@ been verified:
 | `internal/report` | Markdown evidence report | unit tests including hostile text; run against a real log |
 | `internal/provision` | cloud-init seed for Linux guests | unit tests; booted (Arch cloud image) |
 | `internal/license` | Windows gate | unit tests |
-| `internal/image` | SHA-256 verify of base image | unit tests; base image confirmed unmodified after many guest sessions |
+| `internal/image` | SHA-256 verify of base image; proofs so a start skips the hash while the file is provably unchanged, and the weekly re-check (12.1) | unit tests; base image confirmed unmodified after many guest sessions; measured on a 12 GiB sparse image (12.1). Against real libvirt: the integration script's `proof` and `tamper` sections, not yet run as root |
 | `internal/events` | JSONL audit log (Heimdall contract, `docs/EVENTS.md`) | unit tests; real logs consumed by the real `heimdalld` |
 | `internal/launch` | waypipe / FreeRDP RemoteApp argv; waypipe pinned to the guest's host key | unit tests only. **Neither client has been run** |
 | `internal/instances` | the Settings page's guests: registry, figures, bounded changes, owner and hold rules | unit tests with a fake engine |
@@ -491,6 +491,75 @@ and from real unprivileged users:
   inside the sandbox, Heimdall (with the drop-in) reading the log and reaching
   `control.sock`, and that the Heimdall user and group can read but not write the
   audit log. 14 checks.
+
+### 12.1 Base images: hashed once, proven after (owner's decision, 2026-11-09)
+
+Every start used to hash the base image in full against the manifest's (or validation profile's) `sha256`. For the 12.7
+GB Windows base that was about 25 s of CPU and 25 s of waiting on every start, and it pushed the whole image through the
+page cache (limbo.service's cgroup held 2.26 GB). Go's SHA-256 already runs at about 500 MB/s here, as fast as Rust's
+ring, so the time had to come from hashing less, not faster.
+
+**The rule.** An image is hashed in full once, and what that proved is recorded in `<state>/image-proofs.json`
+(`/var/lib/limbo/state` for the daemon; root's, 0600): path, device, inode, size, modification and change times in
+nanoseconds, the SHA-256, and when it was hashed. A later start (`Engine.Up`, `internal/image` `Proofs.Check`) accepts
+the image without reading it only when all of these hold, and hashes it in full otherwise, exactly as before:
+
+- the image is a regular file (not a link), owned by root, not writable by group or others, in a folder that is root's
+  and that group and others cannot write;
+- its device, inode, size, modification time and change time are those recorded;
+- the recorded SHA-256 is the one the manifest asks for, and the weekly check has not refused the image since.
+
+The change time cannot be set from user space: writing, truncating, chmod, chown, an ACL, a new link all move it, and a
+replaced file is a new inode or a new change time. Only root can do any of that to a file that passes the first rule.
+The record is a cache of a proof, never a way to trust an image that was never hashed: only a process running as root
+writes it, only after a full hash that matched and only if the file did not change while it was read (`fstat` before and
+after) and its path still names that file. A record file that is damaged, not root's, group- or world-writable, a link,
+or in a folder that is not root's alone is ignored (the image is hashed in full) and replaced by the next proof. Every
+other refusal is as before: a missing image, a different digest, a held guest, the license gate.
+
+**Listing profiles** (`agent.sock` `/v1/profiles`, `limbo doctor`) uses `CheckCached`: the record, or what this process
+hashed itself while the file's device, inode, size and both times are unchanged (before: size and modification time
+only, so an image changed in place with its modification time put back stayed listed). A start never uses that memory.
+
+**Without the page cache.** Every full hash reads in 1 MiB pieces and tells the kernel, every 8 MiB, that it will not
+need what it read (`posix_fadvise` DONTNEED; SEQUENTIAL at the start), so at most a few MiB of the image stay cached
+instead of all of it. Pages of the image a running guest had cached are dropped too; it reads them again from disk.
+
+**The weekly re-check.** `limbo image verify` (root) hashes every recorded image in full again. Unchanged: the record is
+renewed. No longer eligible (chowned, made writable) or changed while it was read: the record is dropped, the next start
+hashes in full. Gone: dropped. **Changed** (it no longer hashes to what it was proven to have): the record is kept and
+marked refused, so no start skips the hash for it again, and `image.rejected` is written once (docs/EVENTS.md, detail
+`during` = `weekly check`, `stat` saying whether the change left any trace in its metadata). The command then fails, so
+the unit shows as failed. `limbo image list` shows each record and whether a start would skip the hash now, and why not.
+The package ships `limbo-image-verify.service` and `.timer` (weekly, randomised by up to 12 h, catches up after the
+computer was off; enabled by the package, and doing nothing until a start has proven an image), at `Nice=19`,
+`CPUSchedulingPolicy=idle`, `CPUWeight=idle`, `IOSchedulingClass=idle`, `IOWeight=1`, sandboxed (no network, the system
+read-only except the state folder, `/home` read-only). Yggdrasil's game time holds it during a game through the drop-in
+`limbo-image-verify.service.d/gametime.conf`. Game time is optional for Limbo (LykanOS has none), and systemd skips a
+unit for good when its `ExecCondition=` program is missing (exit 203 counts as "condition failed"; seen on this PC), so
+the drop-in asks game time only when `/usr/bin/yggdrasil-gametime` exists and otherwise lets the check run.
+
+**libvirt was taking the images over.** On the owner's PC every base image in `/var/lib/limbo/images` was owned by
+`libvirt-qemu` (0644): libvirt's DAC driver chowns each image in a guest's disk chain to QEMU's user when the guest starts
+and never hands a shared base back. So QEMU could have written to every base image, and the root-only rule above could
+never apply. Since 2026-11-09 the domain declares the base as the overlay's backing store with
+`<seclabel model='dac' relabel='no'/>` (`internal/virt`), and libvirt leaves its owner alone; QEMU reads it as anyone
+can (it must be world-readable, 0644, as downloads and `limbo export` make it). No terminating `<backingStore/>`
+follows, so libvirt still probes below the base if it has a backing file itself. Because libvirt follows the declared
+chain rather than the overlay's header, a persistent guest's kept overlay must be based on the manifest's image: `Up`
+reads the overlay's qcow2 header and refuses one made on another base (it would show the guest its writes over the
+wrong disk; before, libvirt booted whatever base the header named while `Up` had verified the manifest's).
+
+**Measured (2026-11-09, i9-9900K, no SHA extensions; `TestMeasureLargeSparseImage` in `internal/image`):** a 12 GiB
+sparse image on tmpfs: the full hash every start did took 23 827 ms (541 MB/s); the stat path takes 0.009 ms (median of
+1000; 99th percentile 0.023 ms, slowest 0.21 ms). A 2 GiB sparse image on the btrfs home: the old hash left all 524 288
+pages of it in the page cache, the new one none.
+
+**Owner steps after installing** (in this order: a Limbo from before this change would chown them back at its next
+start): install the package and restart `limbo.service`; then give the existing images back to root once
+(`sudo chown root:root /var/lib/limbo/images/*.qcow2`; the folder is already root's 0755). The first start of each then
+hashes it in full and records it, and the ones after skip the hash; until then every start hashes in full, as before.
+`sudo limbo up` from a terminal uses the daemon's state folder, so it shares the daemon's record.
 
 ## 13. The Wine backend: `limbo wine` (phase 1, built and run 2026-11-08)
 

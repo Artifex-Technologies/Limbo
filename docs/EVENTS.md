@@ -21,8 +21,8 @@ backwards compatible; renaming or removing either is a contract change and needs
 
 | kind | when | detail |
 | --- | --- | --- |
-| `image.verified` | base image checksum matched | `sha256` |
-| `image.rejected` | checksum mismatch; nothing else was touched | `reason` |
+| `image.verified` | base image checksum matched | `sha256`, `check` (since 2026-11-09: `full` when the image was hashed in full, `record` when a root-owned proof of an earlier full hash vouched for the unchanged file; see "Base image proofs" below) |
+| `image.rejected` | checksum mismatch, or a missing or unreadable image; nothing else was touched | `reason` |
 | `gate.blocked` | Windows guest lacked ISO/license, or the guest is quarantined | `reason` |
 | `guest.define` | before network/domain definition | `os`, `network` |
 | `policy.apply` | before the firewall table loads | `table` |
@@ -33,6 +33,20 @@ backwards compatible; renaming or removing either is a contract change and needs
 
 Events are written *before* the action they describe, so a crash mid-action
 still leaves the intent on record.
+
+### Base image proofs (2026-11-09; docs/ARCHITECTURE.md section 12.1)
+
+A base image is hashed in full once; later starts skip the hash while the file provably has not changed
+(`image.verified` with `check` = `record`). `limbo image verify`, run weekly by `limbo-image-verify.timer`, hashes every
+proven image in full again. When one no longer hashes to what it was proven to have, it is refused (no start skips the
+hash for it again; a start hashes it against its manifest, which refuses it) and the check writes:
+
+| kind | when | detail |
+| --- | --- | --- |
+| `image.rejected` | the weekly check found a proven image changed (once per finding, not every week) | `reason` (a sentence naming the path), `during` = `weekly check`, `path`, `sha256` (what it was proven to have, which manifests ask for), `found` (what it hashes to now), `stat` (`unchanged`: its inode, size and times are what they were, so it changed without a trace in its metadata: damage on the disk or a write below the filesystem; `changed`: it was rewritten or replaced) |
+
+`guest` is empty: an image is not a guest, and no guest was started. Additive: the kind exists (Heimdall's `limbo-guest`
+detector raises a critical finding on it, with the reason) and the detail keys are new. Every value is a string.
 
 ## Quarantine and validation runs (docs/QUARANTINE.md)
 

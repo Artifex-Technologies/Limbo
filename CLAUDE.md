@@ -59,7 +59,7 @@ The real-guest tests, each of which has caught defects unit tests could not:
 
 | Script | Covers |
 | --- | --- |
-| `scripts/integration-linux-guest.sh` | boot in each network mode, what the firewall allows, two guests cannot reach each other, teardown |
+| `scripts/integration-linux-guest.sh` | boot in each network mode, what the firewall allows, two guests cannot reach each other, teardown; base image proofs (hashed once, libvirt leaves the base root's, the weekly check catches a change) |
 | `scripts/integration-quarantine.sh` | `limbo serve`, socket permissions with real unprivileged users, quarantine lifecycle, verdicts, validation runs |
 | `scripts/integration-chain.sh` | real guest + real daemon + real `heimdalld` (unprivileged) + Sarina's real service behind a fake model |
 | `scripts/integration-sarina.sh` | Sarina's real agent loop and real service (fake model that issues scripted tool calls) driving real validation runs: tool schema, permission gate, allowlist, untrusted labelling of results |
@@ -174,6 +174,29 @@ From Heimdall's CLAUDE.md Coordination Log.
   repository; it waits for that image's recipe.
 
 ## Coordination Log (newest first)
+
+### 2026-11-09 — Base images: hashed once, proven after
+- **Owner's decision:** a start no longer hashes the base image every time (the 12.7 GB Windows base cost ~25 s and
+  GBs of page cache per start). It is hashed in full once; a root-owned record (`<state>/image-proofs.json`) lets later
+  starts skip the hash only while the file is root's, not group/other-writable, in a root-only folder, and its device,
+  inode, size, mtime and ctime are those recorded, for the digest the manifest asks for. Anything else hashes in full
+  as before; a damaged or foreign record file is ignored. Full hashes no longer fill the page cache (fadvise). A weekly
+  `limbo image verify` (`limbo-image-verify.timer`, idle priority, held during games by Yggdrasil's game time when it is
+  installed) hashes every proven image again. Details: docs/ARCHITECTURE.md section 12.1.
+- **Found on the way:** libvirt had chowned every base image to `libvirt-qemu` (its DAC driver relabels the whole disk
+  chain and never gives a shared base back), so QEMU could write them and the root-only rule could never hold. The
+  domain now declares the base as the overlay's backing store with `<seclabel model='dac' relabel='no'/>`, and `Up`
+  refuses a persistent guest's kept overlay made on another base (libvirt follows the declaration, not the header).
+- **For Heimdall (not edited from here):** additive only. `image.verified` gains `check` (`full` | `record`). The weekly
+  check writes `image.rejected` with an empty `guest` and `during` = `weekly check`, `path`, `sha256`, `found`, `stat`
+  (`unchanged`: the content changed with no trace in the file's metadata, worth the louder alarm). The `limbo-guest`
+  detector already raises a critical finding on `image.rejected`; with an empty guest its summary reads `guest ""`, so
+  naming `path` there would read better. Nothing to quarantine (no guest started), as before.
+- **For Yggdrasil:** Limbo's package ships its own game-time drop-in for `limbo-image-verify.service` (it asks
+  `/usr/bin/yggdrasil-gametime` only when it exists); docs/GAME_TIME.md's "What waits" table could list it.
+- Real-guest run of the new `proof` and `tamper` sections of `scripts/integration-linux-guest.sh`: needs root, not run
+  by this session. Owner steps: install, restart `limbo.service`, then `sudo chown root:root /var/lib/limbo/images/*.qcow2`.
+— Signed: Limbo / Claude Opus 5.5
 
 ### 2026-11-08 — The Wine backend: `limbo wine` (phase 1)
 - **Owner's decision:** Windows programs run with Wine on the host desktop, confined by bubblewrap, and Wine runs only

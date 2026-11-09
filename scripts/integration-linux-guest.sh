@@ -23,7 +23,15 @@ cd "$REPO" && go build -o "$WORK/limbo" ./cmd/limbo || { echo "build failed"; ex
 LIMBO="$WORK/limbo"
 
 [ -f "$WORK/key" ] || ssh-keygen -q -t ed25519 -N '' -f "$WORK/key"
-SHA=$(sha256sum "$BASE" | cut -d' ' -f1)
+# The guests run on a root-owned copy of the base (reflinked where the filesystem can), in a root-only folder: what the
+# image proofs need (package image), whoever owns $BASE (libvirt chowned existing images to its QEMU user before
+# 2026-11-09). $BASE itself is only read.
+IMG="$WORK/images/base.qcow2"
+mkdir -p "$WORK/images" && chmod 0755 "$WORK/images" &&
+  cp --reflink=auto "$BASE" "$IMG.new" && chown root:root "$IMG.new" && chmod 0644 "$IMG.new" && mv -f "$IMG.new" "$IMG" ||
+  { echo "copying the base image failed"; exit 2; }
+SHA=$(sha256sum "$IMG" | cut -d' ' -f1)
+EVENTS="$LIMBO_STATE_DIR/events.jsonl"
 
 ok()   { echo "  PASS  $1"; PASS=$((PASS+1)); }
 bad()  { echo "  FAIL  $1"; FAIL=$((FAIL+1)); }
@@ -37,7 +45,7 @@ manifest() { # manifest <network-json-fragment>
   cat >"$WORK/$GUEST.json" <<EOF
 {
   "name": "$GUEST", "os": "linux",
-  "image": {"path": "$BASE", "sha256": "$SHA"},
+  "image": {"path": "$IMG", "sha256": "$SHA"},
   "cpus": 2, "memory_mb": 2048,
   $1
   "disposable": true,
@@ -143,6 +151,37 @@ trap 'kill $HTTP 2>/dev/null; "$LIMBO" down --i-know "$WORK/$GUEST.json" >/dev/n
 sleep 1
 
 want() { [ -z "${LIMBO_IT_MODES:-}" ] || [[ " $LIMBO_IT_MODES " == *" $1 "* ]]; }
+
+# newevents <from-line> <kind> <substring>: an event of that kind written after line N of the audit log holds substring.
+newevents() { tail -n +"$(($1 + 1))" "$EVENTS" 2>/dev/null | grep "\"kind\":\"$2\"" | grep -qF "$3"; }
+lines() { { wc -l <"$EVENTS"; } 2>/dev/null || echo 0; }
+
+# A base image is hashed in full once and proven after (package image, 2026-11-09), and libvirt leaves it root's.
+run_proof() {
+  echo "== image proof: hashed once, proven after"
+  rm -f "$LIMBO_STATE_DIR/image-proofs.json"
+  manifest ''
+  "$LIMBO" seed --iso "$WORK/seed.iso" "$WORK/$GUEST.json" "$WORK/seed" >/dev/null || { bad "seed"; return; }
+  n=$(lines); t0=$(date +%s%N)
+  "$LIMBO" up --i-know "$WORK/$GUEST.json" && ok "limbo up (first start: $((($(date +%s%N) - t0) / 1000000)) ms)" ||
+    { bad "limbo up"; "$LIMBO" down --i-know "$WORK/$GUEST.json" >/dev/null 2>&1; return; }
+  expect pass "the first start hashed the image in full (image.verified check=full)" newevents "$n" image.verified '"check":"full"'
+  expect pass "the base image is still root's while a guest runs on it (libvirt did not chown it)" \
+    sh -c "[ \"\$(stat -c %u:%g '$IMG')\" = 0:0 ] && [ \"\$(stat -c %a '$IMG')\" = 644 ]"
+  expect pass "libvirt was told to leave the base alone (seclabel relabel=no on the backing store)" \
+    sh -c "virsh -c qemu:///system dumpxml limbo-$GUEST | grep -A6 '<backingStore' | grep -q \"relabel='no'\""
+  "$LIMBO" down --i-know "$WORK/$GUEST.json" >/dev/null 2>&1
+  expect pass "the base image is still root's after the guest is gone" sh -c "[ \"\$(stat -c %u '$IMG')\" = 0 ]"
+  n=$(lines); t0=$(date +%s%N)
+  "$LIMBO" up --i-know "$WORK/$GUEST.json" && ok "limbo up (second start: $((($(date +%s%N) - t0) / 1000000)) ms)" || bad "limbo up again"
+  expect pass "the second start took the proof (image.verified check=record)" newevents "$n" image.verified '"check":"record"'
+  "$LIMBO" down --i-know "$WORK/$GUEST.json" >/dev/null 2>&1
+  expect pass "limbo image list: a start skips the hash" sh -c "'$LIMBO' image list --i-know | grep -q 'a start skips the hash'"
+  expect pass "limbo image verify passes the unchanged image" "$LIMBO" image verify --i-know
+  expect pass "the record file is root's and 0600" sh -c "[ \"\$(stat -c %u:%a '$LIMBO_STATE_DIR/image-proofs.json')\" = 0:600 ]"
+}
+want proof && run_proof
+
 want none && run_mode none ''
 want internet-only && run_mode internet-only '"network": {"mode": "internet-only"},'
 want allowlist && run_mode allowlist '"network": {"mode": "allowlist", "allow": [{"addr": "1.1.1.1", "port": 443}]},'
@@ -153,10 +192,11 @@ run_persistent() {
   echo "== persistent guest on its own overlay"
   GUEST=itpers; manifest ''
   sed -i 's/"disposable": true/"disposable": false/' "$WORK/$GUEST.json"
-  BASESUM=$(sha256sum "$BASE" | cut -d' ' -f1)
+  BASESUM=$(sha256sum "$IMG" | cut -d' ' -f1)
+  rm -f "$LIMBO_STATE_DIR/$GUEST.disk.qcow2" # one left by an interrupted run may sit on another base, which up refuses
   "$LIMBO" up --i-know "$WORK/$GUEST.json" && ok "persistent guest up" || { bad "persistent up"; "$LIMBO" down --i-know "$WORK/$GUEST.json" >/dev/null 2>&1; return; }
   DISK="$LIMBO_STATE_DIR/$GUEST.disk.qcow2"
-  qemu-img info -U "$DISK" 2>/dev/null | grep -q "backing file: $BASE" && ok "it boots from its own overlay backed by the base image" || bad "no overlay at $DISK"
+  qemu-img info -U "$DISK" 2>/dev/null | grep -q "backing file: $IMG" && ok "it boots from its own overlay backed by the base image" || bad "no overlay at $DISK"
   GIP=$("$LIMBO" address "$WORK/$GUEST.json"); up=no
   for _ in $(seq 1 "${LIMBO_IT_BOOT_WAIT:-100}"); do gssh true 2>/dev/null && { up=yes; break; }; sleep 3; done
   [ "$up" = yes ] && ok "persistent guest reachable at $GIP" || { bad "persistent guest never reachable"; "$LIMBO" down --i-know "$WORK/$GUEST.json" >/dev/null 2>&1; return; }
@@ -178,7 +218,7 @@ PY
   expect pass "launch --check: a different pinned key is refused" grep -q "^FAIL  ssh with the pinned key failed" "$WORK/launch-bad.out"
   "$LIMBO" down --i-know "$WORK/$GUEST.json" && ok "persistent guest down" || bad "persistent down"
   [ -f "$DISK" ] && ok "its overlay survives down" || bad "overlay deleted at down"
-  [ "$(sha256sum "$BASE" | cut -d' ' -f1)" = "$BASESUM" ] && ok "base image unchanged" || bad "base image changed"
+  [ "$(sha256sum "$IMG" | cut -d' ' -f1)" = "$BASESUM" ] && ok "base image unchanged" || bad "base image changed"
   "$LIMBO" up --i-know "$WORK/$GUEST.json" >/dev/null && GIP=$("$LIMBO" address "$WORK/$GUEST.json") && up=no
   for _ in $(seq 1 "${LIMBO_IT_BOOT_WAIT:-100}"); do gssh true 2>/dev/null && { up=yes; break; }; sleep 3; done
   expect pass "what it wrote is still there after down and up" gssh "grep -qx kept ~/marker"
@@ -213,6 +253,24 @@ run_isolation() {
   "$LIMBO" down --i-know "$WORK/isoa.json" >/dev/null 2>&1 && "$LIMBO" down --i-know "$WORK/isob.json" >/dev/null 2>&1 && ok "both guests down" || bad "teardown"
 }
 want isolation && run_isolation
+
+# A proven image that changes is caught by the weekly check and refused at the next start (last: it alters the copy;
+# the next run of this script copies it afresh).
+run_tamper() {
+  echo "== a changed base image is caught"
+  GUEST=itest; manifest ''
+  "$LIMBO" up --i-know "$WORK/$GUEST.json" >/dev/null 2>&1; "$LIMBO" down --i-know "$WORK/$GUEST.json" >/dev/null 2>&1 # proven
+  printf 'tampered' >>"$IMG"
+  n=$(lines)
+  expect fail "limbo image verify fails on the changed image" "$LIMBO" image verify --i-know
+  expect pass "it wrote image.rejected (during=weekly check) for Heimdall" newevents "$n" image.rejected '"during":"weekly check"'
+  n=$(lines)
+  expect fail "limbo up refuses the changed image" "$LIMBO" up --i-know "$WORK/$GUEST.json"
+  expect pass "the start logged image.rejected for the guest" newevents "$n" image.rejected "\"guest\":\"$GUEST\""
+  expect fail "no guest was started" virsh -c qemu:///system dominfo "limbo-$GUEST"
+  "$LIMBO" down --i-know "$WORK/$GUEST.json" >/dev/null 2>&1
+}
+want tamper && run_tamper
 
 echo "== audit log"
 n=$(wc -l <"$LIMBO_STATE_DIR/events.jsonl")
