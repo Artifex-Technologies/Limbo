@@ -134,13 +134,39 @@ func pciHostdev(addr string) (hostdev, error) {
 }
 
 type disk struct {
-	Type     string    `xml:"type,attr"`
-	Device   string    `xml:"device,attr"`
-	Driver   attrs     `xml:"driver"`
-	Source   attrs     `xml:"source"`
-	Target   attrs     `xml:"target"`
-	Boot     *bootAt   `xml:"boot"`
-	ReadOnly *struct{} `xml:"readonly"`
+	Type         string        `xml:"type,attr"`
+	Device       string        `xml:"device,attr"`
+	Driver       attrs         `xml:"driver"`
+	Source       attrs         `xml:"source"`
+	BackingStore *backingStore `xml:"backingStore"`
+	Target       attrs         `xml:"target"`
+	Boot         *bootAt       `xml:"boot"`
+	ReadOnly     *struct{}     `xml:"readonly"`
+}
+
+// backingStore names the base image under a guest's overlay, so its seclabel can tell libvirt to leave the file's owner
+// alone. Without it libvirt's DAC driver chowns every image in the chain to QEMU's user when a guest starts, and never
+// gives a shared base image back: on the owner's PC every base image ended up owned by libvirt-qemu, so QEMU could
+// have written to it, and Limbo's quick image check (package image, which needs root's files) could never apply.
+// The base stays root's and read-only for QEMU (it must be readable by it: 0644, as downloads and `limbo export` make
+// it). No terminating <backingStore/> follows, so libvirt still probes beyond the base if it has a backing file itself.
+type backingStore struct {
+	Type   string `xml:"type,attr"`
+	Format attrs  `xml:"format"`
+	Source struct {
+		File     string `xml:"file,attr"`
+		Seclabel struct {
+			Model   string `xml:"model,attr"`
+			Relabel string `xml:"relabel,attr"`
+		} `xml:"seclabel"`
+	} `xml:"source"`
+}
+
+func baseImage(path string) *backingStore {
+	b := &backingStore{Type: "file", Format: attrs{Type: "qcow2"}}
+	b.Source.File = path
+	b.Source.Seclabel.Model, b.Source.Seclabel.Relabel = "dac", "no"
+	return b
 }
 
 // bootAt is a device's place in the boot order.
@@ -226,11 +252,14 @@ func DomainXML(m *manifest.Manifest, rootDisk string) ([]byte, error) {
 		d.Features.HyperV.Spinlocks.State, d.Features.HyperV.Spinlocks.Retries = "on", 8191
 	}
 
+	// The overlay's backing file is the manifest's image: the engine makes it so (qemu-img create -b), and checks a kept
+	// overlay's header before reusing it, because libvirt follows this declaration rather than the header.
 	root := disk{
 		Type: "file", Device: "disk",
-		Driver: attrs{Name: "qemu", Type: "qcow2"},
-		Source: attrs{File: rootDisk},
-		Target: attrs{Dev: rootDev, Bus: bus},
+		Driver:       attrs{Name: "qemu", Type: "qcow2"},
+		Source:       attrs{File: rootDisk},
+		BackingStore: baseImage(m.Image.Path),
+		Target:       attrs{Dev: rootDev, Bus: bus},
 	}
 	if m.OS == manifest.OSWindows && m.Windows.ISO != "" {
 		// The disk first; an empty disk falls through to the installation CD by name (a per-device order: the

@@ -4,10 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/Artifex-Technologies/Limbo/internal/events"
 	"github.com/Artifex-Technologies/Limbo/internal/image"
@@ -29,14 +27,6 @@ type SkippedProfile struct {
 	Remedy string `json:"remedy"`
 }
 
-// imgSig identifies an image file's state at the time its checksum was verified,
-// so a multi-gigabyte image is hashed once, not on every listing.
-type imgSig struct {
-	size int64
-	mod  time.Time
-	want string
-}
-
 type scanned struct {
 	name    string
 	profile *Profile
@@ -51,7 +41,9 @@ func (m *Manager) scan() ([]scanned, []SkippedProfile) {
 	defer m.scanMu.Unlock()
 	if m.seen == nil {
 		m.seen = map[string]string{}
-		m.imgOK = map[string]imgSig{}
+	}
+	if m.Images == nil {
+		m.Images = &image.Proofs{} // no record file: what this process hashed is still remembered
 	}
 	ents, err := os.ReadDir(m.ProfileDir)
 	if err != nil {
@@ -118,25 +110,21 @@ func skipFor(name string, err error) *SkippedProfile {
 	return s
 }
 
-// checkImage reports a missing or altered base image. The checksum is cached by
-// the image's size and modification time (it is re-hashed if either changes).
+// checkImage reports a missing or altered base image. A listing does not re-hash a multi-GB image: it takes the
+// image's root-owned proof (package image) when there is one, or what this process hashed itself while the file's
+// device, inode, size and times are unchanged (before 2026-11-09: size and modification time only). A start
+// (Engine.Up) checks again, and never takes the listing's memory.
 func (m *Manager) checkImage(p *Profile) error {
 	img := p.Manifest.Image
-	fi, err := os.Stat(img.Path)
-	if err != nil {
+	if _, err := os.Stat(img.Path); err != nil {
 		return newErr(CodeImageMissing, "ask the operator to restore the profile's base image", "the profile's base image is missing")
 	}
-	sig := imgSig{fi.Size(), fi.ModTime(), img.SHA256}
-	if m.imgOK[filepath.ToSlash(img.Path)] == sig {
-		return nil
-	}
-	if err := image.Verify(img.Path, img.SHA256); err != nil {
+	if _, err := m.Images.CheckCached(img.Path, img.SHA256); err != nil {
 		if errors.Is(err, image.ErrMismatch) {
 			return newErr(CodeImageMismatch, "ask the operator to re-verify the image and update the profile's sha256", "the profile's base image does not match its recorded checksum")
 		}
 		return newErr(CodeImageMissing, "ask the operator to restore the profile's base image", "the profile's base image is missing")
 	}
-	m.imgOK[filepath.ToSlash(img.Path)] = sig
 	return nil
 }
 

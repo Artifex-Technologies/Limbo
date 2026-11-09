@@ -53,6 +53,59 @@ func TestDomainXMLOptions(t *testing.T) {
 	}
 }
 
+// The guest boots its overlay; the base image appears only as the overlay's read-only backing store, with a DAC
+// seclabel that keeps libvirt from chowning it to QEMU's user, and with no terminator (libvirt still probes below it).
+func TestBaseImageIsTheOverlaysBackingStoreAndLibvirtLeavesItsOwnerAlone(t *testing.T) {
+	for _, osName := range []string{"linux", "windows"} {
+		m := parse(t, "")
+		m.OS = osName
+		out, err := DomainXML(m, "/state/lab.overlay.qcow2")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var d struct {
+			Disks []struct {
+				Device  string `xml:"device,attr"`
+				Source  attrs  `xml:"source"`
+				Backing *struct {
+					Type   string `xml:"type,attr"`
+					Format attrs  `xml:"format"`
+					Source struct {
+						File     string `xml:"file,attr"`
+						Seclabel []struct {
+							Model   string `xml:"model,attr"`
+							Relabel string `xml:"relabel,attr"`
+						} `xml:"seclabel"`
+					} `xml:"source"`
+					Next *struct{} `xml:"backingStore"`
+				} `xml:"backingStore"`
+			} `xml:"devices>disk"`
+		}
+		if err := xml.Unmarshal(out, &d); err != nil {
+			t.Fatal(err)
+		}
+		root := d.Disks[0]
+		if root.Device != "disk" || root.Source.File != "/state/lab.overlay.qcow2" || root.Backing == nil {
+			t.Fatalf("%s: root disk %+v", osName, root)
+		}
+		b := root.Backing
+		if b.Type != "file" || b.Format.Type != "qcow2" || b.Source.File != m.Image.Path || b.Next != nil {
+			t.Fatalf("%s: backing store %+v", osName, b)
+		}
+		if len(b.Source.Seclabel) != 1 || b.Source.Seclabel[0].Model != "dac" || b.Source.Seclabel[0].Relabel != "no" {
+			t.Fatalf("%s: seclabel %+v", osName, b.Source.Seclabel)
+		}
+		for _, other := range d.Disks[1:] {
+			if other.Backing != nil {
+				t.Fatalf("%s: a CD got a backing store", osName)
+			}
+		}
+		if n := strings.Count(string(out), m.Image.Path) + strings.Count(string(out), "a&amp;b.qcow2"); n != 1 {
+			t.Fatalf("%s: the base image appears %d times:\n%s", osName, n, out)
+		}
+	}
+}
+
 func TestNetworkXMLIsolatedWhenNone(t *testing.T) {
 	none, _ := NetworkXML(parse(t, ""))
 	if strings.Contains(string(none), "<forward") {

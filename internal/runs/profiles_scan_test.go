@@ -44,6 +44,32 @@ func put(t *testing.T, x *env, name, body string) {
 	}
 }
 
+// The listing remembers a hashed image by its device, inode, size and both times: an image changed in place with its
+// size and modification time put back (which the old size+mtime cache missed) is hashed again and skipped.
+func TestListingNoticesAnImageChangedWithItsMtimePutBack(t *testing.T) {
+	x := setup(t, true)
+	if got := x.m.Profiles(); len(got) != 1 {
+		t.Fatalf("%v", got)
+	}
+	img := filepath.Join(filepath.Dir(x.m.StateDir), "base.img")
+	fi, err := os.Stat(img)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(img, []byte("xyz"), 0o600); err != nil { // same size
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(img, fi.ModTime(), fi.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	if got := x.m.Profiles(); len(got) != 0 {
+		t.Fatalf("an altered image was still listed: %v", got)
+	}
+	if sk := skippedOf(t, x.m); len(sk) != 1 || sk[0].Code != CodeImageMismatch {
+		t.Fatalf("%+v", sk)
+	}
+}
+
 func TestValidProfileIsListedAndNotSkipped(t *testing.T) {
 	x := setup(t, true)
 	if got := x.m.Profiles(); len(got) != 1 || got[0] != "arch-update" {

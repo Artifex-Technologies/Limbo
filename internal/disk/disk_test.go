@@ -32,6 +32,34 @@ func TestVirtualSizeReadsTheQcow2Header(t *testing.T) {
 	}
 }
 
+func TestBackingFileReadsTheQcow2Header(t *testing.T) {
+	d := t.TempDir()
+	p := filepath.Join(d, "overlay.qcow2")
+	if err := WriteTestQcow2(p, "/var/lib/limbo/images/base.qcow2"); err != nil {
+		t.Fatal(err)
+	}
+	if b, err := BackingFile(p); err != nil || b != "/var/lib/limbo/images/base.qcow2" {
+		t.Fatalf("%q %v", b, err)
+	}
+	standalone := filepath.Join(d, "base.qcow2")
+	if err := WriteTestQcow2(standalone, ""); err != nil {
+		t.Fatal(err)
+	}
+	if b, err := BackingFile(standalone); err != nil || b != "" {
+		t.Fatalf("standalone: %q %v", b, err)
+	}
+	raw := filepath.Join(d, "raw")
+	os.WriteFile(raw, []byte("what the guest wrote"), 0o600)
+	if _, err := BackingFile(raw); err != ErrNotQcow2 {
+		t.Fatalf("raw file: %v", err)
+	}
+	link := filepath.Join(d, "link")
+	os.Symlink(p, link)
+	if _, err := BackingFile(link); err == nil {
+		t.Fatal("followed a link")
+	}
+}
+
 func TestUsageCountsRegularFilesOnly(t *testing.T) {
 	d := t.TempDir()
 	os.WriteFile(filepath.Join(d, "a"), make([]byte, 8192), 0o600)

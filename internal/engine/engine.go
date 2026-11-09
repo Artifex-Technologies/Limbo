@@ -17,6 +17,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/Artifex-Technologies/Limbo/internal/disk"
 	"github.com/Artifex-Technologies/Limbo/internal/events"
 	"github.com/Artifex-Technologies/Limbo/internal/exchange"
 	"github.com/Artifex-Technologies/Limbo/internal/hostfw"
@@ -56,6 +57,9 @@ type Engine struct {
 	// Subnets, if set, gives each guest its own recorded subnet at Up and forgets it at teardown. Nil keeps whatever
 	// the manifest says (tests), which falls back to a hash of the name.
 	Subnets *virt.Subnets
+	// Images proves base images before Up uses them: from a root-owned record of an earlier full hash while the file
+	// provably has not changed, by a full hash otherwise (package image). Nil hashes in full every time.
+	Images *image.Proofs
 
 	before sync.Map // guest name -> driver bindings recorded at Up, checked at teardown
 }
@@ -140,11 +144,13 @@ func (e *Engine) Up(ctx context.Context, m *manifest.Manifest) (err error) {
 		_ = e.Events.Emit(events.GateBlocked, g, map[string]string{"reason": err.Error()})
 		return err
 	}
-	if err := image.Verify(m.Image.Path, m.Image.SHA256); err != nil {
+	how, err := e.Images.Check(m.Image.Path, m.Image.SHA256)
+	if err != nil {
 		_ = e.Events.Emit(events.ImageRejected, g, map[string]string{"reason": err.Error()})
 		return err
 	}
-	if err := e.Events.Emit(events.ImageVerified, g, map[string]string{"sha256": m.Image.SHA256}); err != nil {
+	// check (additive): "record" when a root-owned proof vouched for the unchanged file, "full" when it was hashed.
+	if err := e.Events.Emit(events.ImageVerified, g, map[string]string{"sha256": m.Image.SHA256, "check": string(how)}); err != nil {
 		return err
 	}
 
@@ -235,6 +241,30 @@ func (e *Engine) Up(ctx context.Context, m *manifest.Manifest) (err error) {
 	return e.virsh(ctx, "start", virt.DomainName(m))
 }
 
+// keptOverlayOn checks that a persistent guest's kept overlay is based on the manifest's image. The domain names the base
+// image as the overlay's backing store (package virt), and libvirt follows that declaration rather than the overlay's
+// header, so an overlay made on another base would show the guest its own writes over the wrong disk. (Before
+// 2026-11-09 libvirt read the header and booted whatever base it named, while Up had verified the manifest's.)
+func keptOverlayOn(overlay, base string) error {
+	b, err := disk.BackingFile(overlay)
+	if err != nil {
+		return fmt.Errorf("engine: reading the guest's own disk %s: %w", overlay, err)
+	}
+	if b == base {
+		return nil
+	}
+	if b != "" && !filepath.IsAbs(b) {
+		b = filepath.Join(filepath.Dir(overlay), b)
+	}
+	if fb, err1 := os.Stat(b); b != "" && err1 == nil {
+		if fm, err2 := os.Stat(base); err2 == nil && os.SameFile(fb, fm) {
+			return nil
+		}
+	}
+	return fmt.Errorf("engine: the guest's own disk %s is based on %q, but its manifest names %s; put that image back "+
+		"in the manifest, or free the guest's space (its own disk) to start again from the manifest's image", overlay, b, base)
+}
+
 // prepareDisk makes the copy-on-write overlay the guest boots from, so the shared base image is only ever opened
 // read-only (several guests can use it at once, which libvirt's own <transient/> disks cannot, and no guest can change
 // it). A disposable guest gets a fresh one each time, and its writes die with it at Down. A persistent guest keeps its
@@ -245,6 +275,8 @@ func (e *Engine) prepareDisk(ctx context.Context, m *manifest.Manifest, overlay 
 	if !fresh {
 		if _, err := os.Lstat(overlay); os.IsNotExist(err) {
 			fresh = true
+		} else if err := keptOverlayOn(overlay, m.Image.Path); err != nil {
+			return err
 		}
 	}
 	if fresh {

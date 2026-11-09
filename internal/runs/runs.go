@@ -30,6 +30,7 @@ import (
 
 	"github.com/Artifex-Technologies/Limbo/internal/engine"
 	"github.com/Artifex-Technologies/Limbo/internal/events"
+	"github.com/Artifex-Technologies/Limbo/internal/image"
 	"github.com/Artifex-Technologies/Limbo/internal/manifest"
 	"github.com/Artifex-Technologies/Limbo/internal/provision"
 	"github.com/Artifex-Technologies/Limbo/internal/virt"
@@ -146,14 +147,20 @@ type Manager struct {
 	// Contained reports whether Heimdall has contained Sarina (its lock file exists): agent runs are refused meanwhile.
 	Contained func() bool
 
+	// Images proves the profiles' base images when they are listed (CheckCached); NewManager shares the engine's. Nil:
+	// a scan makes one with no record file, which remembers only what this process hashed.
+	Images *image.Proofs
+
 	scanMu sync.Mutex        // serializes profile scans (and the image hashing they do)
 	seen   map[string]string // profile file -> code last logged, so a failure is logged once
-	imgOK  map[string]imgSig // image path -> signature last verified against its sha256
 }
 
 // NewManager returns a Manager with real seed building.
 func NewManager(profileDir, stateDir string, e *engine.Engine, x Executor, ev engine.Emitter) *Manager {
 	m := &Manager{ProfileDir: profileDir, StateDir: stateDir, Engine: e, Exec: x, Events: ev, results: map[string]*Result{}}
+	if e != nil {
+		m.Images = e.Images
+	}
 	m.BuildSeed = func(ctx context.Context, mf *manifest.Manifest, workDir, iso string) error {
 		return SeedISO(ctx, e.Runner, mf, workDir, iso)
 	}

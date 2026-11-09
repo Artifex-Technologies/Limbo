@@ -8,7 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Artifex-Technologies/Limbo/internal/disk"
 	"github.com/Artifex-Technologies/Limbo/internal/events"
+	"github.com/Artifex-Technologies/Limbo/internal/image"
 	"github.com/Artifex-Technologies/Limbo/internal/license"
 	"github.com/Artifex-Technologies/Limbo/internal/manifest"
 	"github.com/Artifex-Technologies/Limbo/internal/virt"
@@ -183,7 +185,7 @@ func TestDisposableUsesOverlayAndRemovesIt(t *testing.T) {
 		t.Fatalf("overlay not backed by the base image: %s", r.calls[qi])
 	}
 	dom, err := os.ReadFile(filepath.Join(e.StateDir, "lab.domain.xml"))
-	if err != nil || !strings.Contains(string(dom), "lab.overlay.qcow2") || strings.Contains(string(dom), m.Image.Path) {
+	if err != nil || !bootsOverlayOnly(string(dom), "lab.overlay.qcow2", m.Image.Path) {
 		t.Fatalf("domain must boot from the overlay only (err=%v):\n%s", err, dom)
 	}
 
@@ -212,17 +214,18 @@ func TestPersistentGuestKeepsItsOwnOverlay(t *testing.T) {
 		t.Fatalf("persistent guest must get its own overlay: %v", r.calls)
 	}
 	dom, _ := os.ReadFile(filepath.Join(e.StateDir, "lab.domain.xml"))
-	if !strings.Contains(string(dom), "lab.disk.qcow2") || strings.Contains(string(dom), m.Image.Path) {
+	if !bootsOverlayOnly(string(dom), "lab.disk.qcow2", m.Image.Path) {
 		t.Fatalf("domain must boot from the overlay, never the base image:\n%s", dom)
 	}
-	disk := filepath.Join(e.StateDir, "lab.disk.qcow2")
-	if err := os.WriteFile(disk, []byte("what the guest wrote"), 0o600); err != nil {
+	own := filepath.Join(e.StateDir, "lab.disk.qcow2")
+	if err := disk.WriteTestQcow2(own, m.Image.Path); err != nil { // what qemu-img would have made
 		t.Fatal(err)
 	}
+	kept, _ := os.ReadFile(own)
 	if err := e.Down(context.Background(), m); err != nil {
 		t.Fatal(err)
 	}
-	if b, err := os.ReadFile(disk); err != nil || string(b) != "what the guest wrote" {
+	if b, err := os.ReadFile(own); err != nil || string(b) != string(kept) {
 		t.Fatalf("a persistent guest's disk must survive Down: %v", err)
 	}
 	r.calls = nil
@@ -232,6 +235,98 @@ func TestPersistentGuestKeepsItsOwnOverlay(t *testing.T) {
 	if index(r.calls, "qemu-img create") >= 0 {
 		t.Fatalf("the kept overlay must be reused, not recreated: %v", r.calls)
 	}
+}
+
+// bootsOverlayOnly says the domain's disk is the overlay and the base image appears only as its backing store.
+func bootsOverlayOnly(dom, overlay, base string) bool {
+	i, j := strings.Index(dom, "<backingStore"), strings.Index(dom, "</backingStore>")
+	if i < 0 || j < i || !strings.Contains(dom[i:j], `file="`+base+`"`) {
+		return false
+	}
+	rest := dom[:i] + dom[j:]
+	return strings.Contains(rest, overlay+`"`) && !strings.Contains(rest, base)
+}
+
+// A kept overlay made on another base is refused before anything is defined: libvirt follows the domain's declared
+// backing store, not the overlay's header, so the guest would see its writes over the wrong disk.
+func TestKeptOverlayOnAnotherBaseIsRefused(t *testing.T) {
+	m, e, r, _ := fixture(t, "linux")
+	if err := os.MkdirAll(e.StateDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	own := filepath.Join(e.StateDir, "lab.disk.qcow2")
+	if err := disk.WriteTestQcow2(own, "/var/lib/limbo/images/older-base.qcow2"); err != nil {
+		t.Fatal(err)
+	}
+	err := e.Up(context.Background(), m)
+	if err == nil || !strings.Contains(err.Error(), "older-base.qcow2") {
+		t.Fatalf("err=%v", err)
+	}
+	if index(r.calls, "qemu:///system define") >= 0 || index(r.calls, "qemu:///system start") >= 0 {
+		t.Fatalf("defined or started anyway: %v", r.calls)
+	}
+	// Its own disk is left alone; a link to the manifest's image counts as the same base.
+	link := filepath.Join(t.TempDir(), "same-base.qcow2")
+	if err := os.Symlink(m.Image.Path, link); err != nil {
+		t.Fatal(err)
+	}
+	if err := disk.WriteTestQcow2(own, link); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Up(context.Background(), m); err != nil {
+		t.Fatalf("an overlay on a link to the same base: %v", err)
+	}
+}
+
+// With proofs, the first start hashes the image in full and the next one does not, and the audit log says which.
+func TestUpChecksTheImageFromItsProof(t *testing.T) {
+	m, e, _, _ := fixture(t, "linux")
+	m.Disposable = true
+	dir := filepath.Dir(m.Image.Path)
+	if os.Chmod(dir, 0o755) != nil || os.Chmod(m.Image.Path, 0o644) != nil {
+		t.Fatal("chmod")
+	}
+	e.Images = &image.Proofs{Path: filepath.Join(dir, image.ProofsFile), Owner: uint32(os.Getuid())}
+	for i, want := range []string{"full", "record"} {
+		ev := &detailEvents{}
+		e.Events = ev
+		if err := e.Up(context.Background(), m); err != nil {
+			t.Fatal(err)
+		}
+		d, ok := ev.first(events.ImageVerified)
+		if !ok || d["check"] != want || d["sha256"] != m.Image.SHA256 {
+			t.Fatalf("start %d: image.verified %v, want check=%s", i, d, want)
+		}
+		if err := e.Down(context.Background(), m); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// A manifest asking for another digest is refused as before, proof or not.
+	ev := &detailEvents{}
+	e.Events = ev
+	m.Image.SHA256 = strings.Repeat("0", 64)
+	if err := e.Up(context.Background(), m); err == nil {
+		t.Fatal("a wrong digest was accepted")
+	}
+	if _, ok := ev.first(events.ImageRejected); !ok {
+		t.Fatalf("no image.rejected: %v", ev.got)
+	}
+}
+
+type detailEvents struct{ got []events.Event }
+
+func (f *detailEvents) Emit(kind, guest string, d map[string]string) error {
+	f.got = append(f.got, events.Event{Kind: kind, Guest: guest, Detail: d})
+	return nil
+}
+
+func (f *detailEvents) first(kind string) (map[string]string, bool) {
+	for _, e := range f.got {
+		if e.Kind == kind {
+			return e.Detail, true
+		}
+	}
+	return nil, false
 }
 
 func TestDiskGrowsOnlyWhenAsked(t *testing.T) {

@@ -46,6 +46,32 @@ func VirtualSize(path string) (int64, error) {
 	return int64(binary.BigEndian.Uint64(h[24:32])), nil
 }
 
+// BackingFile reads the backing file name a qcow2 image's header records (header bytes 8-15: its offset, 16-19: its
+// length, at most 1023 bytes), as qemu-img wrote it; "" when the image has none. It never follows a link.
+func BackingFile(path string) (string, error) {
+	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	var h [20]byte
+	if _, err := io.ReadFull(f, h[:]); err != nil || string(h[0:4]) != "QFI\xfb" {
+		return "", ErrNotQcow2
+	}
+	off, n := binary.BigEndian.Uint64(h[8:16]), binary.BigEndian.Uint32(h[16:20])
+	if off == 0 || n == 0 {
+		return "", nil
+	}
+	if n > 1023 || off > 1<<40 {
+		return "", ErrNotQcow2
+	}
+	name := make([]byte, n)
+	if _, err := f.ReadAt(name, int64(off)); err != nil {
+		return "", ErrNotQcow2
+	}
+	return string(name), nil
+}
+
 // maxWalk bounds how many entries Usage looks at, so a folder full of junk cannot make a status request slow.
 const maxWalk = 100000
 
