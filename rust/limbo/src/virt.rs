@@ -195,7 +195,7 @@ fn disk_el(d: &Disk) -> El {
     let mut e = el("disk")
         .at("type", "file")
         .at("device", d.device)
-        .kid(el("driver").ao("name", "qemu").ao("type", d.driver_type))
+        .kid(el("driver").ao("type", d.driver_type).ao("name", "qemu"))
         .kid(el("source").ao("file", d.file));
     if let Some(base) = d.backing {
         e = e.kid(
