@@ -6,7 +6,7 @@ use crate::events::{self, Emitter};
 use crate::hostpolicy::{Policy, Refused};
 use crate::image::{CheckErr, Proofs};
 use crate::manifest::{self, Manifest};
-use crate::quarantine::{self, Store};
+use crate::quarantine::{self, Holder};
 use crate::virt::{self, Subnets};
 use crate::{detail, disk, exchange, gotext, hostfw, license, policy, sys, Detail};
 use std::collections::BTreeMap;
@@ -235,7 +235,7 @@ pub struct Engine {
     pub runner: Arc<dyn Runner>,
     pub events: Arc<dyn Emitter>,
     pub state_dir: String,
-    pub holds: Option<Arc<Store>>,
+    pub holds: Option<Arc<dyn Holder>>,
     pub hardware: Option<Arc<Policy>>,
     pub ufw_active: Option<fn() -> bool>,
     pub exchange_root: String,

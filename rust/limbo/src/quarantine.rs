@@ -350,6 +350,17 @@ fn clean_evidence(input: Option<&BTreeMap<String, String>>) -> Option<BTreeMap<S
     Some(out)
 }
 
+/// Whether a guest is held (engine and instances ask; the store answers, fakes in tests).
+pub trait Holder: Send + Sync {
+    fn holding(&self, guest: &str) -> Option<Record>;
+}
+
+impl Holder for Store {
+    fn holding(&self, guest: &str) -> Option<Record> {
+        Store::holding(self, guest)
+    }
+}
+
 /// What a level request does to a held level: the new level, or the refusal. The rule that matters for safety: the
 /// result is never weaker than what was held.
 pub fn raise_rule(held: &str, requested: &str) -> Result<&'static str, QErr> {

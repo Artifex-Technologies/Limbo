@@ -8,7 +8,7 @@ use crate::events::Emitter;
 use crate::gojson::{self, Obj};
 use crate::gotime::Time;
 use crate::manifest::{self, Manifest, Network};
-use crate::quarantine::Store;
+use crate::quarantine::Holder;
 use crate::{detail, disk, go_struct, gotext, sys, virt, Detail, Refusal};
 use std::collections::{HashMap, HashSet};
 use std::os::unix::fs::OpenOptionsExt;
@@ -220,7 +220,7 @@ pub struct Service {
     pub limbo_root: String,
     pub exchange_root: String,
     pub guests: Arc<Engine>,
-    pub holds: Option<Arc<Store>>,
+    pub holds: Option<Arc<dyn Holder>>,
     pub events: Option<Arc<dyn Emitter>>,
     pub license_of: Option<Box<dyn Fn(&str) -> String + Send + Sync>>,
     pub host_limits: Option<fn() -> (i64, i64)>,
