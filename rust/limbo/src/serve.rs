@@ -135,7 +135,8 @@ const REQUIRED: &[(&str, &str)] = &[
 ];
 
 pub fn preflight() -> Result<(), String> {
-    let missing: Vec<String> = REQUIRED.iter().filter(|(c, _)| exchange::look_path(c).is_none()).map(|(c, p)| format!("{c} ({p})")).collect();
+    let missing: Vec<String> =
+        REQUIRED.iter().filter(|(c, _)| exchange::look_path(c).is_none()).map(|(c, p)| format!("{c} ({p})")).collect();
     if missing.is_empty() {
         return Ok(());
     }
@@ -184,7 +185,8 @@ fn share_event_log(state_dir: &str, log_path: &str, group: &str) -> Result<(), S
         eprintln!("limbo: group {} not found; the event log stays root-only and Heimdall cannot read it", gotext::quote(group));
         return Ok(());
     };
-    rustix::fs::chown(log_path, None, Some(rustix::fs::Gid::from_raw(gid))).map_err(|e| sys::go_path_error("chown", log_path, &e.into()))?;
+    rustix::fs::chown(log_path, None, Some(rustix::fs::Gid::from_raw(gid)))
+        .map_err(|e| sys::go_path_error("chown", log_path, &e.into()))?;
     sys::chmod(log_path, 0o640).map_err(|e| sys::go_path_error("chmod", log_path, &e))
 }
 
@@ -257,7 +259,10 @@ fn answer(srv: Arc<Server>, p: Principal, s: UnixStream) {
         Ok(r) => r,
         Err(http::ReadErr::Closed) => return,
         Err(http::ReadErr::Status(st, text)) => {
-            let _ = std::io::Write::write_all(&mut &s, format!("HTTP/1.1 {text}\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\n\r\n{text}").as_bytes());
+            let _ = std::io::Write::write_all(
+                &mut &s,
+                format!("HTTP/1.1 {text}\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\n\r\n{text}").as_bytes(),
+            );
             let _ = st;
             return;
         }
@@ -291,6 +296,7 @@ fn block_signals() -> Result<OwnedFd, String> {
 /// Runs the daemon until SIGINT or SIGTERM. The error is what the Go daemon would print after "limbo: ".
 pub fn run(args: &[String]) -> Result<(), String> {
     let f = parse_flags(args)?;
+    sys::one_arena();
     if !rustix::process::geteuid().is_root() {
         return Err("serve: must run as root (it manages libvirt and nftables)".into());
     }
@@ -306,9 +312,8 @@ pub fn run(args: &[String]) -> Result<(), String> {
     let agg = Arc::new(Mutex::new(Aggregator::new(Some(log.clone() as Arc<dyn Emitter>), Time::now)));
     {
         let state = f.state_dir.clone();
-        agg.lock().unwrap_or_else(|e| e.into_inner()).gateway = Some(Box::new(move |g: &str| {
-            engine::load_guest(&state, g).ok().map(|m| flows::Ip::V4(virt::addr(&m).gateway))
-        }));
+        agg.lock().unwrap_or_else(|e| e.into_inner()).gateway =
+            Some(Box::new(move |g: &str| engine::load_guest(&state, g).ok().map(|m| flows::Ip::V4(virt::addr(&m).gateway))));
     }
     let emitter: Arc<dyn Emitter> = Arc::new(Forgetting { log: log.clone(), agg: agg.clone() });
     let mut eng = Engine::new(Arc::new(engine::Exec), emitter, &f.state_dir);
@@ -375,7 +380,10 @@ pub fn run(args: &[String]) -> Result<(), String> {
     if osuser::group_gid(&f.users_group).is_some() {
         socks.push(("user.sock", Principal::User, 0o660, f.users_group.clone()));
     } else {
-        eprintln!("limbo: group {} not found; user.sock (the Settings page) is not offered. Run: sudo limbo setup", gotext::quote(&f.users_group));
+        eprintln!(
+            "limbo: group {} not found; user.sock (the Settings page) is not offered. Run: sudo limbo setup",
+            gotext::quote(&f.users_group)
+        );
     }
     // signals are taken through a signalfd, so every thread made from here on has them blocked
     let sigfd = block_signals()?;
@@ -451,7 +459,10 @@ fn serve_loop(
                 let who = *who;
                 let spawned = std::thread::Builder::new().name("conn".into()).stack_size(256 << 10).spawn(move || {
                     answer(srv, who, s);
-                    CONNS.fetch_sub(1, Ordering::SeqCst);
+                    // the last connection out hands freed heap back (a burst of requests leaves nothing behind)
+                    if CONNS.fetch_sub(1, Ordering::SeqCst) == 1 {
+                        sys::trim();
+                    }
                 });
                 if spawned.is_err() {
                     CONNS.fetch_sub(1, Ordering::SeqCst);

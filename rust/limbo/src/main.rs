@@ -2,8 +2,9 @@
 
 use std::os::unix::process::CommandExt;
 
-/// Where the Go binary is: $LIMBO_GO_BINARY, then /usr/lib/limbo/limbo-go (where a package puts it once limbo-rs
-/// becomes /usr/bin/limbo), then /usr/bin/limbo while that is still the Go one.
+/// Where the Go binary is: $LIMBO_GO_BINARY, then `limbo-go` beside this binary (the integration scripts), then
+/// /usr/lib/limbo/limbo-go (where a package puts it once limbo-rs becomes /usr/bin/limbo), then /usr/bin/limbo while
+/// that is still the Go one.
 fn go_binary() -> Option<String> {
     let me = std::env::current_exe().ok().and_then(|p| std::fs::canonicalize(p).ok());
     let mut cands = vec![];
@@ -11,6 +12,9 @@ fn go_binary() -> Option<String> {
         if !p.is_empty() {
             cands.push(p);
         }
+    }
+    if let Some(dir) = me.as_ref().and_then(|p| p.parent()) {
+        cands.push(dir.join("limbo-go").to_string_lossy().into_owned());
     }
     cands.push("/usr/lib/limbo/limbo-go".into());
     cands.push("/usr/bin/limbo".into());

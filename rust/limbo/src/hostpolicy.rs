@@ -71,7 +71,15 @@ pub struct Policy {
 
 impl Policy {
     pub fn new(state_dir: &str, run_dir: &str) -> Policy {
-        Policy { root: "/".into(), state_dir: state_dir.into(), run_dir: run_dir.into(), now: Time::now, open_files: None, driver: None, usb_driver: None }
+        Policy {
+            root: "/".into(),
+            state_dir: state_dir.into(),
+            run_dir: run_dir.into(),
+            now: Time::now,
+            open_files: None,
+            driver: None,
+            usb_driver: None,
+        }
     }
 
     fn at(&self, rel: &str) -> String {
@@ -84,7 +92,8 @@ impl Policy {
 
     fn config(&self) -> Result<Config, Refused> {
         let b = std::fs::read(self.at(CONFIG_REL)).map_err(|_| deny("the host has no passthrough device list".into()))?;
-        gojson::unmarshal(&b, Config::default(), "hostpolicy.Config").map_err(|_| deny("the host's passthrough device list is unreadable".into()))
+        gojson::unmarshal(&b, Config::default(), "hostpolicy.Config")
+            .map_err(|_| deny("the host's passthrough device list is unreadable".into()))
     }
 
     pub fn standing(&self) -> (Vec<String>, Vec<String>) {
@@ -344,11 +353,13 @@ fn scan_proc() -> BTreeMap<String, Vec<String>> {
             continue;
         }
         let Ok(fds) = std::fs::read_dir(format!("/proc/{pid}/fd")) else { continue };
-        let files: Vec<String> = fds.flatten().filter_map(|fd| std::fs::read_link(fd.path()).ok()).map(|t| t.to_string_lossy().into_owned()).collect();
+        let files: Vec<String> =
+            fds.flatten().filter_map(|fd| std::fs::read_link(fd.path()).ok()).map(|t| t.to_string_lossy().into_owned()).collect();
         if files.is_empty() {
             continue;
         }
-        let comm = std::fs::read(format!("/proc/{pid}/comm")).map(|b| gotext::trim_space(&gotext::lossy(&b)).to_string()).unwrap_or_default();
+        let comm =
+            std::fs::read(format!("/proc/{pid}/comm")).map(|b| gotext::trim_space(&gotext::lossy(&b)).to_string()).unwrap_or_default();
         out.insert(format!("{comm} ({pid})"), files);
     }
     out

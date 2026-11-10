@@ -1,0 +1,231 @@
+# The Rust port of `limbo serve`
+
+I want as much of the ecosystem as possible in Rust, for lightness and smoothness while I game and run a local model.
+`limbo serve` is Limbo's always-on part, so it goes first; Heimdall's port (its `docs/RUST_PORT.md`) is the model. The
+Go daemon measured 18.8 MB RSS idle on my PC; the target was about 3-5 MB.
+
+The CLI (`up`, `down`, `launch`, `seed`, `export`, `capture`, `wine`, `passthrough`, `image`, `doctor`, `setup`, ...)
+stays in Go for now. `limbo-rs serve` is the daemon; **every other command is handed, unchanged, to the Go binary**
+(`$LIMBO_GO_BINARY`, else `limbo-go` beside `limbo-rs`, else `/usr/lib/limbo/limbo-go`, else `/usr/bin/limbo`). The
+state files are the contract between the two and are the Go daemon's, in the same formats.
+
+## Status
+
+| Step | What | State |
+| --- | --- | --- |
+| 1 | every package `serve` uses, in `rust/limbo`: events, quarantine, settings, manifest, virt (XML, subnets), policy, hostfw, provision, disk, image proofs, license, exchange, hostpolicy (the serve side), engine, runs, instances, flows (aggregator + NFLOG socket), the HTTP layer with Go's ServeMux rules, api, serve | **done** (2026-11-10) |
+| 2 | the Go fixtures (`testdata/parity`), the properties, fuzz targets and Kani harnesses | **done**: see "Proof" |
+| 3 | the differential run of both daemons on the same socket traffic (`rust/parity/daemon-differential.py`) | **done**: no difference |
+| 4 | the real-guest scripts against the Rust daemon (`LIMBO_RS=... scripts/integration-*.sh`) | **prepared, needs root**: commands below |
+| 5 | the rehearsal on a copy of this computer's real state (`--from-host`), then the switch | **prepared, needs root**: "The switch" |
+| 6 | the CLI commands, one by one | open (later phases) |
+
+## Layout
+
+```
+rust/
+  Cargo.toml, Cargo.lock      workspace; exact versions (sha2, rustix, libc; proptest and serde_json for tests)
+  limbo/src/                  one module per Go package, named in its first line
+    gojson.rs, gotext/, gotime.rs   Go's behaviour where Rust's differs (below); from Heimdall's port, extended
+    http.rs                   HTTP/1.1 on a unix socket, one request per connection, Go's ServeMux matching
+    api.rs                    the route tables (one function), handlers, the Kani harnesses on the tables
+    serve.rs                  startup in Go's order, one poll(2) loop, a thread per connection and per run
+    main.rs                   `serve`, else exec the Go limbo
+  limbo/tests/                parity_* (the Go fixtures), properties.rs (exhaustive claims, proptest, fuzz bodies)
+  fuzz/                       cargo-fuzz targets (nightly): http_request, json, manifest, nflog
+  parity/daemon-differential.py   both daemons, the same traffic, compared
+  scripts/nicecargo.sh        cargo at nice 15
+internal/parity/              the fixture writer and the manifest corpus; each package's parity_test.go records Go
+testdata/parity/              the fixtures both languages run
+scripts/rust-daemon.sh        LIMBO_RS=... makes the integration scripts use the Rust daemon
+```
+
+Threads, no async. The release binary is 1.5 MB and links only libc and libgcc_s.
+
+## Behaving exactly like the Go daemon
+
+The port has to answer, log and run the same, byte for byte, or the comparison means nothing. Where Rust's standard
+behaviour differs from Go's, the port carries Go's:
+
+- **JSON decoding** (`gojson`): Go's exact error texts reach callers (an agent-socket refusal quotes the decoder; a
+  profile refusal too), so the reader gives the scanner's syntax errors (`invalid character '}' looking for beginning
+  of object key string`), the stream reader's `unexpected EOF` and EOF, type errors with Go's struct and field path
+  (`json: cannot unmarshal string into Go struct field Manifest.cpus of type int`; anonymous request structs have an
+  empty name, map elements are named by their key), `DisallowUnknownFields`, the first error in document order winning.
+  Keys match fields without regard to case, the last duplicate wins, lone surrogates and stray bytes read as U+FFFD.
+  Nil and empty slices are kept apart (`null` against `[]` in saved manifests).
+- **JSON writing**: Go's escaping (`<`, `>`, `&`, U+2028, U+2029), struct field order, sorted map keys, `omitempty`,
+  MarshalIndent's layout, the encoder's trailing newline.
+- **XML** (`virt`): MarshalIndent's layout and escaping (`&#34;`, `&#xA;`, ...), attributes in Go's struct order.
+- **Text**: `%q` with Go's IsPrint table, Go's `unicode.IsControl` and `Cf`, errno texts as Go writes them ("no such
+  file or directory"), `strings.ToValidUTF8` (a run of bad bytes is one U+FFFD) for guest output.
+- **netip**: parsing, masking and printing of addresses and prefixes, the 4-in-6 rules of the scope predicates.
+- **HTTP**: Go 1.27's mux: a path that is not clean is redirected with **307**, a path served under another method gets
+  405 with `Allow` (GET implies HEAD), anything else `404 page not found`, wildcards matched on escaped segments.
+- **Accounts**: the Go limbo is built with CGO_ENABLED=0, so it reads /etc/group and /etc/passwd itself; so does the port.
+- **Processes**: the exec error texts (`exit status 1`, `signal: killed`, `exec: "virsh": executable file not found in
+  $PATH`), a command killed by its deadline or a stop read as exit -1 with no error (as Go's ssh executor reads it).
+
+## Proof
+
+- **The Go tests, carried over as fixtures.** Each package's `parity_test.go` records what the Go code answers;
+  `LIMBO_PARITY_UPDATE=1 go test ./internal/... -run Parity` writes `testdata/parity/*.json`, and without the variable
+  the Go test fails when a fixture is out of date. The Rust tests run the same files:
+
+  | Fixture | What | Comparisons |
+  | --- | --- | --- |
+  | `manifests.json` | manifest.Parse on 85 variants (every case of the manifest tests and more), and for each one that parses the domain and network XML, addressing, nft rules (apply, restrict, release), the cloud-init seed, the names; a Windows domain; the UFW rules | 1,344 |
+  | `flows.json` | prefixes, scopes, packet parsing (crafted and random), whole and damaged netlink reads, the bind requests, acks, 30 generated aggregator sequences with a clock | 520 |
+  | `quarantine.json` | clean() and 25 generated store sequences (records, errors, holding, the list, the files on disk) | 3,140 |
+  | `engine.json` | 184 scenarios: up for eight manifests with each step failing in turn, down, holds, release, defined, held and condemned guests, wrong images, subnets taken; every command line and stdin, event, error and file | 1,598 |
+  | `api.json` | 14 scenarios, 172 requests on the four sockets with the Go handlers' own fakes: route tables, the mux, holds, verdicts, a failing audit log, runs and their codes, decoder errors, the password switch | 736 |
+
+  **All 7,338 comparisons equal.** Mapping to the Go test functions of serve's packages: the manifest, virt, policy,
+  provision and hostfw tests' inputs are all in `manifests.json`; the flows and quarantine tests' scenarios are in theirs
+  plus generated ones; the engine tests' scenarios in `engine.json`; `TestRouteTablesPerPrincipal`, the open, verdict,
+  close, oversized-body, agent-error, profiles, sample-run and Settings-switch tests in `api.json`. The runs, instances,
+  exchange, license, settings and image-proof tests (which need a real folder, a clock or a running daemon) are covered
+  by the differential run below instead of fixtures; the hostpolicy tests (a fake sysfs) are not carried over yet.
+- **The differential run** (`rust/parity/daemon-differential.py`): the Go and the Rust daemon, each in its own user,
+  mount and network namespace (root inside, nobody outside; /etc/limbo a private empty bind mount; loopback only), with
+  fake virsh, qemu-img, nft, ssh, xorriso, ufw and clamscan on PATH that record what they are asked. The same 113 steps
+  (108 answers) on admin.sock, control.sock, agent.sock and user.sock: registering instances (and refusals), the Settings
+  page's changes within bounds, starting and stopping, the exchange outbox (a clean file streamed out, an EICAR file
+  held, paths that climb out), holds raised by Heimdall and verdicts, condemned guests, licenses (masked, revealed,
+  refused), validation runs (plain, with a bundle, a non-zero exit, output cut at the limit, binary output, an ssh
+  failure, a command timeout, a run stopped by containment), refused profiles (malformed, kept, image missing or
+  altered), a sample run, the containment lock, the password switch, and NFLOG packets from real nft rules in the
+  namespace (flows, refusals, probes, a scan). **Result: no difference** in the answers (status, type, body), the 174
+  events of events.jsonl, the 641 host commands with their input, the 16 state files with their modes and the startup
+  messages, once times,
+  ids, pids and the scratch folder are normalised. Sockets made with the same modes, removed at exit, exit status 0.
+- **Properties** (`tests/properties.rs`): the Kani harnesses' claims exhaustively (control.sock and agent.sock have no
+  route outside their restrict-only sets for every one of the 32 combinations of services; user.sock never has a
+  verdict, close, down, settings, instance-registry or license-key route); any path and method on control.sock or
+  agent.sock reaches only allowed routes (proptest, 2,000 cases); route tables well formed; a raise never lowers;
+  gojson agrees with serde_json on valid documents.
+- **Fuzzing** (`rust/fuzz`, nightly): `http_request` (any bytes on any socket: no panic, and control and agent reach only
+  their routes), `json`, `manifest` (parses, validates and round-trips, or is refused; the XML and rules are made),
+  `nflog`. Their bodies also run on stable in `tests/properties.rs` on every `cargo test`.
+- **Kani** (`src/api.rs`, `src/quarantine.rs`, `#[cfg(kani)]`): `control_and_agent_have_no_loosening_route`,
+  `user_sock_never_has_verdicts_or_root_routes`, `a_raise_never_lowers`. Kani is not installed here; run with
+  `cargo kani -p limbo`.
+
+## Measured (2026-11-10)
+
+Both daemons in the differential harness (same namespaces, same fake tools, release builds, this PC):
+
+| | Go | Rust |
+| --- | --- | --- |
+| after start: RSS | 13.5 MB | **3.3 MB** |
+| after start: PSS | 13.5 MB | **1.3 MB** |
+| after the script (108 answers, 11 runs, NFLOG): RSS | 19.1 MB | **4.1 MB** |
+| after the script: PSS | 19.1 MB | **1.9 MB** |
+| peak (VmHWM) | 21.1 MB | 4.8 MB |
+| threads idle | 10-15 | **1** |
+| CPU during the script | 7 ticks | 5 ticks |
+| context switches during the script (all threads) | 5,334 | **159** |
+| idle 60 s: CPU / context switches | 0 ticks / 2 | 0 ticks / 0 |
+| binary | 9.0 MB (stripped, CGO off) | 1.5 MB |
+
+The Go figures here are lower than the 18.8 MB the installed daemon shows after days of use; both grow a little with
+use. The Rust daemon keeps one malloc arena for all its threads and hands freed heap back (malloc_trim) when the last
+open connection ends and when a run ends; before that change it stayed at 6.3 MB RSS after the script. Idle, neither does anything: both sleep in the kernel until a socket or the NFLOG group wakes them.
+
+Found by these runs and fixed before the numbers: guest output with several bad bytes in a row (Go writes one U+FFFD per
+run of bad bytes, the first build one per byte); a command killed by its deadline or a stop (Go reads it as exit -1 with
+no error); a command's end was noticed only every 25 ms (now a pidfd in poll(2)).
+
+## Differences from Go, on purpose or accepted
+
+- A request path with bytes that are not UTF-8 (`%ff`): Go keeps the byte and `%q` shows `"\xff"`; the port reads it as
+  U+FFFD. Such a name is refused by every name rule either way; only the refusal's text differs.
+- A file name in an outbox that holds a real U+FFFD character is not listed by the port (it cannot be told from a
+  replaced byte); Go lists it.
+- `license.Check` for a Windows guest with both files missing: Go's map order decides which file it names; the port
+  always names the ISO first.
+- A type error inside image-proofs.json: Go names the field `Record.images.Sig.dev`, the port `Record.images.dev`. The
+  text only says why a damaged record file was ignored.
+- One request per connection (`Connection: close`); Go keeps connections open. Limbo's clients (the Go CLI, Heimdall,
+  Sarina's Go client, the Settings page) open one per request. A chunked body is read (Go reads it too).
+- Over 128 connections at once wait for a slot (Go has no bound).
+
+## The switch: why not a week of shadow mode
+
+Heimdall's port ran a week beside the Go daemon, reading the same sources and writing its own alert log. Two Limbo
+daemons cannot do that, and must not try: each binds `/run/limbo/*.sock` (one would take the other's sockets), each
+**destroys the guests of unfinished runs at startup** (`ReapOrphans`: a second daemon starting would tear down the
+validation runs the first is executing), only one process can bind NFLOG group 7213, both would write events.jsonl
+(Heimdall would see every event twice), and both would act on the same libvirt guests and nftables tables (a hold
+applied by one, a release by the other). So instead of a live shadow:
+
+1. **The differential run** above: both daemons, identical traffic, nothing real touched. Done: no difference.
+2. **The rehearsal on a copy of this computer's real state** (`--from-host`, root, needs nothing stopped): the state
+   folder (guests' disks left out), profiles, instances, licenses and the password switch are copied into a root-only
+   scratch folder, each daemon starts from the copy in its own namespaces with fake host programs, and both are asked
+   what the Settings page, Heimdall and Sarina read (status, instances, holds, profiles with the real images' proofs,
+   licenses masked, outboxes, whether each guest exists). It proves the Rust daemon reads exactly what the Go daemon
+   wrote, on the real files, and changes nothing.
+3. **The real-guest scripts against the Rust daemon** (`LIMBO_RS=...`), as for any change to these packages.
+4. **A direct switch** with the Go daemon one command away. Switching is a daemon restart, which Limbo already handles:
+   the state files are shared, running guests keep running, and the startup reap is the same in both.
+
+## Commands for the owner (root; nothing above was installed or run as root by the session)
+
+```bash
+cd ~/Documents/Github/Limbo && git pull
+(cd rust && scripts/nicecargo.sh build --release --locked)
+CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /tmp/limbo-go ./cmd/limbo
+
+# 1. (optional, no root) the differential run again
+python3 -I rust/parity/daemon-differential.py --go /tmp/limbo-go --rs rust/target/release/limbo-rs --out /tmp/ld --idle 60
+
+# 2. the rehearsal on a copy of the real state: read-only, both daemons in namespaces, nothing stopped
+sudo python3 -I rust/parity/daemon-differential.py --from-host --go /tmp/limbo-go --rs rust/target/release/limbo-rs --out /tmp/ld-host --idle 5
+sudo rm -rf /tmp/ld-host        # it holds copies of the state (and the license folder): delete it after reading
+
+# 3. the real-guest tests against the Rust daemon (the same scripts; LIMBO_RS swaps the daemon only)
+sudo LIMBO_RS="$PWD/rust/target/release/limbo-rs" bash scripts/integration-quarantine.sh
+sudo LIMBO_RS="$PWD/rust/target/release/limbo-rs" bash scripts/integration-chain.sh
+sudo LIMBO_RS="$PWD/rust/target/release/limbo-rs" bash scripts/integration-sarina.sh
+# (integration-linux-guest.sh does not use the daemon; integration-systemd.sh installs and removes files: test machine only)
+
+# 4. the switch: the Rust daemon as limbo.service, the Go one kept for every other command
+sudo install -Dm755 /usr/bin/limbo /usr/lib/limbo/limbo-go
+sudo install -Dm755 rust/target/release/limbo-rs /usr/lib/limbo/limbo-rs
+sudo mkdir -p /etc/systemd/system/limbo.service.d
+printf '[Service]\nExecStart=\nExecStart=/usr/lib/limbo/limbo-rs serve --state-dir /var/lib/limbo/state --run-dir /run/limbo --profile-dir /etc/limbo/validation\n' \
+  | sudo tee /etc/systemd/system/limbo.service.d/rust.conf
+sudo systemctl daemon-reload && sudo systemctl restart limbo.service
+systemctl status limbo.service --no-pager; journalctl -u limbo.service -n 20 --no-pager
+pid=$(systemctl show -p MainPID --value limbo.service); grep -E '^(VmRSS|Threads)' /proc/$pid/status; sudo grep Pss: /proc/$pid/smaps_rollup
+limbo settings status    # the CLI (Go) through the Rust daemon's user.sock
+
+# back to the Go daemon at any time (the state is shared):
+sudo rm /etc/systemd/system/limbo.service.d/rust.conf && sudo systemctl daemon-reload && sudo systemctl restart limbo.service
+```
+
+Restarting `limbo.service` while a validation run is executing destroys that run's guest (the startup reap, as with any
+restart of the Go daemon): switch when Sarina is not running one.
+
+## Running the tests
+
+```bash
+cd rust
+scripts/nicecargo.sh test --offline          # every fixture, the properties, the fuzz bodies
+scripts/nicecargo.sh clippy --all-targets
+cd .. && go test ./internal/... -run Parity  # the fixtures are current with the Go code
+LIMBO_PARITY_UPDATE=1 go test ./internal/... -run Parity   # after a deliberate change: rewrite them, review the diff
+```
+
+## Resume here
+
+Done: steps 1-3 (above), the scripts and commands for 4 and 5. Next, in order:
+
+1. Read the owner's results of the commands above (the rehearsal's "NO DIFFERENCE", the integration scripts' counts),
+   and the Rust daemon's figures after the switch.
+2. Carry over the hostpolicy tests (fake sysfs trees as fixture folders) and the runs tests that use a fake clock and
+   executor (`internal/runs/*_test.go`) as fixtures; today the differential run covers runs end to end, not each branch.
+3. A CI job like Heimdall's (`.github/workflows/rust.yml`: fmt, clippy, tests, the Go fixtures current, cargo-audit).
+4. Then the CLI commands, starting with the ones the daemon's users call most (`limbo quarantine`, `settings`,
+   `instance`, `license`, `exchange`: all talk to the sockets).

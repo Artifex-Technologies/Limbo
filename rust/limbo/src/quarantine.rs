@@ -176,8 +176,8 @@ impl Store {
                 continue;
             }
             let b = std::fs::read(sys::join(&[dir, &name])).map_err(|e| e.to_string())?;
-            let r = gojson::unmarshal(&b, Record::default(), "quarantine.Record")
-                .map_err(|e| format!("quarantine: {name} is corrupt: {e}"))?;
+            let r =
+                gojson::unmarshal(&b, Record::default(), "quarantine.Record").map_err(|e| format!("quarantine: {name} is corrupt: {e}"))?;
             recs.insert(r.id.clone(), r);
         }
         Ok(Store { dir: dir.to_string(), recs: Mutex::new(recs), now })

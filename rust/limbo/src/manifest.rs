@@ -1,9 +1,9 @@
 //! The per-guest description Limbo works from (Go: internal/manifest). Every default is the restrictive one, unknown
 //! fields are refused, and the names spliced into libvirt and nftables identifiers are checked by their own rules.
 
+use crate::go_struct;
 use crate::gojson::{self, Obj};
 use crate::gotext::quote;
-use crate::go_struct;
 use std::net::{Ipv4Addr, Ipv6Addr};
 
 pub const OS_LINUX: &str = "linux";
@@ -366,7 +366,10 @@ pub fn parse(b: &[u8]) -> Result<Manifest, String> {
 /// `^[a-z][a-z0-9-]{0,11}$`
 pub fn name_ok(n: &str) -> bool {
     let b = n.as_bytes();
-    !b.is_empty() && b.len() <= 12 && b[0].is_ascii_lowercase() && b.iter().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'-')
+    !b.is_empty()
+        && b.len() <= 12
+        && b[0].is_ascii_lowercase()
+        && b.iter().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'-')
 }
 
 /// `^[a-z_][a-z0-9_-]{0,31}$`

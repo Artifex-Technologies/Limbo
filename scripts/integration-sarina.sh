@@ -14,6 +14,7 @@
 set -u
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
+. "$REPO/scripts/rust-daemon.sh"
 SARINA_REPO="${SARINA_REPO:-$(cd "$REPO/.." && pwd)/Sarina}"
 WORK="${LIMBO_IT_DIR:-/var/lib/limbo/its}"
 BASE="${LIMBO_IT_IMAGE:-/var/lib/limbo/images/arch-cloudimg.qcow2}"
@@ -31,6 +32,7 @@ rm -rf "$WORK/state" "$WORK/sarina" ; mkdir -p "$WORK/bin" "$WORK/state" "$WORK/
 cd "$REPO" && go build -o "$WORK/bin/limbo" ./cmd/limbo || { echo "build failed"; exit 2; }
 chmod 755 "$WORK" "$WORK/bin" "$WORK/bin/limbo"
 LIMBO="$WORK/bin/limbo"
+use_rust_daemon
 [ -f "$WORK/key" ] || ssh-keygen -q -t ed25519 -N '' -f "$WORK/key"
 SHA=$(sha256sum "$BASE" | cut -d' ' -f1)
 groupadd -f limbo-heimdall; groupadd -f limbo-agent

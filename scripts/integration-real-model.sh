@@ -13,6 +13,7 @@
 set -u
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
+. "$REPO/scripts/rust-daemon.sh"
 GH="$(cd "$REPO/.." && pwd)"
 HEIMDALL_REPO="${HEIMDALL_REPO:-$GH/Heimdall}"
 SARINA_REPO="${SARINA_REPO:-$GH/Sarina}"
@@ -37,6 +38,7 @@ cd "$REPO" && go build -o "$WORK/bin/limbo" ./cmd/limbo || { echo "limbo build f
 ( cd "$HEIMDALL_REPO" && go build -o "$WORK/bin/heimdalld" ./cmd/heimdalld ) || { echo "heimdalld build failed"; exit 2; }
 chmod 755 "$WORK" "$WORK/bin" "$WORK/bin/limbo" "$WORK/bin/heimdalld"
 LIMBO="$WORK/bin/limbo"
+use_rust_daemon
 [ -f "$WORK/key" ] || ssh-keygen -q -t ed25519 -N '' -f "$WORK/key"
 SHA=$(sha256sum "$BASE" | cut -d' ' -f1)
 groupadd -f limbo-heimdall; groupadd -f limbo-agent

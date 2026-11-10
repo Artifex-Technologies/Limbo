@@ -23,7 +23,11 @@ fn quarantine_matches_go() {
         match c["fn"].as_str().unwrap() {
             "clean" => {
                 let i = &c["in"];
-                d.eq(&format!("clean {:?}", s(&i["s"])), &quarantine::clean(&s(&i["s"]), i["max"].as_u64().unwrap() as usize), &s(&c["out"]));
+                d.eq(
+                    &format!("clean {:?}", s(&i["s"])),
+                    &quarantine::clean(&s(&i["s"]), i["max"].as_u64().unwrap() as usize),
+                    &s(&c["out"]),
+                );
             }
             "Store" => {
                 CLOCK.store(0, Ordering::SeqCst);

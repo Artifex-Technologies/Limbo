@@ -201,6 +201,22 @@ pub fn read_dir_sorted(dir: &str) -> io::Result<Vec<(String, fs::FileType)>> {
     Ok(out)
 }
 
+/// Hands freed heap back to the system (glibc's malloc_trim); cheap, called when a burst of work ends.
+pub fn trim() {
+    // SAFETY: malloc_trim only returns free memory to the system
+    unsafe {
+        libc::malloc_trim(0);
+    }
+}
+
+/// One malloc arena for every thread: connection and run threads would otherwise each keep one (a fragmented heap).
+pub fn one_arena() {
+    // SAFETY: mallopt only sets an allocator parameter; called at startup, before other threads exist
+    unsafe {
+        libc::mallopt(libc::M_ARENA_MAX, 1);
+    }
+}
+
 /// An OS error as Go writes it: the C library's text with its first letter lower-cased ("no such file or directory").
 pub fn go_err(e: &io::Error) -> String {
     let s = e.to_string();

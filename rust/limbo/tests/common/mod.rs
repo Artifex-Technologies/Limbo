@@ -44,7 +44,12 @@ impl Diffs {
     pub fn done(self, name: &str) {
         if !self.bad.is_empty() {
             let shown: Vec<&String> = self.bad.iter().take(25).collect();
-            panic!("{name}: {} of {} comparisons differ from Go:\n{}", self.bad.len(), self.n, shown.iter().map(|s| s.as_str()).collect::<Vec<_>>().join("\n"));
+            panic!(
+                "{name}: {} of {} comparisons differ from Go:\n{}",
+                self.bad.len(),
+                self.n,
+                shown.iter().map(|s| s.as_str()).collect::<Vec<_>>().join("\n")
+            );
         }
         eprintln!("{name}: {} comparisons, all equal to Go", self.n);
     }

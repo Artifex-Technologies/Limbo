@@ -103,8 +103,10 @@ fn engine_matches_go() {
         };
         let what = format!("{op} fail_on={fail:?} {}", s(&sc["manifest"]).chars().skip(150).take(120).collect::<String>());
         d.eq(&format!("error of {what}"), &norm(&err.unwrap_or_default()), &s(&o["error"]));
-        let calls: Vec<String> = runner.calls.lock().unwrap().iter().map(|(n, a, stdin)| norm(&format!("{n} {}\n{stdin}", a.join(" ")))).collect();
-        let want: Vec<String> = o["calls"].as_array().map(|a| a.iter().map(|c| format!("{}\n{}", s(&c["cmd"]), s(&c["stdin"]))).collect()).unwrap_or_default();
+        let calls: Vec<String> =
+            runner.calls.lock().unwrap().iter().map(|(n, a, stdin)| norm(&format!("{n} {}\n{stdin}", a.join(" ")))).collect();
+        let want: Vec<String> =
+            o["calls"].as_array().map(|a| a.iter().map(|c| format!("{}\n{}", s(&c["cmd"]), s(&c["stdin"]))).collect()).unwrap_or_default();
         d.eq(&format!("calls of {what}"), &calls.join("\n--\n"), &want.join("\n--\n"));
         let evs: Vec<String> = ev
             .events
@@ -116,7 +118,10 @@ fn engine_matches_go() {
                 format!("{k}|{g}|{}", serde_json::to_string(&det).unwrap())
             })
             .collect();
-        let want: Vec<String> = o["events"].as_array().cloned().unwrap_or_default()
+        let want: Vec<String> = o["events"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
             .iter()
             .map(|x| {
                 let det: std::collections::BTreeMap<String, String> = serde_json::from_value(x["detail"].clone()).unwrap_or_default();

@@ -90,7 +90,13 @@ impl PRuns {
             "gone" => Err(coded("profile_unknown", "there is no profile named \"gone\"", "call limbo_profiles for the names that exist")),
             // Go's fake returns a plain error; the port's services only ever return coded ones, so the test codes it as
             // the API would show an uncoded one (no code of its own)
-            _ => Err(Refusal { status: Some(0), code: String::new(), message: "unknown profile".into(), remedy: String::new(), short: String::new() }),
+            _ => Err(Refusal {
+                status: Some(0),
+                code: String::new(),
+                message: "unknown profile".into(),
+                remedy: String::new(),
+                short: String::new(),
+            }),
         }
     }
 }
@@ -241,7 +247,10 @@ fn api_matches_go() {
             runs: if sc["no_runs"].as_bool().unwrap() { None } else { Some(Arc::new(PRuns { stopped: Mutex::new(0) })) },
             instances: Some(Arc::new(inst)),
             licenses: Some(Arc::new(NoLicenses)),
-            settings: Some(Arc::new(PSettings { s: Mutex::new(Settings { ask_password: sc["ask"].as_bool().unwrap() }), err: s(&sc["settings_err"]) })),
+            settings: Some(Arc::new(PSettings {
+                s: Mutex::new(Settings { ask_password: sc["ask"].as_bool().unwrap() }),
+                err: s(&sc["settings_err"]),
+            })),
             exchange: Some(Arc::new(limbo::exchange::Service {
                 root: format!("{dir}/exchange"),
                 scratch: String::new(),
@@ -278,13 +287,23 @@ fn api_matches_go() {
             while let Some(at) = got_body[k..].find("q-") {
                 let at = k + at;
                 let cand = &got_body[at..(at + 14).min(got_body.len())];
-                if cand.len() == 14 && cand[2..].bytes().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()) && cand != "q-ffffffffffff" && !ids.iter().any(|x| x == cand) {
+                if cand.len() == 14
+                    && cand[2..].bytes().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+                    && cand != "q-ffffffffffff"
+                    && !ids.iter().any(|x| x == cand)
+                {
                     ids.push(cand.to_string());
                 }
                 k = at + 2;
             }
             let w = &want_steps[i];
-            let what = format!("{name} #{i} {} {} {} {}", s(&st["p"]), s(&st["method"]), s(&st["path"]), s(&st["body"]).chars().take(80).collect::<String>());
+            let what = format!(
+                "{name} #{i} {} {} {} {}",
+                s(&st["p"]),
+                s(&st["method"]),
+                s(&st["path"]),
+                s(&st["body"]).chars().take(80).collect::<String>()
+            );
             d.eq(&format!("status of {what}"), &resp.status.to_string(), &w["status"].to_string());
             d.eq(&format!("body of {what}"), &norm(&got_body, &ids), &s(&w["body"]));
             d.eq(&format!("content type of {what}"), resp.header("Content-Type").unwrap_or(""), &s(&w["content_type"]));

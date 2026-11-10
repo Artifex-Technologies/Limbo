@@ -1,8 +1,8 @@
 //! The password switch (Go: internal/settings). Root's file, /etc/limbo/settings.json. Anything unexpected about it
 //! reads as "ask for the password": the switch only turns off on purpose.
 
-use crate::gojson::{self, Obj};
 use crate::go_struct;
+use crate::gojson::{self, Obj};
 use crate::sys;
 use std::io::{Read, Write};
 use std::os::unix::fs::OpenOptionsExt;

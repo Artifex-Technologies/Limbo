@@ -17,7 +17,10 @@ fn control_and_agent_have_no_loosening_route_exhaustively() {
         assert!(api::loosening_free(s), "{s:?}");
         for r in api::routes(Principal::Control, s) {
             assert!(
-                !matches!(r.id, R::QVerdict | R::QClose | R::GuestDown | R::PutSettings | R::StartInstance | R::StopInstance | R::TakeExchange),
+                !matches!(
+                    r.id,
+                    R::QVerdict | R::QClose | R::GuestDown | R::PutSettings | R::StartInstance | R::StopInstance | R::TakeExchange
+                ),
                 "control.sock has {:?}",
                 r.id
             );
@@ -35,8 +38,19 @@ fn user_sock_never_has_verdicts_or_root_routes_exhaustively() {
         for r in api::routes(Principal::User, s) {
             assert!(!matches!(
                 r.id,
-                R::QVerdict | R::QClose | R::GuestDown | R::PutSettings | R::AddInstance | R::RemoveInstance | R::AddLicense | R::RemoveLicense
-                    | R::RevealLicense | R::SampleRun | R::AgentRunsStop | R::QOpen | R::QRaise
+                R::QVerdict
+                    | R::QClose
+                    | R::GuestDown
+                    | R::PutSettings
+                    | R::AddInstance
+                    | R::RemoveInstance
+                    | R::AddLicense
+                    | R::RemoveLicense
+                    | R::RevealLicense
+                    | R::SampleRun
+                    | R::AgentRunsStop
+                    | R::QOpen
+                    | R::QRaise
             ));
         }
     }
@@ -155,7 +169,7 @@ fn arb_json() -> impl Strategy<Value = serde_json::Value> {
     let leaf = prop_oneof![
         Just(serde_json::Value::Null),
         any::<bool>().prop_map(serde_json::Value::Bool),
-        any::<i64>().prop_map(|n| serde_json::Value::from(n)),
+        any::<i64>().prop_map(serde_json::Value::from),
         "\\PC{0,12}".prop_map(serde_json::Value::String),
     ];
     leaf.prop_recursive(4, 32, 6, |inner| {

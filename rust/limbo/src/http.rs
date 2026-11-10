@@ -36,15 +36,16 @@ pub enum Body {
 
 impl Response {
     pub fn json(status: u16, body: String) -> Response {
-        Response { status, headers: vec![("Content-Type".into(), "application/json".into())], body: Body::Bytes(format!("{body}\n").into_bytes()) }
+        Response {
+            status,
+            headers: vec![("Content-Type".into(), "application/json".into())],
+            body: Body::Bytes(format!("{body}\n").into_bytes()),
+        }
     }
     pub fn text(status: u16, body: &str) -> Response {
         Response {
             status,
-            headers: vec![
-                ("Content-Type".into(), "text/plain; charset=utf-8".into()),
-                ("X-Content-Type-Options".into(), "nosniff".into()),
-            ],
+            headers: vec![("Content-Type".into(), "text/plain; charset=utf-8".into()), ("X-Content-Type-Options".into(), "nosniff".into())],
             body: Body::Bytes(body.as_bytes().to_vec()),
         }
     }
@@ -95,7 +96,11 @@ pub fn read_request<R: Read>(r: R) -> Result<Request, ReadErr> {
     let mut line = Vec::new();
     let mut read_line = |br: &mut BufReader<R>, line: &mut Vec<u8>| -> Result<(), ReadErr> {
         line.clear();
-        let n = br.by_ref().take((MAX_HEADER_BYTES - head_bytes.min(MAX_HEADER_BYTES)) as u64 + 1).read_until(b'\n', line).map_err(|_| ReadErr::Closed)?;
+        let n = br
+            .by_ref()
+            .take((MAX_HEADER_BYTES - head_bytes.min(MAX_HEADER_BYTES)) as u64 + 1)
+            .read_until(b'\n', line)
+            .map_err(|_| ReadErr::Closed)?;
         head_bytes += n;
         if n == 0 {
             return Err(ReadErr::Closed);

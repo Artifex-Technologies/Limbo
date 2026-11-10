@@ -66,10 +66,14 @@ pub trait Runner: Send + Sync {
 
 pub struct Exec;
 
-fn wait_ctx(ctx: &Ctx, child: &mut std::process::Child) -> std::io::Result<(std::process::ExitStatus, bool)> {
+/// Waits for a child until it exits or the context ends (then it is killed): (status, killed). The wait sleeps in
+/// poll(2) on a pidfd, so a command's end is seen at once; a cancel is noticed within 100 ms.
+pub fn wait_ctx(ctx: &Ctx, child: &mut std::process::Child) -> std::io::Result<(std::process::ExitStatus, bool)> {
     if ctx.deadline.is_none() && ctx.cancels.is_empty() {
         return child.wait().map(|s| (s, false));
     }
+    let pidfd = rustix::process::Pid::from_raw(child.id() as i32)
+        .and_then(|p| rustix::process::pidfd_open(p, rustix::process::PidfdFlags::empty()).ok());
     loop {
         if let Some(s) = child.try_wait()? {
             return Ok((s, false));
@@ -78,7 +82,18 @@ fn wait_ctx(ctx: &Ctx, child: &mut std::process::Child) -> std::io::Result<(std:
             let _ = child.kill();
             return child.wait().map(|s| (s, true));
         }
-        std::thread::sleep(Duration::from_millis(25));
+        let mut wait_ms: u64 = 100;
+        if let Some(d) = ctx.deadline {
+            wait_ms = wait_ms.min(d.saturating_duration_since(Instant::now()).as_millis() as u64 + 1);
+        }
+        match &pidfd {
+            Some(fd) => {
+                let mut fds = [rustix::event::PollFd::new(fd, rustix::event::PollFlags::IN)];
+                let t = rustix::event::Timespec { tv_sec: (wait_ms / 1000) as i64, tv_nsec: ((wait_ms % 1000) * 1_000_000) as i64 };
+                let _ = rustix::event::poll(&mut fds, Some(&t));
+            }
+            None => std::thread::sleep(Duration::from_millis(wait_ms.min(25))),
+        }
     }
 }
 
@@ -116,7 +131,8 @@ fn cmd_err(name: &str, args: &[String], what: &str, stderr: &[u8]) -> String {
 impl Runner for Exec {
     fn run(&self, ctx: &Ctx, stdin: &str, name: &str, args: &[String]) -> Result<(), CmdErr> {
         if ctx.done() {
-            return Err(CmdErr { text: cmd_err(name, args, "context deadline exceeded", b""), not_found: false });
+            let why = if ctx.cancelled() { "context canceled" } else { "context deadline exceeded" };
+            return Err(CmdErr { text: cmd_err(name, args, why, b""), not_found: false });
         }
         let Some(path) = exchange::look_path(name) else {
             let nf = not_found(name);
@@ -143,7 +159,8 @@ impl Runner for Exec {
             }
             b
         });
-        let (st, _) = wait_ctx(ctx, &mut child).map_err(|e| CmdErr { text: cmd_err(name, args, &sys::go_err(&e), b""), not_found: false })?;
+        let (st, _) =
+            wait_ctx(ctx, &mut child).map_err(|e| CmdErr { text: cmd_err(name, args, &sys::go_err(&e), b""), not_found: false })?;
         if let Ok(b) = reader.join() {
             errb = b;
         }
@@ -257,7 +274,8 @@ pub fn manifest_path(state_dir: &str, guest: &str) -> String {
 pub fn load_guest(state_dir: &str, guest: &str) -> Result<Manifest, String> {
     let probe = Manifest { name: guest.to_string(), ..Manifest::default() };
     probe.validate_name()?;
-    let m = manifest::load(&manifest_path(state_dir, guest)).map_err(|e| format!("engine: no record of a running guest {}: {e}", gotext::quote(guest)))?;
+    let m = manifest::load(&manifest_path(state_dir, guest))
+        .map_err(|e| format!("engine: no record of a running guest {}: {e}", gotext::quote(guest)))?;
     if m.name != guest {
         return Err(format!("engine: manifest record for {} names a different guest", gotext::quote(guest)));
     }
@@ -381,7 +399,8 @@ impl Engine {
         sys::write_file(&net_path, net_xml.as_bytes(), 0o600).map_err(|e| other(sys::go_path_error("open", &net_path, &e)))?;
         sys::write_file(&dom_path, dom_xml.as_bytes(), 0o600).map_err(|e| other(sys::go_path_error("open", &dom_path, &e)))?;
         let mp = manifest_path(&self.state_dir, g);
-        sys::write_file(&mp, crate::gojson::indent(&m.json(), "  ").as_bytes(), 0o600).map_err(|e| other(sys::go_path_error("open", &mp, &e)))?;
+        sys::write_file(&mp, crate::gojson::indent(&m.json(), "  ").as_bytes(), 0o600)
+            .map_err(|e| other(sys::go_path_error("open", &mp, &e)))?;
         let mut define = detail([("os", &m.os), ("network", &m.network.mode)]);
         if !m.devices.pci().is_empty() {
             define.insert("pci".into(), m.devices.pci().join(","));
@@ -659,7 +678,9 @@ impl Runner for FakeRunner {
     fn run(&self, _ctx: &Ctx, stdin: &str, name: &str, args: &[String]) -> Result<(), CmdErr> {
         let line = format!("{name} {}", args.join(" "));
         self.calls.lock().unwrap_or_else(|e| e.into_inner()).push((name.to_string(), args.to_vec(), stdin.to_string()));
-        if let Some(stderr) = self.fail.lock().unwrap_or_else(|e| e.into_inner()).iter().find(|(k, _)| line.starts_with(k.as_str())).map(|x| x.1.clone()) {
+        if let Some(stderr) =
+            self.fail.lock().unwrap_or_else(|e| e.into_inner()).iter().find(|(k, _)| line.starts_with(k.as_str())).map(|x| x.1.clone())
+        {
             return Err(CmdErr { text: cmd_err(name, args, "exit status 1", stderr.as_bytes()), not_found: false });
         }
         Ok(())

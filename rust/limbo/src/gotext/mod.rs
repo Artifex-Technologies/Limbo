@@ -95,6 +95,34 @@ fn lossy_slow(mut b: &[u8]) -> String {
     }
 }
 
+/// Go's `strings.ToValidUTF8(s, "�")`: each run of bytes that are not valid UTF-8 becomes one U+FFFD (unlike
+/// [`lossy`], which gives each such byte its own, as Go's `range` and JSON encoder do).
+pub fn to_valid_utf8(mut b: &[u8]) -> String {
+    let mut out = String::with_capacity(b.len());
+    let mut in_run = false;
+    loop {
+        match std::str::from_utf8(b) {
+            Ok(s) => {
+                out.push_str(s);
+                return out;
+            }
+            Err(e) => {
+                let good = e.valid_up_to();
+                if good > 0 {
+                    out.push_str(std::str::from_utf8(&b[..good]).unwrap_or_default());
+                    in_run = false;
+                }
+                if !in_run {
+                    out.push('\u{FFFD}');
+                    in_run = true;
+                }
+                let bad = e.error_len().unwrap_or(b.len() - good);
+                b = &b[good + bad..];
+            }
+        }
+    }
+}
+
 /// The first `n` bytes of `s` as Go's `s[:n]` would look once written out: a character cut in two leaves one U+FFFD per byte
 /// kept, as Go's encoders show the stray bytes.
 pub fn byte_prefix(s: &str, n: usize) -> String {

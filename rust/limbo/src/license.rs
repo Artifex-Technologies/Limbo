@@ -9,8 +9,7 @@ use std::os::unix::fs::OpenOptionsExt;
 use std::sync::Mutex;
 
 pub const DEFAULT_DIR: &str = "/etc/limbo/licenses";
-pub const ERR_WINDOWS_NOT_CONFIGURED: &str =
-    "Windows guest not configured: supply windows.iso and windows.license_file in the manifest";
+pub const ERR_WINDOWS_NOT_CONFIGURED: &str = "Windows guest not configured: supply windows.iso and windows.license_file in the manifest";
 
 /// Nil for a non-Windows guest; for Windows both files must exist and be non-empty regular files.
 pub fn check(m: &Manifest) -> Result<(), String> {
@@ -123,7 +122,13 @@ impl Entry {
         self.assigned.as_deref().unwrap_or(&[])
     }
     fn masked(&self) -> Masked {
-        Masked { id: self.id.clone(), name: self.name.clone(), masked: mask_key(&self.key), added: self.added, assigned: self.assigned().to_vec() }
+        Masked {
+            id: self.id.clone(),
+            name: self.name.clone(),
+            masked: mask_key(&self.key),
+            added: self.added,
+            assigned: self.assigned().to_vec(),
+        }
     }
     fn json(&self) -> String {
         Obj::new()
@@ -144,8 +149,7 @@ pub struct Store {
 /// `^[A-Z0-9]{5}(-[A-Z0-9]{5}){4}$`
 fn key_ok(k: &str) -> bool {
     let b = k.as_bytes();
-    b.len() == 29
-        && b.iter().enumerate().all(|(i, c)| if i % 6 == 5 { *c == b'-' } else { c.is_ascii_uppercase() || c.is_ascii_digit() })
+    b.len() == 29 && b.iter().enumerate().all(|(i, c)| if i % 6 == 5 { *c == b'-' } else { c.is_ascii_uppercase() || c.is_ascii_digit() })
 }
 
 /// `(?i)[a-z0-9]{5}-[a-z0-9]{5}-[a-z0-9]{5}` anywhere in the text.

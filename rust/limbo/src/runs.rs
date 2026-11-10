@@ -67,7 +67,10 @@ fn bad_profile(short: &str, msg: String) -> Refusal {
 /// `^[a-z][a-z0-9-]{0,31}$`
 pub fn profile_name_ok(n: &str) -> bool {
     let b = n.as_bytes();
-    !b.is_empty() && b.len() <= 32 && b[0].is_ascii_lowercase() && b.iter().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'-')
+    !b.is_empty()
+        && b.len() <= 32
+        && b[0].is_ascii_lowercase()
+        && b.iter().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'-')
 }
 
 /// `^r[0-9a-f]{8}$`
@@ -78,7 +81,10 @@ pub fn run_id_ok(n: &str) -> bool {
 /// `^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`
 fn sample_name_ok(n: &str) -> bool {
     let b = n.as_bytes();
-    !b.is_empty() && b.len() <= 128 && b[0].is_ascii_alphanumeric() && b.iter().all(|c| c.is_ascii_alphanumeric() || matches!(c, b'.' | b'_' | b'-'))
+    !b.is_empty()
+        && b.len() <= 128
+        && b[0].is_ascii_alphanumeric()
+        && b.iter().all(|c| c.is_ascii_alphanumeric() || matches!(c, b'.' | b'_' | b'-'))
 }
 
 #[derive(Clone, Debug, Default)]
@@ -145,7 +151,16 @@ pub type Output = (String, String, i64, bool);
 pub trait Executor: Send + Sync {
     fn wait_ready(&self, ctx: &Ctx, ip: &str, user: &str, identity: &str) -> Result<(), ExecErr>;
     /// `stdin` carries a bundle (unpacked) or a sample (stored read-only), as `wrap` says.
-    fn run(&self, ctx: &Ctx, ip: &str, user: &str, identity: &str, command: &str, stdin: Option<&[u8]>, limit: i64) -> (Output, Option<ExecErr>);
+    fn run(
+        &self,
+        ctx: &Ctx,
+        ip: &str,
+        user: &str,
+        identity: &str,
+        command: &str,
+        stdin: Option<&[u8]>,
+        limit: i64,
+    ) -> (Output, Option<ExecErr>);
     fn bundles(&self) -> bool {
         true
     }
@@ -225,11 +240,16 @@ impl Manager {
 
     pub fn load_profile(&self, name: &str) -> Result<Profile, Refusal> {
         if !profile_name_ok(name) {
-            return Err(new_err(CODE_PROFILE_INVALID, "use a name from limbo_profiles", "profile names are lowercase letters, digits and hyphens".into()));
+            return Err(new_err(
+                CODE_PROFILE_INVALID,
+                "use a name from limbo_profiles",
+                "profile names are lowercase letters, digits and hyphens".into(),
+            ));
         }
         let q = gotext::quote(name);
-        let b = std::fs::read(sys::join(&[&self.profile_dir, &format!("{name}.json")]))
-            .map_err(|_| new_err(CODE_PROFILE_UNKNOWN, "call limbo_profiles for the names that exist", format!("there is no profile named {q}")))?;
+        let b = std::fs::read(sys::join(&[&self.profile_dir, &format!("{name}.json")])).map_err(|_| {
+            new_err(CODE_PROFILE_UNKNOWN, "call limbo_profiles for the names that exist", format!("there is no profile named {q}"))
+        })?;
         let (mut p, r) = gojson::decode(&b, Profile::default(), "runs.Profile", true);
         if let Err(e) = r {
             return Err(bad_profile("the profile file is not valid JSON or has unknown fields", format!("profile {q} is malformed ({e})")));
@@ -241,7 +261,10 @@ impl Manager {
             return Err(bad_profile("the profile is not a Linux guest", format!("profile {q} is not a Linux guest")));
         }
         if !p.ssh_identity.starts_with('/') {
-            return Err(bad_profile("the profile ssh_identity is not an absolute path", format!("profile {q}: ssh_identity must be an absolute path")));
+            return Err(bad_profile(
+                "the profile ssh_identity is not an absolute path",
+                format!("profile {q}: ssh_identity must be an absolute path"),
+            ));
         }
         if p.max_seconds <= 0 {
             p.max_seconds = 900;
@@ -267,11 +290,19 @@ impl Manager {
     /// One file from root's inbox analysed in a sealed guest (admin socket only).
     pub fn start_sample(&self, profile: &str, command: &str, sample: &str, timeout: i64) -> Result<String, Refusal> {
         if !sample_name_ok(sample) || self.sample_dir.is_empty() {
-            return Err(new_err(CODE_BAD_REQUEST, "put the file in Limbo's inbox and give its name only", "the sample must be a plain file name in the inbox".into()));
+            return Err(new_err(
+                CODE_BAD_REQUEST,
+                "put the file in Limbo's inbox and give its name only",
+                "the sample must be a plain file name in the inbox".into(),
+            ));
         }
         let path = sys::join(&[&self.sample_dir, sample]);
         let mut f = std::fs::OpenOptions::new().read(true).custom_flags(libc::O_NOFOLLOW).open(&path).map_err(|_| {
-            new_err(CODE_BAD_REQUEST, "put the file in Limbo's inbox first", format!("the sample {} cannot be opened in the inbox", gotext::quote(sample)))
+            new_err(
+                CODE_BAD_REQUEST,
+                "put the file in Limbo's inbox first",
+                format!("the sample {} cannot be opened in the inbox", gotext::quote(sample)),
+            )
         })?;
         if !f.metadata().is_ok_and(|m| m.is_file()) {
             return Err(new_err(CODE_BAD_REQUEST, "send a regular file", "the sample is not a regular file".into()));
@@ -348,18 +379,34 @@ impl Manager {
                 ));
             }
             if !self.exec.samples() {
-                return Err(new_err(CODE_BAD_REQUEST, "this Limbo cannot carry a sample into a guest", "samples are not supported here".into()));
+                return Err(new_err(
+                    CODE_BAD_REQUEST,
+                    "this Limbo cannot carry a sample into a guest",
+                    "samples are not supported here".into(),
+                ));
             }
         }
         if let Some(b) = &bundle {
             if !p.allow_bundle {
-                return Err(new_err(CODE_BAD_REQUEST, "use a profile whose author allows bundles (allow_bundle in the profile)", format!("profile {q} does not accept files")));
+                return Err(new_err(
+                    CODE_BAD_REQUEST,
+                    "use a profile whose author allows bundles (allow_bundle in the profile)",
+                    format!("profile {q} does not accept files"),
+                ));
             }
             if b.len() > MAX_BUNDLE {
-                return Err(new_err(CODE_BAD_REQUEST, "send less: only source files, no data or binaries", format!("the bundle is larger than {MAX_BUNDLE} bytes")));
+                return Err(new_err(
+                    CODE_BAD_REQUEST,
+                    "send less: only source files, no data or binaries",
+                    format!("the bundle is larger than {MAX_BUNDLE} bytes"),
+                ));
             }
             if !self.exec.bundles() {
-                return Err(new_err(CODE_BAD_REQUEST, "this Limbo cannot carry files into a guest", "bundles are not supported here".into()));
+                return Err(new_err(
+                    CODE_BAD_REQUEST,
+                    "this Limbo cannot carry files into a guest",
+                    "bundles are not supported here".into(),
+                ));
             }
         }
         if std::fs::metadata(&p.manifest.image.path).is_err() {
@@ -376,7 +423,11 @@ impl Manager {
             }
         }
         if command.is_empty() || command.len() > MAX_COMMAND || command.contains('\0') {
-            return Err(new_err(CODE_BAD_REQUEST, "send a non-empty command without NUL bytes", format!("command must be 1-{MAX_COMMAND} bytes")));
+            return Err(new_err(
+                CODE_BAD_REQUEST,
+                "send a non-empty command without NUL bytes",
+                format!("command must be 1-{MAX_COMMAND} bytes"),
+            ));
         }
         let mut timeout = if timeout <= 0 { DEFAULT_SECONDS } else { timeout };
         if timeout > p.max_seconds {
@@ -388,11 +439,19 @@ impl Manager {
             return Err(new_err(CODE_BUSY, "wait about a minute and retry", "a sample analysis is already in progress".into()));
         }
         if kind != SAMPLE && running >= MAX_CONCURRENT {
-            return Err(new_err(CODE_BUSY, "wait about a minute and retry", format!("{MAX_CONCURRENT} validation runs are already in progress")));
+            return Err(new_err(
+                CODE_BUSY,
+                "wait about a minute and retry",
+                format!("{MAX_CONCURRENT} validation runs are already in progress"),
+            ));
         }
         for d in p.manifest.devices.all() {
             if st.dev_held.values().any(|held| held.contains(&d)) {
-                return Err(new_err(CODE_BUSY, "wait for the run using the device to finish, then retry", "a device this profile needs is in use by another run".into()));
+                return Err(new_err(
+                    CODE_BUSY,
+                    "wait for the run using the device to finish, then retry",
+                    "a device this profile needs is in use by another run".into(),
+                ));
             }
         }
         let id = format!("r{}", sys::rand_hex(4));
@@ -521,8 +580,15 @@ impl Manager {
                 }
                 let cctx = ctx.with_timeout(limit);
                 let wrapped = wrap(command, stdin.as_ref());
-                let (o, err) =
-                    self.exec.run(&cctx, &ip, &mf.access.user, &p.ssh_identity, &wrapped, stdin.as_ref().map(|x| x.0.as_slice()), p.max_output_bytes);
+                let (o, err) = self.exec.run(
+                    &cctx,
+                    &ip,
+                    &mf.access.user,
+                    &p.ssh_identity,
+                    &wrapped,
+                    stdin.as_ref().map(|x| x.0.as_slice()),
+                    p.max_output_bytes,
+                );
                 out = o;
                 timed_out = cctx.deadline_exceeded() && !ctx.cancelled();
                 if let Some(e) = err {
@@ -586,6 +652,7 @@ impl Manager {
                 let _ = self.events.emit(events::RUN_ERROR, id, detail([("code", &n.code)]));
             }
         }
+        sys::trim();
         self.finish(id, |r| {
             r.status = status.into();
             r.stdout = sanitize(&out.0);
@@ -612,7 +679,11 @@ impl Manager {
             if !ft.is_dir() || !run_id_ok(&id) {
                 continue;
             }
-            let mf = crate::engine::load_guest(&self.state_dir, &id).unwrap_or(Manifest { name: id.clone(), disposable: true, ..Manifest::default() });
+            let mf = crate::engine::load_guest(&self.state_dir, &id).unwrap_or(Manifest {
+                name: id.clone(),
+                disposable: true,
+                ..Manifest::default()
+            });
             if self.engine.down(&Ctx::background(), &mf).is_err() {
                 let _ = self.events.emit(events::RUN_ERROR, &id, detail([("code", CODE_TEARDOWN_FAILED), ("during", "startup reap")]));
                 continue;
@@ -678,7 +749,13 @@ impl Manager {
 
     fn check_image(&self, p: &Profile) -> Result<(), Refusal> {
         let img = &p.manifest.image;
-        let missing = || new_err(CODE_IMAGE_MISSING, "ask the operator to restore the profile's base image", "the profile's base image is missing".into());
+        let missing = || {
+            new_err(
+                CODE_IMAGE_MISSING,
+                "ask the operator to restore the profile's base image",
+                "the profile's base image is missing".into(),
+            )
+        };
         if std::fs::metadata(&img.path).is_err() {
             return Err(missing());
         }
@@ -803,10 +880,18 @@ impl Failure {
 pub fn classify(stage: &str, f: &Failure, deadline_exceeded: bool) -> Refusal {
     let text = f.text.to_lowercase();
     if deadline_exceeded && stage != "command" {
-        return new_err(CODE_BOOT_TIMEOUT, "retry once; if it repeats, check the host load and the guest image", "the guest did not become ready within its boot budget".into());
+        return new_err(
+            CODE_BOOT_TIMEOUT,
+            "retry once; if it repeats, check the host load and the guest image",
+            "the guest did not become ready within its boot budget".into(),
+        );
     }
     if f.not_exist && stage == "up" {
-        return new_err(CODE_IMAGE_MISSING, "ask the operator to restore the profile's base image", "the profile's base image is missing".into());
+        return new_err(
+            CODE_IMAGE_MISSING,
+            "ask the operator to restore the profile's base image",
+            "the profile's base image is missing".into(),
+        );
     }
     if f.mismatch {
         return new_err(
@@ -816,10 +901,18 @@ pub fn classify(stage: &str, f: &Failure, deadline_exceeded: bool) -> Refusal {
         );
     }
     if text.contains("no space left") || text.contains("cannot allocate memory") || text.contains("out of memory") {
-        return new_err(CODE_HOST_RESOURCES, "ask the operator to free disk space or memory, then retry", "the host ran out of disk space or memory".into());
+        return new_err(
+            CODE_HOST_RESOURCES,
+            "ask the operator to free disk space or memory, then retry",
+            "the host ran out of disk space or memory".into(),
+        );
     }
     if f.not_found || text.contains("failed to connect to the hypervisor") || text.contains("failed to connect socket") {
-        return new_err(CODE_VIRT_UNAVAIL, "ask the operator to check that libvirtd and QEMU are running", "the virtualization stack is unavailable on the host".into());
+        return new_err(
+            CODE_VIRT_UNAVAIL,
+            "ask the operator to check that libvirtd and QEMU are running",
+            "the virtualization stack is unavailable on the host".into(),
+        );
     }
     if f.connection && stage == "command" {
         return new_err(
@@ -835,7 +928,11 @@ pub fn classify(stage: &str, f: &Failure, deadline_exceeded: bool) -> Refusal {
             "Limbo could not run the command in the guest (this is not the command failing)".into(),
         );
     }
-    new_err(CODE_BOOT_FAILED, "retry once; if it repeats, ask the operator to read the Limbo logs", "the guest could not be started or never became reachable".into())
+    new_err(
+        CODE_BOOT_FAILED,
+        "retry once; if it repeats, ask the operator to read the Limbo logs",
+        "the guest could not be started or never became reachable".into(),
+    )
 }
 
 /// Guest output made safe for JSON and a model: valid UTF-8, no control characters but newline and tab.
@@ -918,7 +1015,9 @@ fn ssh_args(ip: &str, user: &str, identity: &str) -> Vec<String> {
 }
 
 pub fn bundle_wrap(command: &str) -> String {
-    format!(r#"rm -rf "$HOME/agent" && mkdir "$HOME/agent" && tar --no-same-owner --no-same-permissions -xf - -C "$HOME/agent" && cd "$HOME/agent" && ({command})"#)
+    format!(
+        r#"rm -rf "$HOME/agent" && mkdir "$HOME/agent" && tar --no-same-owner --no-same-permissions -xf - -C "$HOME/agent" && cd "$HOME/agent" && ({command})"#
+    )
 }
 
 pub fn sample_wrap(command: &str) -> String {
@@ -936,13 +1035,21 @@ impl Ssh {
     fn spawn_capture(ctx: &Ctx, args: Vec<String>, stdin: Option<&[u8]>, limit: i64) -> (Output, Option<ExecErr>) {
         use std::process::{Command, Stdio};
         let Some(path) = crate::exchange::look_path("ssh") else {
-            return ((String::new(), String::new(), 0, false), Some(ExecErr { text: crate::engine::not_found("ssh").text, connection: false, not_found: true }));
+            return (
+                (String::new(), String::new(), 0, false),
+                Some(ExecErr { text: crate::engine::not_found("ssh").text, connection: false, not_found: true }),
+            );
         };
         let mut c = Command::new(path);
         c.args(&args).stdout(Stdio::piped()).stderr(Stdio::piped()).stdin(if stdin.is_some() { Stdio::piped() } else { Stdio::null() });
         let mut child = match c.spawn() {
             Ok(ch) => ch,
-            Err(e) => return ((String::new(), String::new(), 0, false), Some(ExecErr { text: sys::go_err(&e), connection: false, not_found: false })),
+            Err(e) => {
+                return (
+                    (String::new(), String::new(), 0, false),
+                    Some(ExecErr { text: sys::go_err(&e), connection: false, not_found: false }),
+                )
+            }
         };
         if let (Some(data), Some(mut w)) = (stdin.map(|d| d.to_vec()), child.stdin.take()) {
             std::thread::spawn(move || {
@@ -971,22 +1078,14 @@ impl Ssh {
         };
         let so = cap(child.stdout.take().map(|x| Box::new(x) as Box<dyn Read + Send>));
         let se = cap(child.stderr.take().map(|x| Box::new(x) as Box<dyn Read + Send>));
-        let mut killed = false;
-        let status = loop {
-            match child.try_wait() {
-                Ok(Some(s)) => break Some(s),
-                Ok(None) => {}
-                Err(_) => break None,
-            }
-            if ctx.done() && !killed {
-                let _ = child.kill();
-                killed = true;
-            }
-            std::thread::sleep(Duration::from_millis(25));
+        let status = match crate::engine::wait_ctx(ctx, &mut child) {
+            Ok((s, _)) => Some(s),
+            _ => None,
         };
         let (ob, ot) = so.join().unwrap_or_default();
         let (eb, et) = se.join().unwrap_or_default();
-        let (o, e) = (gotext::lossy_owned(ob), gotext::lossy_owned(eb));
+        // Go keeps the bytes and makes them valid UTF-8 (a run of bad bytes as one U+FFFD) before they are shown
+        let (o, e) = (gotext::to_valid_utf8(&ob), gotext::to_valid_utf8(&eb));
         let trunc = ot || et;
         match status {
             Some(s) if s.success() => ((o, e, 0, trunc), None),
@@ -995,7 +1094,8 @@ impl Ssh {
                 ((o, e, 0, trunc), Some(ExecErr { text: t, connection: true, not_found: false }))
             }
             Some(s) if s.code().is_some() => ((o, e, s.code().unwrap_or(0) as i64, trunc), None),
-            Some(s) => ((o, e, 0, trunc), Some(ExecErr { text: crate::engine::status_text(&s), connection: false, not_found: false })),
+            // killed by a signal (its time ran out, or the run was stopped): Go reads exit -1 and no error
+            Some(_) => ((o, e, -1, trunc), None),
             None => ((o, e, 0, trunc), Some(ctx_err(ctx))),
         }
     }
@@ -1020,7 +1120,16 @@ impl Executor for Ssh {
         }
     }
 
-    fn run(&self, ctx: &Ctx, ip: &str, user: &str, identity: &str, command: &str, stdin: Option<&[u8]>, limit: i64) -> (Output, Option<ExecErr>) {
+    fn run(
+        &self,
+        ctx: &Ctx,
+        ip: &str,
+        user: &str,
+        identity: &str,
+        command: &str,
+        stdin: Option<&[u8]>,
+        limit: i64,
+    ) -> (Output, Option<ExecErr>) {
         let mut a = ssh_args(ip, user, identity);
         a.push(command.to_string());
         Ssh::spawn_capture(ctx, a, stdin, limit)
@@ -1035,4 +1144,3 @@ pub fn wrap(command: &str, stdin: Option<&(Vec<u8>, bool)>) -> String {
         None => command.to_string(),
     }
 }
-

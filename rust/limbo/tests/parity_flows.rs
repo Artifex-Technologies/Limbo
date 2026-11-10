@@ -79,7 +79,15 @@ fn flows_match_go() {
                             .map(|m| {
                                 let mut x = format!("{}|{}", s(&m["prefix"]), s(&m["payload"]));
                                 if m.get("guest").is_some() {
-                                    x += &format!("|{}|{}|{}|{}|{}|{}", s(&m["guest"]), s(&m["verdict"]), s(&m["proto"]), s(&m["dst"]), s(&m["dport"]), s(&m["icmp"]));
+                                    x += &format!(
+                                        "|{}|{}|{}|{}|{}|{}",
+                                        s(&m["guest"]),
+                                        s(&m["verdict"]),
+                                        s(&m["proto"]),
+                                        s(&m["dst"]),
+                                        s(&m["dport"]),
+                                        s(&m["icmp"])
+                                    );
                                 }
                                 x
                             })
@@ -131,7 +139,8 @@ fn flows_match_go() {
                     .map(|a| {
                         a.iter()
                             .map(|e| {
-                                let det: std::collections::BTreeMap<String, String> = serde_json::from_value(e["detail"].clone()).unwrap_or_default();
+                                let det: std::collections::BTreeMap<String, String> =
+                                    serde_json::from_value(e["detail"].clone()).unwrap_or_default();
                                 format!("{}|{}|{}", s(&e["kind"]), s(&e["guest"]), serde_json::to_string(&det).unwrap())
                             })
                             .collect()

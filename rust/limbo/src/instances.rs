@@ -233,7 +233,12 @@ fn user_ok(n: &str) -> bool {
 }
 
 fn not_found(name: &str) -> Refusal {
-    refuse(404, CODE_NOT_FOUND, "list the instances (GET /v1/instances) for the names that exist", format!("there is no instance named {}", gotext::quote(name)))
+    refuse(
+        404,
+        CODE_NOT_FOUND,
+        "list the instances (GET /v1/instances) for the names that exist",
+        format!("there is no instance named {}", gotext::quote(name)),
+    )
 }
 
 fn shared(m: &Manifest) -> &'static str {
@@ -277,17 +282,33 @@ impl Service {
         if !manifest::name_ok(name) {
             return Err(not_found(name));
         }
-        let mut f = std::fs::OpenOptions::new().read(true).custom_flags(libc::O_NOFOLLOW).open(self.entry_path(name)).map_err(|_| not_found(name))?;
+        let mut f = std::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NOFOLLOW)
+            .open(self.entry_path(name))
+            .map_err(|_| not_found(name))?;
         let mut b = Vec::new();
         let _ = std::io::Read::read_to_end(&mut f, &mut b);
         let q = gotext::quote(name);
         let (mut e, r) = gojson::decode(&b, Entry::default(), "instances.Entry", true);
         if r.is_err() {
-            return Err(refuse(500, CODE_BAD_REQUEST, "ask root to fix or re-add it (limbo instance add)", format!("the record of instance {q} is damaged")));
+            return Err(refuse(
+                500,
+                CODE_BAD_REQUEST,
+                "ask root to fix or re-add it (limbo instance add)",
+                format!("the record of instance {q} is damaged"),
+            ));
         }
         match manifest::parse(e.manifest.json().as_bytes()) {
             Ok(m) if m.name == name => e.manifest = m,
-            _ => return Err(refuse(500, CODE_BAD_REQUEST, "ask root to fix or re-add it (limbo instance add)", format!("the manifest of instance {q} is not valid"))),
+            _ => {
+                return Err(refuse(
+                    500,
+                    CODE_BAD_REQUEST,
+                    "ask root to fix or re-add it (limbo instance add)",
+                    format!("the manifest of instance {q} is not valid"),
+                ))
+            }
         }
         Ok(e)
     }
@@ -416,7 +437,8 @@ impl Service {
             v.state = "held".into();
         }
         let own = sys::join(&[&self.state_dir, &virt::disk_name(m)]);
-        v.disk = DiskFig { base_bytes: disk::allocated(&m.image.path), own_bytes: disk::allocated(&own), virtual_bytes: 0, disk_gb: m.disk_gb };
+        v.disk =
+            DiskFig { base_bytes: disk::allocated(&m.image.path), own_bytes: disk::allocated(&own), virtual_bytes: 0, disk_gb: m.disk_gb };
         if let Ok(n) = disk::virtual_size(&own) {
             v.disk.virtual_bytes = n;
         } else if let Ok(n) = disk::virtual_size(&m.image.path) {
@@ -525,7 +547,12 @@ impl Service {
         };
         let q = gotext::quote(name);
         if !c.admin && !e.owner.is_empty() && e.owner != c.user {
-            return Err(refuse(403, CODE_NOT_OWNER, &format!("ask {} or use the password", e.owner), format!("instance {q} belongs to {}", e.owner)));
+            return Err(refuse(
+                403,
+                CODE_NOT_OWNER,
+                &format!("ask {} or use the password", e.owner),
+                format!("instance {q} belongs to {}", e.owner),
+            ));
         }
         if let Some(h) = self.hold(name) {
             if !c.admin {
@@ -554,7 +581,12 @@ impl Service {
         let o = self.overrides(name);
         let mut m = self.effective(&e, &o)?;
         if self.running().contains(&virt::domain_name(&m)) {
-            return Err(refuse(409, CODE_RUNNING, "stop it first, or leave it running", format!("instance {} is already running", gotext::quote(name))));
+            return Err(refuse(
+                409,
+                CODE_RUNNING,
+                "stop it first, or leave it running",
+                format!("instance {} is already running", gotext::quote(name)),
+            ));
         }
         self.audit(EVENT_REQUEST, name, c, detail([("action", "start")]))?;
         let ctx = Ctx::background();
@@ -563,7 +595,12 @@ impl Service {
             let _ = self.guests.down(&ctx, &prev);
         }
         if let Err(err) = self.guests.up(&ctx, &mut m) {
-            return Err(refuse(500, CODE_START_FAILED, "see 'limbo doctor' and the Limbo log", format!("instance {} did not start: {err}", gotext::quote(name))));
+            return Err(refuse(
+                500,
+                CODE_START_FAILED,
+                "see 'limbo doctor' and the Limbo log",
+                format!("instance {} did not start: {err}", gotext::quote(name)),
+            ));
         }
         drop(_g);
         self.get(name, c)
@@ -581,7 +618,12 @@ impl Service {
         };
         self.audit(EVENT_REQUEST, name, c, detail([("action", "stop")]))?;
         if let Err(err) = self.guests.down(&ctx, &m) {
-            return Err(refuse(500, CODE_STOP_FAILED, "see the Limbo log; root can run 'limbo down'", format!("instance {q} did not stop cleanly: {err}")));
+            return Err(refuse(
+                500,
+                CODE_STOP_FAILED,
+                "see the Limbo log; root can run 'limbo down'",
+                format!("instance {q} did not stop cleanly: {err}"),
+            ));
         }
         self.guests.clean_state(&m);
         drop(_g);
@@ -606,7 +648,10 @@ impl Service {
         if let Some(n) = ch.memory_mb {
             let limit = (mem_mb - HOST_RESERVE_MB).max(512);
             if n < 512 || n > limit {
-                return Err(bad(format!("choose 512 to {limit} MiB"), format!("memory must be 512 to {limit} MiB (the computer keeps {HOST_RESERVE_MB} MiB for itself)")));
+                return Err(bad(
+                    format!("choose 512 to {limit} MiB"),
+                    format!("memory must be 512 to {limit} MiB (the computer keeps {HOST_RESERVE_MB} MiB for itself)"),
+                ));
             }
             o.memory_mb = n;
             changed.push("memory_mb");
@@ -622,7 +667,10 @@ impl Service {
             }
             let min = ((cur + ((1 << 30) - 1)) >> 30).max(1);
             if n < min || n > manifest::MAX_DISK_GB {
-                return Err(bad(format!("choose {min} to {} GiB", manifest::MAX_DISK_GB), format!("a disk can only grow: {min} to {} GiB", manifest::MAX_DISK_GB)));
+                return Err(bad(
+                    format!("choose {min} to {} GiB", manifest::MAX_DISK_GB),
+                    format!("a disk can only grow: {min} to {} GiB", manifest::MAX_DISK_GB),
+                ));
             }
             o.disk_gb = n;
             changed.push("disk_gb");
@@ -648,7 +696,10 @@ impl Service {
                 if !allowed.contains(d) || !seen.insert(d.clone()) {
                     return Err(bad(
                         "choose among the devices the instance's manifest names".into(),
-                        format!("device {} is not one the manifest names (devices are given by root, then the host's passthrough policy)", gotext::quote(d)),
+                        format!(
+                            "device {} is not one the manifest names (devices are given by root, then the host's passthrough policy)",
+                            gotext::quote(d)
+                        ),
                     ));
                 }
             }
@@ -658,7 +709,12 @@ impl Service {
         let mut d = Detail::new();
         if let Some(n) = &ch.network {
             if !c.admin {
-                return Err(refuse(403, CODE_NOT_OWNER, "Settings asks for the password and changes it as root", "a guest's network is changed by an administrator only".into()));
+                return Err(refuse(
+                    403,
+                    CODE_NOT_OWNER,
+                    "Settings asks for the password and changes it as root",
+                    "a guest's network is changed by an administrator only".into(),
+                ));
             }
             if let Some(h) = self.hold(name) {
                 return Err(refuse(
@@ -675,7 +731,10 @@ impl Service {
             changed.push("network");
         }
         if changed.is_empty() {
-            return Err(bad("send at least one of cpus, memory_mb, disk_gb, shared_folder, clipboard, devices, network".into(), "nothing to change".into()));
+            return Err(bad(
+                "send at least one of cpus, memory_mb, disk_gb, shared_folder, clipboard, devices, network".into(),
+                "nothing to change".into(),
+            ));
         }
         self.effective(&e, &o)?;
         d.insert("changed".into(), changed.join(","));
@@ -689,7 +748,12 @@ impl Service {
         let e = self.may_change(name, c)?;
         let q = gotext::quote(name);
         if let Some(h) = self.hold(name) {
-            return Err(refuse(409, CODE_HELD, "its disk is evidence; decide about it on Heimdall's page first", format!("instance {q} is held ({})", h.id)));
+            return Err(refuse(
+                409,
+                CODE_HELD,
+                "its disk is evidence; decide about it on Heimdall's page first",
+                format!("instance {q} is held ({})", h.id),
+            ));
         }
         let l = self.lock(name);
         let _g = l.lock().unwrap_or_else(|x| x.into_inner());
@@ -701,7 +765,9 @@ impl Service {
         let n = disk::allocated(&p);
         self.audit(EVENT_CHANGE, name, c, detail([("changed", "free_space")]))?;
         match std::fs::remove_file(&p) {
-            Err(err) if err.kind() != std::io::ErrorKind::NotFound => Err(Refusal::new(Some(500), "internal", "", sys::go_path_error("remove", &p, &err))),
+            Err(err) if err.kind() != std::io::ErrorKind::NotFound => {
+                Err(Refusal::new(Some(500), "internal", "", sys::go_path_error("remove", &p, &err)))
+            }
             _ => Ok(n),
         }
     }
@@ -711,20 +777,41 @@ impl Service {
         if !c.admin {
             return Err(refuse(403, CODE_BAD_REQUEST, "use the password (sudo or pkexec)", "only root registers instances".into()));
         }
-        let pm = manifest::parse(m.json().as_bytes()).map_err(|e| refuse(400, CODE_BAD_REQUEST, "fix the manifest ('limbo validate FILE')", e))?;
+        let pm = manifest::parse(m.json().as_bytes())
+            .map_err(|e| refuse(400, CODE_BAD_REQUEST, "fix the manifest ('limbo validate FILE')", e))?;
         if pm.disposable {
-            return Err(refuse(400, CODE_BAD_REQUEST, "set \"disposable\": false; disposable guests are for runs", "an instance is kept, so it cannot be disposable".into()));
+            return Err(refuse(
+                400,
+                CODE_BAD_REQUEST,
+                "set \"disposable\": false; disposable guests are for runs",
+                "an instance is kept, so it cannot be disposable".into(),
+            ));
         }
         if crate::runs::run_id_ok(&pm.name) {
-            return Err(refuse(400, CODE_BAD_REQUEST, "choose another name", format!("names like {} are kept for runs", gotext::quote(&pm.name))));
+            return Err(refuse(
+                400,
+                CODE_BAD_REQUEST,
+                "choose another name",
+                format!("names like {} are kept for runs", gotext::quote(&pm.name)),
+            ));
         }
         if !owner.is_empty() && !user_ok(owner) {
-            return Err(refuse(400, CODE_BAD_REQUEST, "give an account name", format!("owner {} is not an account name", gotext::quote(owner))));
+            return Err(refuse(
+                400,
+                CODE_BAD_REQUEST,
+                "give an account name",
+                format!("owner {} is not an account name", gotext::quote(owner)),
+            ));
         }
         let l = self.lock(&pm.name);
         let _g = l.lock().unwrap_or_else(|x| x.into_inner());
         if std::fs::symlink_metadata(self.entry_path(&pm.name)).is_ok() {
-            return Err(refuse(409, CODE_EXISTS, "remove it first, or choose another name", format!("instance {} already exists", gotext::quote(&pm.name))));
+            return Err(refuse(
+                409,
+                CODE_EXISTS,
+                "remove it first, or choose another name",
+                format!("instance {} already exists", gotext::quote(&pm.name)),
+            ));
         }
         let internal = |e: std::io::Error| Refusal::new(Some(500), "internal", "", sys::go_err(&e));
         sys::mkdir_all(&self.dir, 0o755).map_err(internal)?;
@@ -750,11 +837,17 @@ impl Service {
         }
         if delete_disk {
             if let Some(h) = self.hold(name) {
-                return Err(refuse(409, CODE_HELD, "its disk is evidence; decide about it on Heimdall's page first", format!("instance {q} is held ({})", h.id)));
+                return Err(refuse(
+                    409,
+                    CODE_HELD,
+                    "its disk is evidence; decide about it on Heimdall's page first",
+                    format!("instance {q} is held ({})", h.id),
+                ));
             }
         }
         let _ = self.audit(EVENT_REMOVE, name, c, detail([("delete_disk", if delete_disk { "true" } else { "false" })]));
-        std::fs::remove_file(self.entry_path(name)).map_err(|err| Refusal::new(Some(500), "internal", "", sys::go_path_error("remove", &self.entry_path(name), &err)))?;
+        std::fs::remove_file(self.entry_path(name))
+            .map_err(|err| Refusal::new(Some(500), "internal", "", sys::go_path_error("remove", &self.entry_path(name), &err)))?;
         let _ = std::fs::remove_file(self.override_path(name));
         if delete_disk {
             let _ = std::fs::remove_file(sys::join(&[&self.state_dir, &virt::persistent_disk_name(&e.manifest)]));

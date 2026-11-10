@@ -322,7 +322,13 @@ impl Aggregator {
             sc = "host";
         }
         let count = st.anom_count.get(reason).copied().unwrap_or(0);
-        let mut d = crate::detail([("reason", reason), ("proto", &p.proto), ("dst", &p.dst.to_string()), ("scope", sc), ("count", &count.to_string())]);
+        let mut d = crate::detail([
+            ("reason", reason),
+            ("proto", &p.proto),
+            ("dst", &p.dst.to_string()),
+            ("scope", sc),
+            ("count", &count.to_string()),
+        ]);
         if p.dport > 0 {
             d.insert("dport".into(), p.dport.to_string());
         }
@@ -476,7 +482,8 @@ pub fn listen(group: u16) -> Result<std::os::fd::OwnedFd, String> {
             .map_err(|e| format!("flows: binding NFLOG group {group}: {}", crate::sys::go_err(&e.into())))?;
         let (n, _) = rustix::net::recv(&fd, &mut buf[..], rustix::net::RecvFlags::empty())
             .map_err(|e| format!("flows: binding NFLOG group {group}: {}", crate::sys::go_err(&e.into())))?;
-        ack_error(&buf[..n.min(buf.len())]).map_err(|e| format!("flows: binding NFLOG group {group} (is another program using it?): {e}"))?;
+        ack_error(&buf[..n.min(buf.len())])
+            .map_err(|e| format!("flows: binding NFLOG group {group} (is another program using it?): {e}"))?;
     }
     rustix::io::ioctl_fionbio(&fd, true).map_err(|e| crate::sys::go_err(&e.into()))?;
     Ok(fd)

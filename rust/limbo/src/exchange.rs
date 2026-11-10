@@ -144,7 +144,8 @@ impl Service {
             return Err(refuse(404, "not_found", "give a guest's name", format!("there is no guest named {}", gotext::quote(guest))));
         }
         let dir = self.outbox(guest);
-        let no_outbox = || refuse(404, "not_found", "turn on the guest's shared folder first", format!("guest {} has no outbox", gotext::quote(guest)));
+        let no_outbox =
+            || refuse(404, "not_found", "turn on the guest's shared folder first", format!("guest {} has no outbox", gotext::quote(guest)));
         match std::fs::symlink_metadata(&dir) {
             Ok(m) if m.is_dir() => {}
             _ => return Err(no_outbox()),
@@ -203,11 +204,7 @@ impl Service {
                     out.unlisted += 1;
                     continue;
                 }
-                out.files.push(File {
-                    path: p,
-                    size: st.st_size,
-                    modified: Time::from_unix(st.st_mtime, st.st_mtime_nsec as u32),
-                });
+                out.files.push(File { path: p, size: st.st_size, modified: Time::from_unix(st.st_mtime, st.st_mtime_nsec as u32) });
             }
             true
         }
@@ -226,12 +223,16 @@ impl Service {
     /// Copies one file out of the outbox, scans the copy, and returns it if ClamAV finds nothing.
     pub fn take(&self, guest: &str, rel: &str, mut detail: Detail) -> Result<Taken, Refusal> {
         let Some(p) = clean_rel(rel) else {
-            return Err(refuse(400, "bad_request", "use a path exactly as the listing shows it", "that is not a file name in the outbox".into()));
+            return Err(refuse(
+                400,
+                "bad_request",
+                "use a path exactly as the listing shows it",
+                "that is not a file name in the outbox".into(),
+            ));
         };
         let root = self.open(guest)?;
-        let src = beneath(&root, &p, OFlags::RDONLY | OFlags::NONBLOCK).map_err(|_| {
-            refuse(404, "not_found", "list the outbox again", format!("there is no such file in {guest}'s outbox"))
-        })?;
+        let src = beneath(&root, &p, OFlags::RDONLY | OFlags::NONBLOCK)
+            .map_err(|_| refuse(404, "not_found", "list the outbox again", format!("there is no such file in {guest}'s outbox")))?;
         let mut src = std::fs::File::from(src);
         let md = src.metadata();
         if !md.as_ref().is_ok_and(|m| m.is_file()) {
@@ -360,7 +361,11 @@ impl Scanner for ClamAV {
                 last = format!("exec: {}: executable file not found in $PATH", gotext::quote(argv[0]));
                 continue;
             }
-            let out = std::process::Command::new(argv[0]).args(&argv[1..]).stdin(std::process::Stdio::null()).stderr(std::process::Stdio::null()).output();
+            let out = std::process::Command::new(argv[0])
+                .args(&argv[1..])
+                .stdin(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .output();
             match out {
                 Ok(o) if o.status.success() => return Ok((CLEAN.into(), String::new())),
                 Ok(o) if o.status.code() == Some(1) => {

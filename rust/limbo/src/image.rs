@@ -28,7 +28,10 @@ const DROP_CHUNK: u64 = 8 << 20;
 pub enum CheckErr {
     Mismatch(String),
     /// The file is missing or unreadable; `not_exist` says which (runs classify a missing image apart).
-    Io { text: String, not_exist: bool },
+    Io {
+        text: String,
+        not_exist: bool,
+    },
 }
 
 impl std::fmt::Display for CheckErr {
@@ -217,7 +220,14 @@ impl Proofs {
         if !self.path.is_empty() && rustix::process::geteuid().as_raw() == self.owner {
             if let Ok(s) = self.eligible(path) {
                 if s == before {
-                    let rec = Record { path: path.to_string(), sig: before, sha256: sum, hashed_at: (self.now)().utc(), refused_at: None, found: String::new() };
+                    let rec = Record {
+                        path: path.to_string(),
+                        sig: before,
+                        sha256: sum,
+                        hashed_at: (self.now)().utc(),
+                        refused_at: None,
+                        found: String::new(),
+                    };
                     let _ = self.update(|recs| {
                         recs.insert(rec.path.clone(), rec.clone());
                     });

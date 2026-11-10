@@ -53,7 +53,11 @@ pub fn addr(m: &Manifest) -> Addressing {
     if (1..=254).contains(&m.subnet) {
         x = m.subnet;
     }
-    Addressing { gateway: [10, 213, x as u8, 1], guest: [10, 213, x as u8, 2], mac: format!("52:54:00:{:02x}:{:02x}:{:02x}", h[1], h[2], h[3]) }
+    Addressing {
+        gateway: [10, 213, x as u8, 1],
+        guest: [10, 213, x as u8, 2],
+        mac: format!("52:54:00:{:02x}:{:02x}:{:02x}", h[1], h[2], h[3]),
+    }
 }
 
 // ---- XML, as encoding/xml writes it ----
@@ -115,7 +119,12 @@ fn esc(s: &str, out: &mut String) {
 
 fn in_char_range(c: char) -> bool {
     let r = c as u32;
-    r == 0x09 || r == 0x0A || r == 0x0D || (0x20..=0xD7FF).contains(&r) || (0xE000..=0xFFFD).contains(&r) || (0x10000..=0x10FFFF).contains(&r)
+    r == 0x09
+        || r == 0x0A
+        || r == 0x0D
+        || (0x20..=0xD7FF).contains(&r)
+        || (0xE000..=0xFFFD).contains(&r)
+        || (0x10000..=0x10FFFF).contains(&r)
 }
 
 fn render(e: &El, depth: usize, out: &mut String) {
@@ -175,9 +184,10 @@ fn usb_hostdev(id: &str) -> Result<El, String> {
     if !manifest::usb_id_ok(id) {
         return Err(format!("virt: bad USB ID {}", crate::gotext::quote(id)));
     }
-    Ok(el("hostdev").at("mode", "subsystem").at("type", "usb").kid(
-        el("source").kid(el("vendor").at("id", format!("0x{}", &id[0..4]))).kid(el("product").at("id", format!("0x{}", &id[5..9]))),
-    ))
+    Ok(el("hostdev")
+        .at("mode", "subsystem")
+        .at("type", "usb")
+        .kid(el("source").kid(el("vendor").at("id", format!("0x{}", &id[0..4]))).kid(el("product").at("id", format!("0x{}", &id[5..9])))))
 }
 
 struct Disk<'a> {
@@ -219,7 +229,10 @@ fn disk_el(d: &Disk) -> El {
 pub fn domain_xml(m: &Manifest, root_disk: &str) -> Result<String, String> {
     let win = m.os == manifest::OS_WINDOWS;
     let (bus, nic, root_dev, seed_dev) = if win { ("sata", "e1000e", "sda", "sdb") } else { ("virtio", "virtio", "vda", "sda") };
-    let mut d = el("domain").at("type", "kvm").kid(el("name").text(domain_name(m))).kid(el("memory").at("unit", "MiB").text(m.memory_mb.to_string()));
+    let mut d = el("domain")
+        .at("type", "kvm")
+        .kid(el("name").text(domain_name(m)))
+        .kid(el("memory").at("unit", "MiB").text(m.memory_mb.to_string()));
     d = d.kid(el("vcpu").text(m.cpus.to_string()));
     if !m.exchange_dir.is_empty() {
         d = d.kid(el("memoryBacking").kid(el("source").ao("type", "memfd")).kid(el("access").ao("mode", "shared")));

@@ -16,6 +16,13 @@ and live guests since 2026-10-14 (latest: 66/66 and 24/24 on 2026-11-05; the
 Coordination Log has the details). The Wine backend (`limbo wine`, `internal/wine`, §13) since 2026-11-08: plain
 `go test ./...` runs it for real (bwrap + Wine's own `cmd`/`cscript`, headless, about 15 s); `-short` skips that.
 
+**The Rust port of `limbo serve`** (since 2026-11-10, `rust/`, docs/RUST_PORT.md): `limbo-rs serve` is the daemon,
+every other command is handed to the Go binary. Equal to Go on 7,338 fixture comparisons (`testdata/parity`, written by
+each package's `parity_test.go`; `LIMBO_PARITY_UPDATE=1 go test ./internal/... -run Parity` after a deliberate change)
+and in a differential run of both daemons (`rust/parity/daemon-differential.py`). A change to a serve package now
+needs its fixture regenerated and the Rust side kept equal (`cd rust && scripts/nicecargo.sh test --offline`). Not
+switched yet: the owner's root steps are in docs/RUST_PORT.md.
+
 A Claude session isolated in a worktree has its commands refused when they wrap a payload the guard cannot read
 (`bash script`, `env`, `nice` before `go test`, a program literally named `cmd` after `--`): run real Wine checks from
 Go tests, and builds with `renice -n 15 -p $$ && go ...`.
@@ -174,6 +181,29 @@ From Heimdall's CLAUDE.md Coordination Log.
   repository; it waits for that image's recipe.
 
 ## Coordination Log (newest first)
+
+### 2026-11-10 — `limbo serve` ported to Rust (not switched yet)
+- **Owner's wish:** as much of the ecosystem in Rust as possible, for lightness while gaming and running a local model;
+  Heimdall's port is the model. `rust/` is a cargo workspace beside the Go code; `limbo-rs serve` is the daemon (the
+  four sockets with their route tables, quarantine, verdicts, runs, profiles with the image proofs, the events log, the
+  Settings page backend, the exchange outbox, licenses, the flows/anomaly watcher), and any other command is handed to
+  the Go limbo. Same state files, same formats: switching back and forth is a restart.
+- **Proof:** Go fixtures (manifests, XML, nft rules, seeds, flows, quarantine, engine command sequences, the API on all
+  four sockets): 7,338 comparisons, all equal. Both daemons in namespaces with fake host programs on the same 108
+  answers, 174 events, 641 host commands and 16 state files: no difference. Kani harnesses (no loosening route on
+  control.sock or agent.sock for any combination of services; nothing of root's on user.sock), their claims run
+  exhaustively in the tests, proptest, fuzz targets.
+- **Measured** (same harness): RSS after start 3.3 MB against Go's 13.5 MB (PSS 1.3 against 13.5), after the script 4.1 (PSS 1.9)
+  against 19.1 MB, one thread idle against 10-15, idle CPU 0 for both; 159 context switches during the script against
+  Go's 5,334.
+- **Why no week of shadow mode as Heimdall had:** two Limbo daemons would fight over /run/limbo's sockets, the second
+  would destroy the first's validation-run guests at startup (the orphan reap), only one can bind NFLOG group 7213, and
+  both would act on the same guests and tables. Instead: a rehearsal on a copy of the real state (`--from-host`), the
+  real-guest scripts with `LIMBO_RS=`, then a direct switch by a systemd drop-in, undone by removing it.
+- **For Heimdall, Sarina, Yggdrasil (not edited from here):** nothing changes. Same sockets, routes, JSON, codes and
+  event kinds, byte for byte; events.jsonl is written the same way.
+- Owner steps (root): docs/RUST_PORT.md "Commands for the owner".
+— Signed: Limbo / Claude Opus 5.5
 
 ### 2026-11-09 — Base images: hashed once, proven after
 - **Owner's decision:** a start no longer hashes the base image every time (the 12.7 GB Windows base cost ~25 s and

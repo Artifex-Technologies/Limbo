@@ -188,8 +188,19 @@ mod proofs {
         for r in routes(Principal::User, s) {
             assert!(!matches!(
                 r.id,
-                R::QVerdict | R::QClose | R::GuestDown | R::PutSettings | R::AddInstance | R::RemoveInstance | R::AddLicense
-                    | R::RemoveLicense | R::RevealLicense | R::SampleRun | R::AgentRunsStop | R::QOpen | R::QRaise
+                R::QVerdict
+                    | R::QClose
+                    | R::GuestDown
+                    | R::PutSettings
+                    | R::AddInstance
+                    | R::RemoveInstance
+                    | R::AddLicense
+                    | R::RemoveLicense
+                    | R::RevealLicense
+                    | R::SampleRun
+                    | R::AgentRunsStop
+                    | R::QOpen
+                    | R::QRaise
             ));
         }
     }
@@ -471,7 +482,9 @@ fn decode<T: gojson::FromGo>(req: &Request, init: T, ty: &str) -> Result<T, Fail
 fn decode_strict<T: gojson::FromGo>(req: &Request, init: T, ty: &str, shape: &str) -> Result<T, Fail> {
     match read_body(req, init, ty) {
         (t, None) => Ok(t),
-        (_, Some(_)) => Err(coded(400, "bad_request", &format!("send {shape}"), "the request body is not valid JSON for this route".into())),
+        (_, Some(_)) => {
+            Err(coded(400, "bad_request", &format!("send {shape}"), "the request body is not valid JSON for this route".into()))
+        }
     }
 }
 
@@ -686,8 +699,12 @@ impl Server {
                 Ok((200, Obj::new().raw("instances", &gojson::list(&list.iter().map(|v| v.json()).collect::<Vec<_>>())).end()))
             }
             R::GetInstance => self.inst().get(&cx.val("name"), &self.caller(&cx).0).map(|v| (200, v.json())).map_err(fail_with),
-            R::StartInstance => self.gated(&cx).and_then(|c| self.inst().start(&cx.val("name"), &c).map(|v| (200, v.json())).map_err(fail_with)),
-            R::StopInstance => self.gated(&cx).and_then(|c| self.inst().stop(&cx.val("name"), &c).map(|v| (200, v.json())).map_err(fail_with)),
+            R::StartInstance => {
+                self.gated(&cx).and_then(|c| self.inst().start(&cx.val("name"), &c).map(|v| (200, v.json())).map_err(fail_with))
+            }
+            R::StopInstance => {
+                self.gated(&cx).and_then(|c| self.inst().stop(&cx.val("name"), &c).map(|v| (200, v.json())).map_err(fail_with))
+            }
             R::ConfigureInstance => self.gated(&cx).and_then(|_| self.configure(&cx)),
             R::FreeSpace => self.gated(&cx).and_then(|_| self.free_space(&cx)),
             R::AddInstance => self.add_instance(&cx),
@@ -753,7 +770,12 @@ impl Server {
         }
         let (rec, created) = self.store.quarantine(&r.guest, &r.reason, &r.source, &r.level, r.evidence.as_ref()).map_err(state_err)?;
         let kind = if created { events::QUARANTINE_OPEN } else { events::QUARANTINE_RAISE };
-        let _ = self.audit(cx, kind, &r.guest, detail([("id", &rec.id), ("level", &rec.level), ("reason", &rec.reason), ("source", &rec.source)]));
+        let _ = self.audit(
+            cx,
+            kind,
+            &r.guest,
+            detail([("id", &rec.id), ("level", &rec.level), ("reason", &rec.reason), ("source", &rec.source)]),
+        );
         Ok((200, self.apply(&m, &rec, created)))
     }
 
@@ -768,14 +790,19 @@ impl Server {
     }
 
     fn advisory(&self, cx: &Ctx) -> Out {
-        let r = decode(cx.req, AdvisoryReq::default(), "struct { Source string \"json:\\\"source\\\"\"; Text string \"json:\\\"text\\\"\" }")?;
+        let r =
+            decode(cx.req, AdvisoryReq::default(), "struct { Source string \"json:\\\"source\\\"\"; Text string \"json:\\\"text\\\"\" }")?;
         let rec = self.store.add_advisory(&cx.val("id"), &r.source, &r.text).map_err(state_err)?;
         let _ = self.audit(cx, events::QUARANTINE_ADVISORY, &rec.guest, detail([("id", &rec.id), ("source", &r.source)]));
         Ok((200, rec.json()))
     }
 
     fn verdict(&self, cx: &Ctx) -> Out {
-        let r = decode(cx.req, VerdictReq::default(), r#"struct { Verdict quarantine.Status "json:\"verdict\""; By string "json:\"by\""; Note string "json:\"note\"" }"#)?;
+        let r = decode(
+            cx.req,
+            VerdictReq::default(),
+            r#"struct { Verdict quarantine.Status "json:\"verdict\""; By string "json:\"by\""; Note string "json:\"note\"" }"#,
+        )?;
         let id = cx.val("id");
         let rec = self.store.get(&id).map_err(state_err)?;
         if rec.status != quarantine::STATUS_OPEN {
@@ -786,7 +813,12 @@ impl Server {
         }
         let by = format!("{} (peer {})", gotext::trim_space(&r.by), cx.peer.text());
         // the audit entry first; no record, no verdict
-        if let Err(e) = self.audit(cx, events::QUARANTINE_VERDICT, &rec.guest, detail([("id", &id), ("verdict", &r.verdict), ("by", &by), ("note", &r.note)])) {
+        if let Err(e) = self.audit(
+            cx,
+            events::QUARANTINE_VERDICT,
+            &rec.guest,
+            detail([("id", &id), ("verdict", &r.verdict), ("by", &by), ("note", &r.note)]),
+        ) {
             return Err(plain(500, format!("cannot record verdict in the audit log: {}", sys::go_err(&e))));
         }
         let g = self.actions.guest(&rec.guest);
@@ -817,7 +849,10 @@ impl Server {
         if let Ok(cur) = self.store.get(&id) {
             if let Ok(m) = self.actions.guest(&cur.guest) {
                 if self.actions.defined(&m) {
-                    return Err(plain(409, format!("guest {} still exists; tear it down before closing its record", gotext::quote(&cur.guest))));
+                    return Err(plain(
+                        409,
+                        format!("guest {} still exists; tear it down before closing its record", gotext::quote(&cur.guest)),
+                    ));
                 }
             }
         }
@@ -855,7 +890,11 @@ impl Server {
     }
 
     fn start_run(&self, cx: &Ctx) -> Out {
-        let r = match decode(cx.req, RunReq::default(), r#"struct { Profile string "json:\"profile\""; Command string "json:\"command\""; TimeoutSeconds int "json:\"timeout_seconds\""; Bundle string "json:\"bundle\"" }"#) {
+        let r = match decode(
+            cx.req,
+            RunReq::default(),
+            r#"struct { Profile string "json:\"profile\""; Command string "json:\"command\""; TimeoutSeconds int "json:\"timeout_seconds\""; Bundle string "json:\"bundle\"" }"#,
+        ) {
             Ok(r) => r,
             Err(e) => {
                 let _ = self.audit(cx, events::RUN_ERROR, "", detail([("code", "bad_request")]));
@@ -883,7 +922,11 @@ impl Server {
     }
 
     fn start_sample(&self, cx: &Ctx) -> Out {
-        let r = decode(cx.req, SampleReq::default(), r#"struct { Profile string "json:\"profile\""; Command string "json:\"command\""; Sample string "json:\"sample\""; TimeoutSeconds int "json:\"timeout_seconds\"" }"#)?;
+        let r = decode(
+            cx.req,
+            SampleReq::default(),
+            r#"struct { Profile string "json:\"profile\""; Command string "json:\"command\""; Sample string "json:\"sample\""; TimeoutSeconds int "json:\"timeout_seconds\"" }"#,
+        )?;
         let runs = self.runs.as_ref().expect("route exists only with runs");
         let id = runs.start_sample(&r.profile, &r.command, &r.sample, r.timeout_seconds).map_err(Self::run_fail)?;
         Ok((202, Obj::new().str("id", &id).end()))
@@ -998,7 +1041,12 @@ impl Server {
     fn free_space(&self, cx: &Ctx) -> Out {
         let r = decode_strict(cx.req, ConfirmReq::default(), "api.confirmReq", r#"{"confirm": true}"#)?;
         if !r.confirm {
-            return Err(coded(400, "confirm_required", r#"send {"confirm": true}"#, "freeing space deletes everything the guest changed since its base image".into()));
+            return Err(coded(
+                400,
+                "confirm_required",
+                r#"send {"confirm": true}"#,
+                "freeing space deletes everything the guest changed since its base image".into(),
+            ));
         }
         let c = self.caller(cx).0;
         let n = self.inst().free_space(&cx.val("name"), &c).map_err(fail_with)?;
@@ -1023,7 +1071,8 @@ impl Server {
     }
 
     fn add_license(&self, cx: &Ctx) -> Out {
-        let r = decode_strict(cx.req, LicenseReq::default(), "api.licenseReq", r#"{"name": "...", "key": "XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"}"#)?;
+        let r =
+            decode_strict(cx.req, LicenseReq::default(), "api.licenseReq", r#"{"name": "...", "key": "XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"}"#)?;
         let m = self.lic().add(&r.name, &r.key).map_err(license_fail)?;
         let _ = self.audit(cx, "license.add", "", detail([("id", &m.id)]));
         Ok((200, m.json()))
@@ -1051,10 +1100,20 @@ impl Server {
         if let Some(i) = &self.instances {
             let v = i.get(&r.guest, &c).map_err(fail_with)?;
             if v.kind != "instance" || v.os != manifest::OS_WINDOWS {
-                return Err(coded(400, "bad_request", "assign licenses to Windows instances only", format!("{} is not a Windows instance", gotext::quote(&r.guest))));
+                return Err(coded(
+                    400,
+                    "bad_request",
+                    "assign licenses to Windows instances only",
+                    format!("{} is not a Windows instance", gotext::quote(&r.guest)),
+                ));
             }
             if !v.mine {
-                return Err(coded(403, instances::CODE_NOT_OWNER, "ask its owner or use the password", format!("instance {} belongs to {}", gotext::quote(&r.guest), v.owner)));
+                return Err(coded(
+                    403,
+                    instances::CODE_NOT_OWNER,
+                    "ask its owner or use the password",
+                    format!("instance {} belongs to {}", gotext::quote(&r.guest), v.owner),
+                ));
             }
         }
         let id = cx.val("id");
@@ -1085,10 +1144,20 @@ impl Server {
                 Err(r) => return err(fail_with(r)),
             };
             if v.hold.is_some() {
-                return err(coded(409, "held_by_heimdall", "decide about the guest on Heimdall's page (Settings > Security) first", format!("guest {} is held", gotext::quote(&guest))));
+                return err(coded(
+                    409,
+                    "held_by_heimdall",
+                    "decide about the guest on Heimdall's page (Settings > Security) first",
+                    format!("guest {} is held", gotext::quote(&guest)),
+                ));
             }
             if !v.mine {
-                return err(coded(403, "not_owner", "ask its owner or use the password", format!("guest {} belongs to {}", gotext::quote(&guest), v.owner)));
+                return err(coded(
+                    403,
+                    "not_owner",
+                    "ask its owner or use the password",
+                    format!("guest {} belongs to {}", gotext::quote(&guest), v.owner),
+                ));
             }
         }
         let r = match decode_strict(cx.req, PathReq::default(), "api.pathReq", r#"{"path": "name as listed"}"#) {
