@@ -272,10 +272,57 @@ impl RunService for crate::runs::Manager {
     }
 }
 
+/// The password switch (Go: api.SettingsStore): the file, or a fake in tests.
+pub trait SettingsStore: Send + Sync {
+    /// The settings, and why the file could not be trusted (then the settings are the default).
+    fn load(&self) -> (crate::settings::Settings, Option<String>);
+    fn save(&self, s: crate::settings::Settings) -> std::io::Result<()>;
+}
+
 /// The password switch's file.
 pub struct SettingsFile {
     pub path: String,
     pub require_root: bool,
+}
+
+impl SettingsStore for SettingsFile {
+    fn load(&self) -> (crate::settings::Settings, Option<String>) {
+        crate::settings::load(&self.path, self.require_root)
+    }
+    fn save(&self, s: crate::settings::Settings) -> std::io::Result<()> {
+        crate::settings::save(&self.path, s)
+    }
+}
+
+/// The Windows license store (Go: api.LicenseService).
+pub trait LicenseService: Send + Sync {
+    fn list(&self) -> Result<Vec<license::Masked>, license::Error>;
+    fn add(&self, name: &str, key: &str) -> Result<license::Masked, license::Error>;
+    fn remove(&self, id: &str) -> Result<(), license::Error>;
+    fn reveal(&self, id: &str) -> Result<String, license::Error>;
+    fn assign(&self, id: &str, guest: &str) -> Result<license::Masked, license::Error>;
+    fn unassign(&self, id: &str, guest: &str) -> Result<license::Masked, license::Error>;
+}
+
+impl LicenseService for license::Store {
+    fn list(&self) -> Result<Vec<license::Masked>, license::Error> {
+        license::Store::list(self)
+    }
+    fn add(&self, name: &str, key: &str) -> Result<license::Masked, license::Error> {
+        license::Store::add(self, name, key)
+    }
+    fn remove(&self, id: &str) -> Result<(), license::Error> {
+        license::Store::remove(self, id)
+    }
+    fn reveal(&self, id: &str) -> Result<String, license::Error> {
+        license::Store::reveal(self, id)
+    }
+    fn assign(&self, id: &str, guest: &str) -> Result<license::Masked, license::Error> {
+        license::Store::assign(self, id, guest)
+    }
+    fn unassign(&self, id: &str, guest: &str) -> Result<license::Masked, license::Error> {
+        license::Store::unassign(self, id, guest)
+    }
 }
 
 pub struct Server {
@@ -284,8 +331,8 @@ pub struct Server {
     pub events: Arc<dyn Emitter>,
     pub runs: Option<Arc<dyn RunService>>,
     pub instances: Option<Arc<instances::Service>>,
-    pub licenses: Option<Arc<license::Store>>,
-    pub settings: Option<SettingsFile>,
+    pub licenses: Option<Arc<dyn LicenseService>>,
+    pub settings: Option<Arc<dyn SettingsStore>>,
     pub exchange: Option<Arc<crate::exchange::Service>>,
     /// is /dev/kvm there (replaced in tests)
     pub kvm: fn() -> bool,
@@ -669,7 +716,7 @@ impl Server {
     fn inst(&self) -> &instances::Service {
         self.instances.as_deref().expect("routes exist only when the service does")
     }
-    fn lic(&self) -> &license::Store {
+    fn lic(&self) -> &dyn LicenseService {
         self.licenses.as_deref().expect("routes exist only when the service does")
     }
     fn exch(&self) -> &crate::exchange::Service {
@@ -800,6 +847,10 @@ impl Server {
 
     fn run_fail(e: Refusal) -> Fail {
         let st = if e.code == crate::runs::CODE_BUSY { 429 } else { 400 };
+        // an uncoded failure (no code of its own) is answered with the code its status gives, as Go does
+        if e.code.is_empty() {
+            return Fail::Plain(st, e.message);
+        }
         Fail::Coded(st, e)
     }
 
@@ -866,7 +917,7 @@ impl Server {
         match &self.settings {
             None => true,
             Some(f) => {
-                let (s, err) = crate::settings::load(&f.path, f.require_root);
+                let (s, err) = f.load();
                 err.is_some() || s.ask_password
             }
         }
@@ -929,7 +980,7 @@ impl Server {
         if let Err(e) = self.audit(cx, "settings.change", "", detail([("ask_password", v)])) {
             return Err(plain(500, format!("cannot record the change in the audit log: {}", sys::go_err(&e))));
         }
-        crate::settings::save(&f.path, crate::settings::Settings { ask_password: ask }).map_err(|e| plain(500, sys::go_err(&e)))?;
+        f.save(crate::settings::Settings { ask_password: ask }).map_err(|e| plain(500, sys::go_err(&e)))?;
         Ok((200, Obj::new().bool("ask_password", ask).end()))
     }
 

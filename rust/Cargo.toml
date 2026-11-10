@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
 members = ["limbo"]
+# cargo-fuzz targets build with a nightly toolchain of their own; they are not part of the normal build
+exclude = ["fuzz"]
 
 [workspace.package]
 edition = "2021"

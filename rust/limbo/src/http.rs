@@ -64,6 +64,7 @@ pub fn status_text(s: u16) -> &'static str {
         200 => "OK",
         202 => "Accepted",
         301 => "Moved Permanently",
+        307 => "Temporary Redirect",
         400 => "Bad Request",
         403 => "Forbidden",
         404 => "Not Found",
@@ -325,10 +326,10 @@ pub fn route<R: Copy>(routes: &[Route<R>], method: &str, raw_path: &str) -> Matc
 
 /// A redirect as Go's http.Redirect writes it.
 pub fn redirect(method: &str, to: &str) -> Response {
-    let mut r = Response { status: 301, headers: vec![("Location".into(), to.to_string())], body: Body::Bytes(Vec::new()) };
+    let mut r = Response { status: 307, headers: vec![("Location".into(), to.to_string())], body: Body::Bytes(Vec::new()) };
     if method == "GET" || method == "HEAD" {
         r.headers.insert(0, ("Content-Type".into(), "text/html; charset=utf-8".into()));
-        r.body = Body::Bytes(format!("<a href=\"{}\">Moved Permanently</a>.\n\n", html_escape(to)).into_bytes());
+        r.body = Body::Bytes(format!("<a href=\"{}\">Temporary Redirect</a>.\n\n", html_escape(to)).into_bytes());
     }
     r
 }

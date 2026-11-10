@@ -400,7 +400,7 @@ pub struct Ctx {
     pub strict: bool,
     first: Option<Error>,
     struct_name: &'static str,
-    stack: Vec<&'static str>,
+    stack: Vec<String>,
 }
 
 impl Ctx {
@@ -462,7 +462,7 @@ impl Ctx {
             match idx {
                 Some(i) => {
                     self.struct_name = go_name;
-                    self.stack.push(fields[i]);
+                    self.stack.push(fields[i].to_string());
                     each(i, val, self);
                     self.stack.truncate(saved_len);
                     self.struct_name = saved_name;
@@ -551,7 +551,10 @@ impl<T: FromGo + Default> FromGo for std::collections::BTreeMap<String, T> {
                 for (k, it) in members {
                     let before = cx.first.is_some();
                     let mut x = T::default();
+                    // Go (1.27) names a map element by its key in the field path ("openReq.evidence.a")
+                    cx.stack.push(k.clone());
                     x.read(it, cx, elem);
+                    cx.stack.pop();
                     if before || cx.first.is_none() {
                         self.insert(k.clone(), x);
                     }

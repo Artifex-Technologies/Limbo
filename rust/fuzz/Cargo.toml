@@ -1,0 +1,46 @@
+[package]
+name = "limbo-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+license = "MPL-2.0"
+
+# cargo-fuzz (nightly):   cd rust/fuzz && cargo +nightly fuzz run http_request
+# Every target's body is limbo::fuzzing::*, which tests/properties.rs also runs on stable.
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "=0.4.10"
+limbo = { path = "../limbo" }
+
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "http_request"
+path = "fuzz_targets/http_request.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "json"
+path = "fuzz_targets/json.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "manifest"
+path = "fuzz_targets/manifest.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "nflog"
+path = "fuzz_targets/nflog.rs"
+test = false
+doc = false
+bench = false

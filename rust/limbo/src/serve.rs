@@ -343,7 +343,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
     inst.holds = Some(store.clone());
     inst.events = Some(log.clone());
     inst.host_limits = Some(instances::host_limits);
-    let licenses = match license::Store::open(&f.licenses_dir, true) {
+    let licenses: Option<Arc<license::Store>> = match license::Store::open(&f.licenses_dir, true) {
         Ok(l) => Some(Arc::new(l)),
         Err(e) => {
             eprintln!("limbo serve: Windows licenses unavailable: {e}");
@@ -360,8 +360,8 @@ pub fn run(args: &[String]) -> Result<(), String> {
         events: log.clone(),
         runs: Some(mgr.clone() as Arc<dyn api::RunService>),
         instances: Some(Arc::new(inst)),
-        licenses,
-        settings: Some(SettingsFile { path: f.settings.clone(), require_root: true }),
+        licenses: licenses.map(|l| l as Arc<dyn api::LicenseService>),
+        settings: Some(Arc::new(SettingsFile { path: f.settings.clone(), require_root: true })),
         exchange: Some(Arc::new(exch)),
         kvm,
     });
