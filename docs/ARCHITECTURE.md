@@ -120,7 +120,7 @@ real GPU.
   `0000:03:00.0`); it is only valid on a disposable Linux guest, max 4 devices.
   The host grants, in `internal/hostpolicy`, checked in `Engine.Up` (the single
   start path) and again when a run starts or profiles are scanned.
-- **Host-OS switch.** `ID=` from `/etc/os-release`: `lykanos`, `niflheim` and `chymaera` (its
+- **Host-OS switch.** `ID=` from `/etc/os-release`: `lykanos` and `chymaera` (its
   former names) are refused with no override (hard-coded); `labyrinth` is allowed subject to the rest; anything
   else, or an unreadable file, is refused. No engine wired to a policy refuses too.
 - **Per-device checks (Labyrinth).** The device must be in `pci_allow` of the
@@ -764,7 +764,7 @@ Xwayland has none), a third-party Windows program, a game.
   a run through a restrict-only `control.sock` route (stopping restricts). Suspicious `.exe` files go to Wine inside the
   sealed `limbo analyze` guest, with the same trace channels, never to this sandbox.
 
-## Shipping with LykanOS (formerly Niflheim OS and Chymaera OS)
+## Shipping with LykanOS (formerly Chymaera OS)
 
 (Labyrinth OS already ships Limbo as `limbo-git` from its own local repository; this section is the plan for LykanOS.)
 

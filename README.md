@@ -5,7 +5,7 @@ native-looking windows, each inside a sandbox you control. Built first for
 **network and infrastructure security analysis and reporting**: run
 Windows-only and untrusted-input tooling without exposing the host. Part of the
 Artifex ecosystem: it ships in Labyrinth OS (package `limbo-git`), is meant for
-LykanOS (formerly Niflheim OS and Chymaera OS) too, and is watched by
+LykanOS (formerly Chymaera OS) too, and is watched by
 [Heimdall](https://github.com/Artifex-Technologies/Heimdall).
 
 **Sample runs** ([docs/SAMPLES.md](docs/SAMPLES.md)): one hostile file analysed in a sealed guest (no network, no sudo, no shared

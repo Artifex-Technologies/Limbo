@@ -80,7 +80,7 @@ func TestNoDevicesAlwaysPasses(t *testing.T) {
 }
 
 func TestChymaeraNeverAllowsEvenWhenListed(t *testing.T) {
-	for _, id := range []string{"lykanos", "niflheim", "chymaera"} {
+	for _, id := range []string{"lykanos", "chymaera"} {
 		h := newHost(t, id, gpu)
 		h.device(gpu, "0x030000", false, gpu)
 		denied(t, h.p.Check(guest(gpu)))
@@ -340,7 +340,7 @@ func TestUSBRefusals(t *testing.T) {
 	hub.usb("1-4", "05e3:0610", "09", 1, 2)
 	denied(t, hub.p.Check(usbGuest("05e3:0610")))
 
-	for _, id := range []string{"lykanos", "niflheim", "chymaera", "arch"} {
+	for _, id := range []string{"lykanos", "chymaera", "arch"} {
 		n, _ := usbHost(t, id, x4)
 		n.usb("1-9", x4, "00", 1, 8)
 		denied(t, n.p.Check(usbGuest(x4)))

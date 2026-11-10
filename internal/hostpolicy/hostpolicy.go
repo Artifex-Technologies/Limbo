@@ -11,7 +11,7 @@
 //
 // The switch by host OS:
 //
-//   - LykanOS (formerly Niflheim OS and Chymaera OS) never allows passthrough. That is
+//   - LykanOS (formerly Chymaera OS) never allows passthrough. That is
 //     hard-coded, under both IDs, so no config file, however edited, turns it
 //     on there.
 //   - Labyrinth OS allows it, but only for devices listed in the config's
@@ -48,9 +48,9 @@ const (
 )
 
 // neverOS are os-release IDs on which passthrough is refused regardless of config.
-// LykanOS was Niflheim OS and Chymaera OS before that; all three IDs, so a rename
+// LykanOS was Chymaera OS before that; both IDs, so a rename
 // never relies on the unknown-OS default.
-var neverOS = map[string]bool{"lykanos": true, "niflheim": true, "chymaera": true}
+var neverOS = map[string]bool{"lykanos": true, "chymaera": true}
 
 // allowOS are os-release IDs on which passthrough is possible at all.
 // Labyrinth is CachyOS-based and ships its own os-release with ID=labyrinth.
