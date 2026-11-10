@@ -1,0 +1,33 @@
+[package]
+name = "limbo"
+version = "0.1.0"
+description = "Limbo's always-on daemon (limbo serve), ported from Go; every other command is handed to the Go binary"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+name = "limbo"
+path = "src/lib.rs"
+
+[[bin]]
+name = "limbo-rs"
+path = "src/main.rs"
+
+# Exact versions on purpose (the lock file pins the rest); cargo-audit runs over Cargo.lock in CI.
+[dependencies]
+# SHA-256 of base images, commands, bundles and files taken out of an outbox (SHA-NI when the CPU has it)
+sha2 = { version = "=0.10.9", default-features = false, features = ["std"] }
+# the sockets' peer credentials, flock, fstat, fadvise, statfs, openat2 (an outbox never left), the netlink socket
+rustix = { version = "=1.1.4", default-features = false, features = ["std", "fs", "net", "process", "event", "thread", "rand"] }
+# signal handling (signalfd) and the few calls rustix does not wrap
+libc = { version = "=0.2.186", default-features = false }
+
+[dev-dependencies]
+proptest = { version = "=1.12.0", default-features = false, features = ["std"] }
+# the test oracle for valid JSON documents (gojson reads what Go reads; on valid documents it must agree with serde_json)
+serde_json = "=1.0.149"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(kani)"] }

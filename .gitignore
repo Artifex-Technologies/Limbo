@@ -9,3 +9,6 @@ events.jsonl
 
 # Local progress notes
 PROGRESS.md
+
+# The Rust port's build output
+/rust/target/

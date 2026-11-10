@@ -1,0 +1,16 @@
+[workspace]
+resolver = "2"
+members = ["limbo"]
+
+[workspace.package]
+edition = "2021"
+license = "MPL-2.0"
+rust-version = "1.82"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+# unwinding stays on: a handler that panics on a hostile request loses that one connection, not the daemon (http.rs)
+panic = "unwind"
