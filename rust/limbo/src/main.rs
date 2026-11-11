@@ -78,15 +78,18 @@ fn main() {
     if let Some(code) = cli_command(&os_args) {
         std::process::exit(code);
     }
-    let args: Vec<String> = std::env::args().collect();
-    if args.get(1).map(String::as_str) == Some("serve") {
+    // Arguments that are not UTF-8 go to the Go limbo unchanged (it takes any bytes): std::env::args() would panic on
+    // them, and since limbo-rs is /usr/bin/limbo that panic would be every command's.
+    let first = os_args.get(1).and_then(|a| a.to_str());
+    let utf8: Option<Vec<String>> = os_args.iter().map(|a| a.to_str().map(String::from)).collect();
+    if let (Some("serve"), Some(args)) = (first, &utf8) {
         if let Err(e) = limbo::serve::run(&args[2..]) {
             eprintln!("limbo: {e}");
             std::process::exit(1);
         }
         return;
     }
-    if args.get(1).map(String::as_str) == Some("rs-version") {
+    if first == Some("rs-version") {
         println!(
             "limbo-rs {} (serve, quarantine, settings, instance, license, exchange, version, validate, plan, seed, address, report, analyze, image, doctor, setup, up, down, launch, export, screenshot, passthrough and wine in Rust; every other command runs the Go limbo)",
             env!("CARGO_PKG_VERSION")
@@ -95,12 +98,15 @@ fn main() {
     }
     // the differential runs (rust/parity) set this, so a command that is not ported fails instead of running Go
     if std::env::var_os("LIMBO_RS_NO_GO").is_some() {
-        eprintln!("limbo-rs: {} is not ported (LIMBO_RS_NO_GO is set)", args.get(1).map_or("", String::as_str));
+        eprintln!(
+            "limbo-rs: {} is not ported (LIMBO_RS_NO_GO is set)",
+            os_args.get(1).map_or(std::borrow::Cow::Borrowed(""), |a| a.to_string_lossy())
+        );
         std::process::exit(2);
     }
     match go_binary() {
         Some(go) => {
-            let err = std::process::Command::new(&go).arg0("limbo").args(&args[1..]).exec();
+            let err = std::process::Command::new(&go).arg0("limbo").args(os_args.get(1..).unwrap_or_default()).exec();
             eprintln!("limbo: cannot run the Go limbo ({go}): {err}");
             std::process::exit(1);
         }
