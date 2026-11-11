@@ -82,7 +82,10 @@ expect pass "a member reads the figures"                       sock itq-user use
 expect fail "an unrelated user cannot reach user.sock"         sock itq-other user.sock GET /v1/status
 expect fail "Heimdall's user cannot reach user.sock"           sock itq-heimdall user.sock GET /v1/status
 expect fail "Sarina's user cannot reach user.sock"             sock itq-agent user.sock GET /v1/status
-[ "$(code itq-user user.sock POST /v1/settings '{"ask_password":false}')" = 404 ] && ok "a member has no route to the switch" || bad "switch route on user.sock"
+# The switch is root's: user.sock serves GET /v1/settings but not POST, so the mux answers 405 (another method on the
+# path), as internal/api/settings_test.go pins; 404 would mean the whole path is gone. Either way nothing changes.
+SW=$(code itq-user user.sock POST /v1/settings '{"ask_password":false}')
+case "$SW" in 404|405) ok "a member has no route to the switch ($SW)" ;; *) bad "switch route on user.sock: $SW" ;; esac
 [ "$(code itq-user user.sock POST /v1/instances/x/start)" = 403 ] && ok "with the switch on (default) a member's change is refused" || bad "change allowed with the switch on"
 
 # --- a guest to quarantine ---------------------------------------------------
@@ -174,7 +177,11 @@ json.dump(q,open("$PROFILES/it-sudo.json","w"))
 PY
 PROFS=$(sock itq-agent agent.sock GET /v1/profiles)
 echo "$PROFS" | grep -q it-validate && ok "the disposable profile is offered" || bad "profile missing: $PROFS"
-echo "$PROFS" | grep -q it-persistent && bad "a non-disposable profile was offered" || ok "a non-disposable profile is not offered"
+# Offered means listed in "profiles"; since 2026-10-06 a profile that cannot run is named in "skipped" with its code.
+inlist() { python3 -c 'import json,sys; d=json.load(sys.stdin); sys.exit(0 if sys.argv[1] in (d.get("profiles") or []) else 1)' "$1"; }
+inskipped() { python3 -c 'import json,sys; d=json.load(sys.stdin); sys.exit(0 if any(s.get("name")==sys.argv[1] and s.get("code")==sys.argv[2] for s in d.get("skipped") or []) else 1)' "$1" "$2"; }
+echo "$PROFS" | inlist it-persistent && bad "a non-disposable profile was offered: $PROFS" || ok "a non-disposable profile is not offered"
+echo "$PROFS" | inskipped it-persistent profile_invalid && ok "the non-disposable profile is listed as skipped (profile_invalid)" || bad "not in skipped: $PROFS"
 
 [ "$(code itq-agent agent.sock POST /v1/runs '{"profile":"it-persistent","command":"true"}')" = 400 ] && ok "a non-disposable profile cannot be run" || bad "persistent profile ran"
 [ "$(code itq-agent agent.sock POST /v1/runs '{"profile":"it-validate","command":"true","network":{"mode":"internet-only"}}')" = 400 ] && ok "the agent cannot choose the network (unknown field rejected)" || bad "agent could set network"

@@ -153,6 +153,8 @@ def script(img, sha):
     s = [
         ("user", "GET", "/v1/status", ""),
         ("user", "GET", "/v1/settings", ""),
+        # the switch is root's: on user.sock the path answers another method only (405, as integration-quarantine.sh expects)
+        ("user", "POST", "/v1/settings", '{"ask_password":false}'),
         ("admin", "POST", "/v1/instances", '{"manifest":%s,"owner":""}' % m),
         ("admin", "POST", "/v1/instances", '{"manifest":%s,"owner":""}' % m),
         ("admin", "POST", "/v1/instances", '{"manifest":%s,"owner":"Not A User"}' % manifest(img, sha, "lab2")),
@@ -592,8 +594,22 @@ def main():
     os.makedirs(images, exist_ok=True)
     os.chmod(images, 0o755)
     write(os.path.join(images, "base.qcow2"), qcow2(10), 0o644)
-    reps = {}
+    # This script and both daemons run inside the namespaces from copies in the scratch folder. Root in a user
+    # namespace has no power over files outside it, so as root (--from-host) a script or binary in a home folder
+    # (0700, the person's) cannot even be opened there; the copies are the scratch folder owner's.
+    bindir = os.path.join(out, "bin")
+    os.makedirs(bindir, exist_ok=True)
+    os.chmod(bindir, 0o755)
+    me = os.path.join(bindir, "daemon-differential.py")
+    shutil.copyfile(os.path.abspath(__file__), me)
+    os.chmod(me, 0o644)
+    copies = {}
     for name, binary in (("go", args.go), ("rs", args.rs)):
+        copies[name] = os.path.join(bindir, "limbo-" + name)
+        shutil.copyfile(os.path.abspath(binary), copies[name])
+        os.chmod(copies[name], 0o755)
+    reps = {}
+    for name in ("go", "rs"):
         root = os.path.join(out, name)
         build_tree(root, images)
         if args.from_host:
@@ -602,7 +618,7 @@ def main():
             os.chmod(out, 0o700)
             copy_host_state(root)
         rep = os.path.join(out, name + "-report.json")
-        cmd = ["unshare", "-rmn", sys.executable, "-I", os.path.abspath(__file__), "--inner", "--daemon", os.path.abspath(binary),
+        cmd = ["unshare", "-rmn", sys.executable, "-I", me, "--inner", "--daemon", copies[name],
                "--root", root, "--images", images, "--report", rep, "--idle", str(args.idle), "--settle", str(args.settle)]
         if args.from_host:
             cmd.append("--from-host")

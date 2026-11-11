@@ -9,13 +9,18 @@
 #
 # Sarina's service runs as an unprivileged user in the limbo-agent group, as it
 # would in production.
-#   sudo scripts/integration-sarina.sh   (needs the Sarina repo beside this one)
-#   sudo SARINA_BIN=/path/to/sarina scripts/integration-sarina.sh   (against Sarina's Go binary)
+#   sudo scripts/integration-sarina.sh   (Sarina's Go binary, /usr/bin/sarina, as installed)
+#   sudo SARINA_BIN=/path/to/sarina scripts/integration-sarina.sh   (another build of it)
+# Sarina is Go since 2026-11: the old Python service (python3 -m sarina.service from the Sarina repo) is used only when
+# no Go binary is found.
 set -u
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 . "$REPO/scripts/rust-daemon.sh"
 SARINA_REPO="${SARINA_REPO:-$(cd "$REPO/.." && pwd)/Sarina}"
+. "$REPO/scripts/it-common.sh"
+pick_sarina
+need_free_ports 8898 8997
 WORK="${LIMBO_IT_DIR:-/var/lib/limbo/its}"
 BASE="${LIMBO_IT_IMAGE:-/var/lib/limbo/images/arch-cloudimg.qcow2}"
 export LIMBO_STATE_DIR="$WORK/state"
@@ -63,7 +68,7 @@ start_stack() { # start_stack <script.json>: fresh fake model + Sarina service f
   [ -n "$MODEL$SERVICE" ] && wait $MODEL $SERVICE 2>/dev/null
   : >"$WORK/model.jsonl"
   python3 "$REPO/scripts/fake_model.py" 8997 "$WORK/model.jsonl" "$1" & MODEL=$!
-  # SARINA_BIN=/path/to/sarina runs Sarina's Go binary ("sarina service"); unset keeps the Python service.
+  # SARINA_BIN is Sarina's Go binary ("sarina service", set by pick_sarina); empty only when none is installed.
   # Discovery off: the Go agent otherwise probes the model server for its context window, and this
   # scripted fake model would count that probe as one of its steps.
   if [ -n "${SARINA_BIN:-}" ]; then
@@ -76,7 +81,8 @@ start_stack() { # start_stack <script.json>: fresh fake model + Sarina service f
       --model fake --api-key x --session-dir "$WORK/sarina/sessions" --scratchpad-root "$WORK/sarina/scratch" ) >"$WORK/service.log" 2>&1 &
   fi
   SERVICE=$!; PIDS="$PIDS $MODEL $SERVICE"
-  waitfor 30 curl -s -o /dev/null http://127.0.0.1:8898/healthz
+  # healthy, and it is the service started here (not another program on the port)
+  waitfor 30 curl -s -o /dev/null http://127.0.0.1:8898/healthz && kill -0 "$SERVICE" 2>/dev/null
 }
 chat() { # chat <allow_shell true|false> <prompt> ; prints the chat JSON
   sid=$(curl -s -X POST http://127.0.0.1:8898/v1/sessions -H 'Authorization: Bearer t' -H 'Content-Type: application/json' \

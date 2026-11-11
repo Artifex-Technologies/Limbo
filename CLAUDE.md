@@ -182,6 +182,19 @@ From Heimdall's CLAUDE.md Coordination Log.
 
 ## Coordination Log (newest first)
 
+### 2026-11-11 — The owner's first real-guest run against limbo-rs: the scripts, not the port
+- Rehearsal never started (root in `unshare -rmn` cannot open a script or binary in a 0700 home: now copied into the
+  scratch folder); quarantine 68/70, chain 24/31, sarina 4/15. Every failure traced to the scripts or this computer:
+  405 vs 404 on user.sock's POST /v1/settings (Go answers 405 too), a grep that hit `skipped`, the installed
+  sarina-service holding 8899 (the test's Sarina never started), the Python Sarina default, Heimdall's host-wide info
+  alerts, the test heimdalld on /var/lib/heimdall paths, UFW dropping guest-to-host traffic regardless of Limbo's table.
+  Table and fixes: docs/RUST_PORT.md "The owner's first run".
+- `scripts/rust-checks.sh`: rehearsal, then each script with the Go daemon and with limbo-rs; only checks that differ
+  count against the port. `scripts/it-common.sh`: Sarina's Go binary by default, own ports, a stop if a port is taken.
+- **For Heimdall (not edited from here):** integration-chain.sh now gives the test heimdalld every state path in its own
+  folder (keys from `internal/config/config.go`); a new default path there should be added to that script too.
+— Signed: Limbo / Claude Opus 5.5
+
 ### 2026-11-10 — `limbo serve` ported to Rust (not switched yet)
 - **Owner's wish:** as much of the ecosystem in Rust as possible, for lightness while gaming and running a local model;
   Heimdall's port is the model. `rust/` is a cargo workspace beside the Go code; `limbo-rs serve` is the daemon (the

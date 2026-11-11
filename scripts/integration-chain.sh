@@ -9,8 +9,13 @@
 # after that, Heimdall's detection, the quarantine, the repair, the advisory, the
 # human verdict, is the real code path.
 #
-#   sudo scripts/integration-chain.sh        (needs the Heimdall and Sarina repos beside this one)
-#   sudo SARINA_BIN=/path/to/sarina scripts/integration-chain.sh   (Sarina's Go binary instead of the Python service)
+#   sudo scripts/integration-chain.sh        (needs the Heimdall repo beside this one; Sarina's Go binary, /usr/bin/sarina)
+#   sudo SARINA_BIN=/path/to/sarina scripts/integration-chain.sh   (another build of Sarina)
+#
+# Its own services use ports of their own (Sarina 18899, the fake model 18998, the host service 18000), never the
+# installed sarina-service's 8899; heimdalld's every state path is in the test folder, never /var/lib/heimdall. When
+# UFW is active, a temporary UFW rule lets the guest's bridge reach the host service, so that Limbo's own table is the
+# one thing between them (as the tamper check needs); it is removed at exit.
 set -u
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -18,6 +23,10 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 GH="$(cd "$REPO/.." && pwd)"
 HEIMDALL_REPO="${HEIMDALL_REPO:-$GH/Heimdall}"
 SARINA_REPO="${SARINA_REPO:-$GH/Sarina}"
+. "$REPO/scripts/it-common.sh"
+SPORT=18899; MPORT=18998; HPORT=18000
+pick_sarina
+need_free_ports $SPORT $MPORT $HPORT
 WORK="${LIMBO_IT_DIR:-/var/lib/limbo/itc}"
 BASE="${LIMBO_IT_IMAGE:-/var/lib/limbo/images/arch-cloudimg.qcow2}"
 export LIMBO_STATE_DIR="$WORK/state"
@@ -49,25 +58,28 @@ as() { u=$1; shift; (cd / && runuser -u "$u" -- "$@"); }
 jget() { python3 -c "import sys,json; d=json.load(sys.stdin); print(eval('d'+sys.argv[1]))" "$1"; }
 
 PIDS=""
+UFW_RULE=""
 cleanup() {
   for p in $PIDS; do kill "$p" 2>/dev/null; done
   "$LIMBO" down --i-know "$WORK/$GUEST.json" >/dev/null 2>&1
   nft delete table inet "limbo_$GUEST" >/dev/null 2>&1
+  [ -n "$UFW_RULE" ] && ufw --force delete $UFW_RULE >/dev/null 2>&1
 }
 trap cleanup EXIT
 
 # --- Sarina's real service, with a fake model behind it --------------------------
-python3 "$REPO/scripts/fake_model.py" 8998 "$WORK/model.jsonl" & PIDS="$PIDS $!"
+python3 "$REPO/scripts/fake_model.py" $MPORT "$WORK/model.jsonl" & PIDS="$PIDS $!"
 if [ -n "${SARINA_BIN:-}" ]; then
   # Sarina's Go binary; discovery off so the scripted fake model does not count the probe as a step.
-  ( cd / && exec env SARINA_CONTEXT_DISCOVERY=0 "$SARINA_BIN" service --port 8899 --token chain-token \
-      --base-url http://127.0.0.1:8998/v1 --model fake --api-key x \
-      --session-dir "$WORK/sarina-sessions" --scratchpad-root "$WORK/sarina-scratch" ) >"$WORK/sarina.log" 2>&1 & PIDS="$PIDS $!"
+  ( cd / && exec env SARINA_CONTEXT_DISCOVERY=0 "$SARINA_BIN" service --port $SPORT --token chain-token \
+      --base-url http://127.0.0.1:$MPORT/v1 --model fake --api-key x \
+      --session-dir "$WORK/sarina-sessions" --scratchpad-root "$WORK/sarina-scratch" ) >"$WORK/sarina.log" 2>&1 &
 else
-( cd "$SARINA_REPO" && exec python3 -m sarina.service --port 8899 --token chain-token \
-    --base-url http://127.0.0.1:8998/v1 --model fake --api-key x \
-    --session-dir "$WORK/sarina-sessions" --scratchpad-root "$WORK/sarina-scratch" ) >"$WORK/sarina.log" 2>&1 & PIDS="$PIDS $!"
+( cd "$SARINA_REPO" && exec python3 -m sarina.service --port $SPORT --token chain-token \
+    --base-url http://127.0.0.1:$MPORT/v1 --model fake --api-key x \
+    --session-dir "$WORK/sarina-sessions" --scratchpad-root "$WORK/sarina-scratch" ) >"$WORK/sarina.log" 2>&1 &
 fi
+SARINA=$!; PIDS="$PIDS $SARINA"
 
 # --- Limbo ----------------------------------------------------------------------
 mkdir -p "$RUN"; chmod 755 "$RUN"
@@ -88,23 +100,48 @@ gssh() { ssh -i "$WORK/key" -o BatchMode=yes -o StrictHostKeyChecking=no -o User
 gtcp() { gssh "timeout 4 bash -c '</dev/tcp/$1/$2'"; }
 
 # A host service the guest must never reach.
-python3 -m http.server 8000 --bind 0.0.0.0 >/dev/null 2>&1 & PIDS="$PIDS $!"
+python3 -m http.server $HPORT --bind 0.0.0.0 --directory "$WORK/bin" >/dev/null 2>&1 & PIDS="$PIDS $!"
+# UFW drops a guest's packets to the host by default: then the tamper check below could never see the guest get
+# through, whatever Limbo did. A rule for this bridge and port only leaves Limbo's own table as the one barrier.
+if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q '^Status: active'; then
+  UFW_RULE="allow in on lb-$GUEST to any port $HPORT proto tcp comment limbo-integration-chain"
+  if ufw insert 1 $UFW_RULE >/dev/null 2>&1 || ufw $UFW_RULE >/dev/null 2>&1; then
+    echo "== UFW is active: a temporary rule lets lb-$GUEST reach port $HPORT (removed at exit)"
+  else
+    echo "== UFW is active and the temporary rule could not be added: the UNFILTERED check will fail"; UFW_RULE=""
+  fi
+fi
 
 echo "== setup"
-waitfor 30 curl -s -o /dev/null http://127.0.0.1:8899/healthz && ok "Sarina's real service is up (fake model behind it)" || bad "sarina-service did not start: $(tail -3 "$WORK/sarina.log")"
+waitfor 10 curl -s -o /dev/null "http://127.0.0.1:$HPORT/" && ok "the host service answers on the host (port $HPORT)" || bad "the host service did not start"
+waitfor 30 curl -s -o /dev/null http://127.0.0.1:$SPORT/healthz && kill -0 "$SARINA" 2>/dev/null \
+  && ok "Sarina's real service is up (fake model behind it)" || bad "sarina-service did not start: $(tail -3 "$WORK/sarina.log")"
 stat -c '%a %G' "$LIMBO_STATE_DIR/events.jsonl" | grep -q '^640 limbo-heimdall$' && ok "event log is 640 group limbo-heimdall (Heimdall can read, not write)" || bad "event log perms: $(stat -c '%a %G' "$LIMBO_STATE_DIR/events.jsonl")"
 
 # --- heimdalld, as an unprivileged user ----------------------------------------------
+# Every path heimdalld keeps state in or reads its intelligence from is in the test folder (its defaults are the real
+# /var/lib/heimdall and /etc/heimdall), and the host-wide watchers this test is not about are off.
+H="$WORK/heimdall"
 cat >"$WORK/heimdall.json" <<EOF
 { "limbo_event_log": "$LIMBO_STATE_DIR/events.jsonl",
-  "limbo_state_path": "$WORK/heimdall/offset",
+  "limbo_state_path": "$H/offset",
   "limbo_poll_interval_seconds": 1,
   "limbo_control_socket": "$RUN/control.sock",
-  "sarina_url": "http://127.0.0.1:8899",
+  "sarina_url": "http://127.0.0.1:$SPORT",
   "sarina_token": "chain-token",
   "sarina_cwd": "$WORK/sarina-cwd",
   "api_addr": "", "telemetry_interval_seconds": 3600,
-  "net_ports": [], "ring_size": 100 }
+  "net_ports": [], "ring_size": 100,
+  "conn_watch": false, "listen_watch": false, "firewall": false, "fim_paths": [], "vault_dirs": [], "ip_databases": [],
+  "grant_requests_path": "$H/grant-requests.json", "rule_drafts_path": "$H/rule-drafts.json",
+  "fim_state_path": "$H/fim.json", "conn_state_path": "$H/connections-state.json",
+  "app_network_policy": "$H/app-network.json", "threat_list_dir": "$H/intel",
+  "security_tracker": "$H/intel/arch-security.json", "kernel_vulns": "$H/intel/linux-kernel.json",
+  "package_audit_state_path": "$H/package-audit.json", "kernel_audit_state_path": "$H/kernel-audit.json",
+  "hardening_state_path": "$H/hardening.json", "agent_state_path": "$H/agent-sessions.json",
+  "vault_state_path": "$H/vault-notes.json", "wifi_results": "$H/wifi/results.jsonl", "lan_dir": "$H/lan",
+  "firewall_cursor_path": "$H/firewall.cursor", "maintenance_path": "$H/maintenance.json",
+  "agent_baseline_state_path": "$H/agent-baseline.json", "mesh_dir": "$H/mesh", "mesh_peers_path": "$H/mesh-peers.json" }
 EOF
 chmod 644 "$WORK/heimdall.json"
 as itq-heimdall "$WORK/bin/heimdalld" run --config "$WORK/heimdall.json" >"$WORK/heimdall.out" 2>"$WORK/heimdall.err" &
@@ -118,16 +155,38 @@ GIP=$("$LIMBO" address "$WORK/$GUEST.json"); GW="${GIP%.*}.1"  # given at up
 waitfor 90 gssh true && ok "guest booted" || { bad "guest never booted"; echo "passed=$PASS failed=$FAIL"; exit 1; }
 sleep 4
 expect pass "guest reaches the internet (healthy)" gtcp 1.1.1.1 443
-expect fail "guest cannot reach the host service (healthy)" gtcp "$GW" 8000
-[ ! -s "$WORK/heimdall.out" ] && ok "Heimdall raised no alerts for a normal start (no false positive)" || bad "false alert: $(head -c 300 "$WORK/heimdall.out")"
+expect fail "guest cannot reach the host service (healthy)" gtcp "$GW" $HPORT
+# A false alert is one about the guest start: the limbo-guest detector, or any alert naming Limbo, the guest, its
+# bridge or tap. Heimdall's host-wide detectors (hardening, remote-access, package audit, ...) also report this
+# computer's own state when heimdalld starts with a fresh state folder; those are shown, not counted.
+false_alerts() { python3 - "$WORK/heimdall.out" "$GUEST" <<'PY'
+import json, sys
+guest = sys.argv[2]
+marks = ("limbo", guest, "lb-" + guest, "vl-" + guest)
+bad = []
+for line in open(sys.argv[1], errors="replace"):
+    try:
+        a = json.loads(line)
+    except ValueError:
+        bad.append(line.strip()[:300]); continue
+    if a.get("detector_id") == "limbo-guest" or any(m in line.lower() for m in marks):
+        bad.append(line.strip()[:300])
+    else:
+        print("  (about the host, not the guest: not counted) %s %s: %s" % (
+            a.get("severity"), a.get("detector_id"), a.get("summary", "")[:120]), file=sys.stderr)
+print("\n".join(bad))
+PY
+}
+FA=$(false_alerts)
+[ -z "$FA" ] && ok "Heimdall raised no alerts for a normal start (no false positive)" || bad "false alert: $FA"
 "$LIMBO" quarantine --socket "$RUN/admin.sock" list | grep -q "$GUEST" && bad "a healthy guest was quarantined" || ok "no quarantine was opened"
 
 echo "== tamper: the firewall is removed under the running guest"
 nft delete table inet "limbo_$GUEST" && ok "firewall table deleted (real)" || bad "could not delete table"
-expect pass "now UNFILTERED: guest can reach the host service" gtcp "$GW" 8000
+expect pass "now UNFILTERED: guest can reach the host service" gtcp "$GW" $HPORT
 printf '{"time":"%s","kind":"policy.remove","guest":"%s","detail":{"note":"integration-chain: synthetic trigger event"}}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$GUEST" >>"$LIMBO_STATE_DIR/events.jsonl"
 
-waitfor 40 sh -c "! timeout 4 ssh -i $WORK/key -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=3 analyst@$GIP \"timeout 3 bash -c '</dev/tcp/$GW/8000'\"" \
+waitfor 40 sh -c "! timeout 4 ssh -i $WORK/key -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=3 analyst@$GIP \"timeout 3 bash -c '</dev/tcp/$GW/$HPORT'\"" \
   && ok "Heimdall restricted the guest: the host service is unreachable again" || bad "guest still reaches the host service"
 expect fail "restricted: guest cannot reach the internet" gtcp 1.1.1.1 443
 expect pass "restricted: host can still reach the guest to investigate" gssh true
@@ -168,7 +227,7 @@ SUDO_USER=greg "$LIMBO" quarantine --socket "$RUN/admin.sock" verdict "$QID" saf
 sleep 1
 "$LIMBO" quarantine --socket "$RUN/admin.sock" show "$QID" | grep -q "status=safe" && ok "verdict: safe, recorded" || bad "verdict not recorded"
 waitfor 20 gtcp 1.1.1.1 443 && ok "safe: the original policy is restored (internet works)" || bad "internet not restored"
-expect fail "safe: the host service is still blocked by the restored policy" gtcp "$GW" 8000
+expect fail "safe: the host service is still blocked by the restored policy" gtcp "$GW" $HPORT
 
 echo "== Limbo outage: Heimdall must keep alerting"
 kill "$SERVE"; sleep 1

@@ -88,8 +88,8 @@ behaviour differs from Go's, the port carries Go's:
   by the differential run below instead of fixtures; the hostpolicy tests (a fake sysfs) are not carried over yet.
 - **The differential run** (`rust/parity/daemon-differential.py`): the Go and the Rust daemon, each in its own user,
   mount and network namespace (root inside, nobody outside; /etc/limbo a private empty bind mount; loopback only), with
-  fake virsh, qemu-img, nft, ssh, xorriso, ufw and clamscan on PATH that record what they are asked. The same 113 steps
-  (108 answers) on admin.sock, control.sock, agent.sock and user.sock: registering instances (and refusals), the Settings
+  fake virsh, qemu-img, nft, ssh, xorriso, ufw and clamscan on PATH that record what they are asked. The same 114 steps
+  (109 answers) on admin.sock, control.sock, agent.sock and user.sock: registering instances (and refusals), the Settings
   page's changes within bounds, starting and stopping, the exchange outbox (a clean file streamed out, an EICAR file
   held, paths that climb out), holds raised by Heimdall and verdicts, condemned guests, licenses (masked, revealed,
   refused), validation runs (plain, with a bundle, a non-zero exit, output cut at the limit, binary output, an ssh
@@ -180,15 +180,12 @@ CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /tmp/limbo-go ./cmd/limbo
 # 1. (optional, no root) the differential run again
 python3 -I rust/parity/daemon-differential.py --go /tmp/limbo-go --rs rust/target/release/limbo-rs --out /tmp/ld --idle 60
 
-# 2. the rehearsal on a copy of the real state: read-only, both daemons in namespaces, nothing stopped
-sudo python3 -I rust/parity/daemon-differential.py --from-host --go /tmp/limbo-go --rs rust/target/release/limbo-rs --out /tmp/ld-host --idle 5
-sudo rm -rf /tmp/ld-host        # it holds copies of the state (and the license folder): delete it after reading
-
-# 3. the real-guest tests against the Rust daemon (the same scripts; LIMBO_RS swaps the daemon only)
-sudo LIMBO_RS="$PWD/rust/target/release/limbo-rs" bash scripts/integration-quarantine.sh
-sudo LIMBO_RS="$PWD/rust/target/release/limbo-rs" bash scripts/integration-chain.sh
-sudo LIMBO_RS="$PWD/rust/target/release/limbo-rs" bash scripts/integration-sarina.sh
+# 2 and 3 in one go: the rehearsal on a copy of the real state (read-only, both daemons in namespaces, nothing
+# stopped; its scratch folder with the copies is deleted at once), then each real-guest script twice, with the Go
+# daemon (baseline) and with limbo-rs; summary.txt lists every check that differs between the two
+sudo bash scripts/rust-checks.sh /tmp/limbo-go rust/target/release/limbo-rs ~/limbo-rust-checks-2
 # (integration-linux-guest.sh does not use the daemon; integration-systemd.sh installs and removes files: test machine only)
+# One script against the Rust daemon alone: sudo LIMBO_RS="$PWD/rust/target/release/limbo-rs" bash scripts/integration-chain.sh
 
 # 4. the switch: the Rust daemon as limbo.service, the Go one kept for every other command
 sudo install -Dm755 /usr/bin/limbo /usr/lib/limbo/limbo-go
@@ -208,6 +205,22 @@ sudo rm /etc/systemd/system/limbo.service.d/rust.conf && sudo systemctl daemon-r
 Restarting `limbo.service` while a validation run is executing destroys that run's guest (the startup reap, as with any
 restart of the Go daemon): switch when Sarina is not running one.
 
+## The owner's first run (2026-11-10, release build of bea73d9): every failure was the scripts' or this computer's
+
+| Failure | Cause | Fix |
+| --- | --- | --- |
+| rehearsal: `can't open file .../daemon-differential.py: Permission denied` | `--from-host` re-ran the script, and the daemons, from the repo inside `unshare -rmn`: root in a user namespace has no power over files outside it, and the home folder is 0700 | the script and both binaries are copied into the scratch folder first and run from there |
+| quarantine: "switch route on user.sock" | the script wanted 404; Go's mux answers **405** (user.sock serves GET /v1/settings, not POST), as `internal/api/settings_test.go` already allows | 404 or 405; the differential run now sends that request to both daemons (405 from both) |
+| quarantine: "a non-disposable profile was offered" | a grep for the name in the whole answer, which since 2026-10-06 names it in `skipped` | checks `profiles` (not there) and `skipped` (there, `profile_invalid`) |
+| chain: false alert "tailscale is installed" | Heimdall's newer host-wide detectors (remote-access, hardening) report this computer's state at start | only alerts about the guest or Limbo count; the others are shown |
+| chain: heimdalld `permission denied` on /var/lib/heimdall | the test's unprivileged heimdalld used Heimdall's default state paths | every state and intelligence path in the test folder; the connection, listen and firewall watchers off |
+| chain: advisory, model.jsonl, fenced prompt | the installed sarina-service already listens on 8899: the script's Python Sarina could not start and the health check reached the installed one | Sarina's Go binary (`/usr/bin/sarina`) by default, the test's own ports (18899, 18998, 18000), a stop if one is taken, the health check tied to the started process |
+| chain: "now UNFILTERED" | UFW (on by default here) drops a guest's packets to the host whatever Limbo does, so deleting Limbo's table opened nothing | while UFW is active a temporary UFW rule (removed at exit) lets the guest's bridge reach the test's port: Limbo's own table is then the one barrier, which the healthy check also proves |
+| sarina: 11 of 15 | the script still defaulted to the Python service (`No module named 'sarina'`) | Sarina's Go binary by default (`scripts/it-common.sh`) |
+
+`scripts/rust-checks.sh` runs every script with the Go daemon and with limbo-rs and lists the checks that differ, so a
+failure of the script or the computer is told apart from one of the port.
+
 ## Running the tests
 
 ```bash
@@ -220,12 +233,15 @@ LIMBO_PARITY_UPDATE=1 go test ./internal/... -run Parity   # after a deliberate 
 
 ## Resume here
 
-Done: steps 1-3 (above), the scripts and commands for 4 and 5. Next, in order:
+Done: steps 1-3 (above), the scripts and commands for 4 and 5; the CI job (`.github/workflows/rust.yml`: the Go
+fixtures current, fmt, clippy, tests, the differential run with the real nft for NFLOG, cargo-audit weekly and per
+change; green since run 42950117164); the owner's first run read and every failure traced to the scripts (table above).
+Next, in order:
 
-1. Read the owner's results of the commands above (the rehearsal's "NO DIFFERENCE", the integration scripts' counts),
-   and the Rust daemon's figures after the switch.
+1. The owner reruns `scripts/rust-checks.sh` (both daemons): only checks in summary.txt marked DIFFERS count against
+   the port. Then the switch, and the Rust daemon's figures after it.
 2. Carry over the hostpolicy tests (fake sysfs trees as fixture folders) and the runs tests that use a fake clock and
    executor (`internal/runs/*_test.go`) as fixtures; today the differential run covers runs end to end, not each branch.
-3. A CI job like Heimdall's (`.github/workflows/rust.yml`: fmt, clippy, tests, the Go fixtures current, cargo-audit).
-4. Then the CLI commands, starting with the ones the daemon's users call most (`limbo quarantine`, `settings`,
-   `instance`, `license`, `exchange`: all talk to the sockets).
+3. Then the CLI commands, starting with the ones the daemon's users call most (`limbo quarantine`, `settings`,
+   `instance`, `license`, `exchange`: all talk to the sockets). The integration scripts call `limbo quarantine` through
+   limbo-rs, so a ported command is exercised by the owner's next run of them.
