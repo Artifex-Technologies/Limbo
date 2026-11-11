@@ -246,6 +246,34 @@ sudo rm /etc/systemd/system/limbo.service.d/rust.conf && sudo systemctl daemon-r
 Restarting `limbo.service` while a validation run is executing destroys that run's guest (the startup reap, as with any
 restart of the Go daemon): switch when Sarina is not running one.
 
+## Packaging (branch `package-rust-daemon`, not merged)
+
+Until this lands, the systemd drop-in of "The switch" runs the Rust daemon on my PC. The packages then ship it:
+
+- **`packaging/arch/PKGBUILD`** (this branch): `/usr/bin/limbo` is limbo-rs (the daemon, and the dispatcher that hands
+  every command it does not have to the Go build), `/usr/lib/limbo/limbo-go` is the Go build (limbo-rs finds it there:
+  `main.rs` `go_binary`). `limbo.service`, `limbo-image-verify.service` and the wine shim keep calling `/usr/bin/limbo`,
+  so no unit changes. `makedepends` gains `rust`, `depends` `gcc-libs` (the binary links libc and libgcc_s);
+  `prepare()` runs `cargo fetch --locked`, `build()` `cargo build --frozen --release -p limbo --bin limbo-rs`, and
+  `check()` runs the Rust tests too (the Go fixtures, properties, fuzz bodies: seconds). `limbo.install` says, on
+  upgrade, that a hand-made drop-in can go and that the service runs the new daemon only after a restart (not during a
+  validation run). This is the layout `scripts/integration-systemd.sh` already tests with `LIMBO_RS=`.
+- **Labyrinth's `packages/pkgbuilds/limbo-git/PKGBUILD`** (built from the local Limbo checkout; edited from a session
+  in Labyrinth_OS, not from here): the same four changes, in its own style: `depends=('glibc' 'gcc-libs')`,
+  `makedepends=('go' 'git' 'rust')`; a `prepare()` with `cd "$srcdir/limbo/rust" && cargo fetch --locked --target
+  "$(rustc -vV | sed -n 's/host: //p')"`; in `build()` `-o limbo-go` for the Go build, then `cd rust &&
+  CARGO_TARGET_DIR=target cargo build --frozen --release -p limbo --bin limbo-rs`; in `check()` `(cd rust &&
+  CARGO_TARGET_DIR=target cargo test --frozen -p limbo)`; in `package()` `install -Dm755 rust/target/release/limbo-rs
+  "$pkgdir/usr/bin/limbo"` and `install -Dm755 limbo-go "$pkgdir/usr/lib/limbo/limbo-go"` instead of the one
+  `install ... limbo "$pkgdir/usr/bin/limbo"`. Its `limbo.install` takes the same `rust_daemon_note`.
+- **On a host that switched by hand** (my PC): the hand-installed `/usr/lib/limbo/limbo-go` is not the package's, and
+  pacman refuses to overwrite it. Before installing the new package: `sudo rm /usr/lib/limbo/limbo-go` (the running
+  daemon is unaffected; the CLI is still /usr/bin/limbo, Go, until the upgrade). After it: `sudo rm
+  /etc/systemd/system/limbo.service.d/rust.conf /usr/lib/limbo/limbo-rs && sudo systemctl daemon-reload && sudo
+  systemctl restart limbo.service` (not during a validation run).
+- **Not done here:** a binary package build (`makepkg`) of the branch; the ISO's package list needs nothing new (same
+  package name).
+
 ## The owner's first run (2026-11-10, release build of bea73d9): every failure was the scripts' or this computer's
 
 | Failure | Cause | Fix |
