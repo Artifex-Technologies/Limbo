@@ -20,7 +20,7 @@ path = "src/main.rs"
 # SHA-256 of base images, commands, bundles and files taken out of an outbox (SHA-NI when the CPU has it)
 sha2 = { version = "=0.10.9", default-features = false, features = ["std"] }
 # the sockets' peer credentials, flock, fstat, fadvise, statfs, openat2 (an outbox never left), the netlink socket
-rustix = { version = "=1.1.4", default-features = false, features = ["std", "fs", "net", "process", "event", "thread", "rand"] }
+rustix = { version = "=1.1.6", default-features = false, features = ["std", "fs", "net", "process", "event", "thread", "rand"] }
 # signal handling (signalfd) and the few calls rustix does not wrap
 libc = { version = "=0.2.186", default-features = false }
 
