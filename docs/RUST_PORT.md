@@ -22,7 +22,7 @@ state files are the contract between the two and are the Go daemon's, in the sam
 | 3 | the differential run of both daemons on the same socket traffic (`rust/parity/daemon-differential.py`) | **done**: no difference |
 | 4 | the real-guest scripts against the Rust daemon (`LIMBO_RS=... scripts/integration-*.sh`) | **prepared, needs root**: commands below |
 | 5 | the rehearsal on a copy of this computer's real state (`--from-host`), then the switch | **prepared, needs root**: "The switch" |
-| 6 | the CLI commands, one by one | **in progress**: the five socket-client commands, then version, validate, plan, address, seed, report, analyze, image, doctor and setup (2026-11-11, `cli.json`, `cliclient.json`, `manifests.json`, `tz.json` and the CLI differential run); the rest open ("Resume here") |
+| 6 | the CLI commands, one by one | **in progress**: the five socket-client commands, then version, validate, plan, address, seed, report, analyze, image, doctor, setup, up, down, launch, export and screenshot (2026-11-11, `cli.json`, `cliclient.json`, `manifests.json`, `tz.json` and the CLI differential run); the rest open ("Resume here") |
 
 ## Layout
 
@@ -312,21 +312,31 @@ Next, in order:
    `manifests.json`, fake ssh-keygen and xorriso in the differential; afb8a94); `image list | verify`
    (`cli/image.rs`; `image::Proofs::list` and `verify_all`; Go's ignore reasons in `load_why`; `tz.rs`, Go's local
    time zone from $TZ or /etc/localtime with its TZif reader and POSIX TZ rules, pinned by `tz.json`;
-   1802bd7); `doctor` and `setup` (`cli/setup.rs`, internal/deps; the commit with this note). The CLI differential
-   run: 661 cases, 3,305 comparisons, no difference (about 5 minutes: analyze polls every 3 s). The image cases that
+   1802bd7); `doctor` and `setup` (`cli/setup.rs`, internal/deps; 6c39956); `up`, `down`, `launch`, `export` and
+   `screenshot` (`cli/act.rs`: the daemon's engine with the CLI's wiring, Go's preflight, launch's hold and address
+   gates with `fmt.Sscanf`'s reading of the address, os.CreateTemp's names, `--check` with its 20 s limit per ssh;
+   the commit with this note). The CLI differential run: 781 cases, 3,905 comparisons, no difference (about 9
+   minutes: analyze polls every 3 s, one launch check waits out its 20 s ssh limit). The image cases that
    need root's files run under `unshare -r` (uid 0 in a user namespace, so the files made for the case are root's
    there; never real root), with `--state-dir` in the work folder and `--i-know`; a case's `prep` writes the record
    file with each image's real device, inode, size and times; 16 values of $TZ. doctor and setup run under
    `unshare -rm` with /etc/limbo, /var/lib/limbo and /usr/lib/sysusers.d bind-mounted from the case's own folders
    (`nsrun`), and PATH holding only fake programs (pacman, systemctl, systemd-sysusers, groupadd, getent and the
-   runtime's commands, each logging its arguments): nothing real is installed, enabled or read. limbo-rs gets
+   runtime's commands, each logging its arguments): nothing real is installed, enabled or read. The guest commands
+   run the same way (`NSRUN_ACT`), with a tmpfs on /run whose /run/limbo/user.sock is the case's scripted socket (a
+   person's launch asks it, never the real daemon), and for a person's launch a second user namespace that makes the
+   command uid 1000 again; virsh, qemu-img, nft (logging the rules it is fed), ufw, ssh, waypipe and xfreerdp3 are
+   fakes: no guest, firewall, network or display is touched. limbo-rs gets
    `LIMBO_RS_NO_GO=1` there, so a command it does not run itself fails instead of reaching a Go limbo (without it, a
    command missing from the dispatch would be compared Go against Go: it happened to seed once). Fixed in Go on the
-   way: `license.Check` and `seed` depended on map order. Left, and what each needs (the ones that run host programs;
-   all with fakes in a namespace, never the real ones here):
+   way: `license.Check` and `seed` depended on map order; `launch --check` panicked on an app.exec of only spaces
+   (the manifest accepts it; now a failed check). Left, and what each needs (all with fakes in a namespace, never the
+   real ones here):
    a. `net watch`: NFLOG needs root; the daemon differential's namespace has real nft rules for it.
-   b. `passthrough` (a root file, a typed "yes"), `wine` (bwrap and Wine as fakes only, never real Wine here),
-      `export`, `screenshot`, `capture` (virsh, qemu-img, usbmon: fakes in the namespace), `up`, `down`, `launch` (the
-      engine is ported for the daemon; launch's ssh and waypipe as fakes).
+   b. `capture`: everything up to the recording could be faked (sysfs bound over in the namespace, modprobe on PATH),
+      but the recording is usbmon's MON_IOCX_GETX ioctl on /dev/usbmonN, which no fake file answers: it stays on Go
+      until it can be proved against a real usbmon.
+   c. `passthrough` (a root file, a typed "yes" at a terminal: a pty in the differential, sysfs folders bound over),
+      `wine` (bwrap and Wine as fakes only, never real Wine here; internal/wine is about 2,000 lines).
    The integration scripts call `limbo quarantine` through limbo-rs, so a ported command is exercised by the owner's
    next run of them.

@@ -17,6 +17,9 @@ pub const POLICY_REMOVE: &str = "policy.remove";
 pub const IMAGE_VERIFIED: &str = "image.verified";
 pub const IMAGE_REJECTED: &str = "image.rejected";
 pub const GATE_BLOCKED: &str = "gate.blocked";
+pub const APP_LAUNCH: &str = "app.launch";
+pub const PASSTHROUGH_APPROVE: &str = "passthrough.approve";
+pub const PASSTHROUGH_REVOKE: &str = "passthrough.revoke";
 pub const QUARANTINE_OPEN: &str = "quarantine.open";
 pub const QUARANTINE_RAISE: &str = "quarantine.raise";
 pub const QUARANTINE_ADVISORY: &str = "quarantine.advisory";
@@ -54,6 +57,14 @@ pub struct Logger {
 impl Logger {
     pub fn open(path: &str) -> io::Result<Logger> {
         Self::open_with_clock(path, || Time::now().utc())
+    }
+
+    /// events.Open with Go's error texts (`mkdir DIR: ...`, `open PATH: ...`), as the CLI prints them.
+    pub fn open_go(path: &str) -> Result<Logger, String> {
+        crate::sys::go_mkdir_all(&crate::sys::dir(path), 0o700)?;
+        let f =
+            OpenOptions::new().create(true).append(true).mode(0o600).open(path).map_err(|e| crate::sys::go_path_error("open", path, &e))?;
+        Ok(Logger { f: Mutex::new(f), now: || Time::now().utc() })
     }
 
     pub fn open_with_clock(path: &str, now: fn() -> Time) -> io::Result<Logger> {

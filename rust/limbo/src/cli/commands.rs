@@ -193,7 +193,7 @@ pub(crate) fn map_get<'a>(m: &'a [(String, Value)], k: &str) -> Option<&'a Value
 // ---- limbo quarantine ----
 
 /// doJSON: one request; an answer of 300 or more is its "error" text or "server returned STATUS".
-fn do_json(sock: &str, method: &str, path: &str, body: Option<String>) -> Result<Vec<u8>, String> {
+pub fn do_json(sock: &str, method: &str, path: &str, body: Option<String>) -> Result<Vec<u8>, String> {
     let mut resp = client::send(sock, method, path, body.map(String::into_bytes))?;
     let raw = resp.body.read_limited(4 << 20);
     if resp.head.code >= 300 {

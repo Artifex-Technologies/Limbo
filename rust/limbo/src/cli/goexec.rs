@@ -85,6 +85,52 @@ pub fn combined_output(name: &str, args: &[String]) -> (Vec<u8>, Result<(), Stri
     (out, st.map_err(|e| crate::sys::go_err(&e)).and_then(wait_text))
 }
 
+/// `exec.CommandContext(ctx, name, args...).CombinedOutput()` with a context that ends after `limit`: the child is
+/// killed then (its error `signal: killed`), and the output is what it wrote until its pipe closed.
+pub fn combined_output_timeout(name: &str, args: &[String], limit: std::time::Duration) -> (Vec<u8>, Result<(), String>) {
+    let (mut c, path) = match command(name, args) {
+        Ok(x) => x,
+        Err(e) => return (vec![], Err(e)),
+    };
+    let mut fds = [0i32; 2];
+    // SAFETY: pipe2 fills the two descriptors, which are then owned here and nowhere else
+    if unsafe { libc::pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC) } != 0 {
+        return (vec![], Err(crate::sys::go_err(&std::io::Error::last_os_error())));
+    }
+    use std::os::fd::{FromRawFd, OwnedFd};
+    // SAFETY: as above
+    let (r, w) = unsafe { (OwnedFd::from_raw_fd(fds[0]), OwnedFd::from_raw_fd(fds[1])) };
+    let w2 = match w.try_clone() {
+        Ok(w2) => w2,
+        Err(e) => return (vec![], Err(crate::sys::go_err(&e))),
+    };
+    c.stdout(Stdio::from(w)).stderr(Stdio::from(w2));
+    let mut child = match c.spawn() {
+        Ok(ch) => ch,
+        Err(e) => return (vec![], Err(start_err(&path, &e))),
+    };
+    drop(c);
+    let reader = std::thread::spawn(move || {
+        let mut out = vec![];
+        let _ = std::fs::File::from(r).read_to_end(&mut out);
+        out
+    });
+    let deadline = std::time::Instant::now() + limit;
+    let st = loop {
+        match child.try_wait() {
+            Ok(Some(st)) => break Ok(st),
+            Ok(None) if std::time::Instant::now() >= deadline => {
+                let _ = child.kill();
+                break child.wait();
+            }
+            Ok(None) => std::thread::sleep(std::time::Duration::from_millis(5)),
+            Err(e) => break Err(e),
+        }
+    };
+    let out = reader.join().unwrap_or_default();
+    (out, st.map_err(|e| crate::sys::go_err(&e)).and_then(wait_text))
+}
+
 /// `exec.Command(name, args...).Output()`: stdout only (stderr is kept by Go for the error value, never shown).
 pub fn output(name: &str, args: &[String]) -> (Vec<u8>, Result<(), String>) {
     let (mut c, path) = match command(name, args) {

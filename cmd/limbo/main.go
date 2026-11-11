@@ -620,6 +620,10 @@ func launchCheck(ctx context.Context, m *manifest.Manifest, c launch.Command) er
 			if err != nil {
 				break
 			}
+		} else if len(app) == 0 {
+			// app.exec of only spaces passes the manifest's check; there is no program to look for (this indexed
+			// app[0] and panicked)
+			report(false, "", "app.exec names no program to look for in the guest")
 		} else {
 			report(err == nil, fmt.Sprintf("the guest has %q and waypipe", app[0]), fmt.Sprintf("the guest lacks %q or waypipe (install them in its image)", app[0]))
 		}

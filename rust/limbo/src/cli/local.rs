@@ -18,7 +18,7 @@ const USAGE: &str = "usage: limbo <validate|plan|seed|up|launch|down|address|exp
 /// The commands main.go's `run` handles before its manifest flag set, and those it handles after it that are still
 /// the Go binary's.
 const OWN_SWITCH: [&str; 9] = ["serve", "quarantine", "passthrough", "settings", "instance", "license", "exchange", "net", "wine"];
-const STILL_GO: [&str; 6] = ["up", "down", "launch", "capture", "export", "screenshot"];
+const STILL_GO: [&str; 1] = ["capture"];
 
 /// `limbo` with no command, `version`, `validate`, `plan`, `seed`, `address`, `report`, `analyze`, `image`, `doctor`, `setup` and any command Go does not know; None
 /// for the rest.
@@ -78,10 +78,14 @@ pub fn check_root_state_dir(io: &Io, state: &str, i_know: bool) -> Result<(), Fa
 }
 
 /// The flags every manifest command shares (main.go's `run`).
-struct Opts {
-    state: String,
-    iso: String,
-    pos: Vec<String>,
+pub struct Opts {
+    pub state: String,
+    pub iso: String,
+    pub i_know: bool,
+    pub seconds: i64,
+    pub check: bool,
+    pub identity: String,
+    pub pos: Vec<String>,
 }
 
 fn parse(cmd: &str, args: &[String], io: &mut Io) -> Result<Opts, Fail> {
@@ -97,7 +101,15 @@ fn parse(cmd: &str, args: &[String], io: &mut Io) -> Result<Opts, Fail> {
     let r = fs.parse(args, &mut stderr);
     let _ = io.err.write_all(&stderr);
     let pos = r.map_err(Fail::Msg)?;
-    Ok(Opts { state: fs.str("state-dir"), iso: fs.str("iso"), pos })
+    Ok(Opts {
+        state: fs.str("state-dir"),
+        iso: fs.str("iso"),
+        i_know: fs.is_true("i-know"),
+        seconds: fs.num("seconds"),
+        check: fs.is_true("check"),
+        identity: fs.str("identity"),
+        pos,
+    })
 }
 
 fn manifest_cmd(cmd: &str, args: &[String], io: &mut Io) -> Result<(), Fail> {
@@ -122,6 +134,23 @@ fn manifest_cmd(cmd: &str, args: &[String], io: &mut Io) -> Result<(), Fail> {
             let ip = guest_address(&m, &o.state)?;
             let _ = writeln!(io.out, "{ip}");
             Ok(())
+        }
+        "export" | "screenshot" => {
+            if o.pos.len() != 2 {
+                return Err(Fail::Msg(format!("{cmd}: manifest and output path required")));
+            }
+            check_root_state_dir(io, &o.state, o.i_know)?;
+            if io.euid != 0 {
+                return Err(Fail::Msg(format!("{cmd}: must run as root (the guest's disk and libvirt are root's)")));
+            }
+            if cmd == "export" {
+                return super::act::export(&m, &o.state, &o.pos[1], io);
+            }
+            super::act::screenshot(&m, &o.pos[1], io)
+        }
+        "up" | "down" | "launch" => {
+            check_root_state_dir(io, &o.state, o.i_know)?;
+            super::act::act(cmd, m, &o.state, o.check, &o.identity, io)
         }
         _ => Err(Fail::Msg(format!("unknown command {}", quote(cmd)))),
     }
@@ -225,6 +254,11 @@ fn fmt_space(c: char) -> bool {
 /// `fmt.Sscanf(s, "%d", &n)`: spaces skipped (a newline is an error), an optional sign, at least one digit, within
 /// int64; anything after the number is left unread.
 fn sscanf_int(s: &str) -> Option<i64> {
+    scan_int(s).map(|(n, _)| n)
+}
+
+/// fmt's scanInt for %d into an int: the number and how many bytes of `s` it took (spaces before it included).
+pub fn scan_int(s: &str) -> Option<(i64, usize)> {
     let mut rest = s;
     loop {
         let c = rest.chars().next()?;
@@ -240,11 +274,12 @@ fn sscanf_int(s: &str) -> Option<i64> {
         }
         rest = &rest[c.len_utf8()..];
     }
+    let skipped = s.len() - rest.len();
     let b = rest.as_bytes();
     let sign = usize::from(matches!(b.first(), Some(b'+' | b'-')));
     let digits = b[sign..].iter().take_while(|c| c.is_ascii_digit()).count();
     if digits == 0 {
         return None;
     }
-    rest[..sign + digits].parse().ok()
+    rest[..sign + digits].parse().ok().map(|n| (n, skipped + sign + digits))
 }

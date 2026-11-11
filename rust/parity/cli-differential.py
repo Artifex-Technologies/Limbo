@@ -4,7 +4,8 @@
 command; local_cases) on the same files, limbo report on the same log and records, and limbo analyze (an inbox
 here, the scripted socket; analyze_cases), limbo image (records here, the trusted ones under `unshare -r`;
 image_cases), limbo doctor and setup (fake programs only, in a user and mount namespace with Limbo's folders replaced;
-setup_cases).
+setup_cases), limbo up, down, launch, export and screenshot (fake virsh, qemu-img, nft, ufw, ssh, waypipe and
+xfreerdp3 in such a namespace, /run/limbo/user.sock there being the scripted socket; act_cases).
 
 A fake server listens on a unix socket in a scratch folder, records every request it gets (method, target, Host,
 Content-Length, Referer, Transfer-Encoding, the other header names, the body) and answers each with the next raw
@@ -980,6 +981,185 @@ def setup_cases():
     return cs
 
 
+# The namespace the guest commands run in: as nsrun, plus a tmpfs on /run whose /run/limbo/user.sock is the case's
+# scripted socket (a person's launch asks it; never the real daemon's), and with NS_USER a second user namespace that
+# makes the command an ordinary user again (uid NS_USER) inside the same mounts.
+NSRUN_ACT = r"""#!/bin/sh
+if [ -d /etc/limbo ]; then /usr/bin/mount --bind "$NS_ETC" /etc/limbo || exit 97; fi
+if [ -d /var/lib/limbo ]; then /usr/bin/mount --bind "$NS_VAR" /var/lib/limbo || exit 97; fi
+/usr/bin/mount -t tmpfs -o mode=755 tmpfs /run || exit 97
+/usr/bin/mkdir /run/limbo && /usr/bin/ln -s "$NS_SOCK" /run/limbo/user.sock || exit 97
+if [ -n "$NS_USER" ]; then exec /usr/bin/unshare -U --map-user="$NS_USER" --map-group="$NS_USER" -- "$@"; fi
+exec "$@"
+"""
+
+
+def fake2(name, body=""):
+    """fake(), and FAKE_FAILON_<name>: fail (status 1, a line on stderr) when the arguments hold that text."""
+    var = name.replace("-", "_")
+    return fake(name, f'[ -n "$FAKE_FAILON_{var}" ] && case " $* " in *"$FAKE_FAILON_{var}"*) '
+                      f'echo "{name}: failing on $FAKE_FAILON_{var}" >&2; exit 1;; esac\n' + body)
+
+
+def act_cases():
+    """limbo up | down | launch | export | screenshot: fake host programs only (virsh, qemu-img, nft, ufw, ssh,
+    waypipe, xfreerdp3 log their arguments and never touch a guest, a firewall or a display), uid 0 in a user and mount
+    namespace (or an ordinary uid inside it, NS_USER), the state folder in the case's own folder."""
+    cs = []
+    deps = ["qemu-system-x86_64", "dnsmasq", "xorriso"]
+    progs = {f"bin/{d}*": fake2(d) for d in deps}
+    progs["bin/virsh*"] = fake2("virsh", 'case "$3" in screenshot) echo "P6 fake" > "$5";; esac\n')
+    progs["bin/qemu-img*"] = fake2("qemu-img", '[ "$1" = convert ] && [ -z "$FAKE_NOOUT" ] && echo "converted $4" > "$5"\n')
+    progs["bin/nft*"] = fake2("nft", '[ "$1" = -f ] && /usr/bin/cat >> "$FAKE_LOG"\n')
+    progs["bin/ssh*"] = fake2("ssh", '[ -n "$FAKE_SLEEP_ssh" ] && exec /usr/bin/sleep "$FAKE_SLEEP_ssh"\n')
+    for p in ("ufw", "waypipe", "xfreerdp3"):
+        progs[f"bin/{p}*"] = fake2(p)
+    img = b"base image\n"
+    sha = hashlib.sha256(img).hexdigest()
+    lab = mf(image={"path": "{W}/img/base.qcow2", "sha256": sha}, clipboard="text", provision={"host_key": HOST_KEY})
+    base = {"nsrun": NSRUN_ACT, "etc/": "", "var/": "", "tmp/": "", "img/base.qcow2": img, "m.json": lab}
+    # what differs between two runs by design: event times, the temporary known_hosts name, the image record's
+    # file identity (each run's folder is made afresh) and hash time
+    norm = [(r'"time":"[^"]*"', '"time":"T"'), (r"limbo-known-hosts-[0-9]+", "limbo-known-hosts-N"),
+            (r'"(dev|ino|mtime_ns|ctime_ns)": ?[0-9]+', r'"\1":0'), (r'"(hashed_at|refused_at)": ?"[^"]*"', r'"\1":"T"')]
+
+    def A(name, cmd, args, files=None, env=None, answers=(), stdin=b"", user=False, state=True, extra=None):
+        e = {"PATH": "{W}/bin", "FAKE_LOG": "{W}/calls.log", "NS_ETC": "{W}/etc", "NS_VAR": "{W}/var", "NS_SOCK": "{S}",
+             "TMPDIR": "{W}/tmp"}
+        if user:
+            e["NS_USER"] = "1000"
+        e.update(env or {})
+        a = (["--state-dir", "{W}/st", "--i-know"] if state else []) + list(args)
+        cs.append({"name": "act " + name, "cmd": cmd, "args": a, "answers": list(answers), "env": e, "stdin": stdin,
+                   "files": {**base, **(files or {}), **(extra or {})}, "nsrun": True, "norm": norm})
+
+    up = {"st/subnets.json": '{"lab": 7}'}
+    # ---- up and down ----
+    A("up", "up", ["m.json"], progs)
+    A("up not as root", "up", ["m.json"], progs, user=True)
+    A("up root without i-know", "up", ["--state-dir", "{W}/st", "m.json"], progs, state=False)
+    A("up root default state", "up", ["m.json"], progs, state=False)
+    A("up missing deps", "up", ["m.json"], {k: v for k, v in progs.items() if "dnsmasq" not in k and "xorriso" not in k})
+    A("up no programs", "up", ["m.json"], {"bin/": ""})
+    for step in ("net-define", "net-start", "define", "start"):
+        A(f"up virsh {step} fails", "up", ["m.json"], progs, {"FAKE_FAILON_virsh": f" {step} "})
+    A("up nft fails", "up", ["m.json"], progs, {"FAKE_FAILON_nft": "-f"})
+    A("up qemu-img fails", "up", ["m.json"], progs, {"FAKE_FAILON_qemu_img": "create"})
+    A("up resize", "up", ["m.json"], progs, extra={"m.json": lab.replace('"os"', '"disk_gb": 40, "os"')})
+    A("up resize fails", "up", ["m.json"], progs, {"FAKE_FAILON_qemu_img": "resize"},
+      extra={"m.json": lab.replace('"os"', '"disk_gb": 40, "os"')})
+    A("up disposable", "up", ["m.json"], progs, extra={"m.json": lab.replace('"os"', '"disposable": true, "os"')})
+    A("up wrong image", "up", ["m.json"], progs, extra={"img/base.qcow2": b"changed\n"})
+    A("up no image", "up", ["m.json"], progs, extra={"m.json": lab.replace("base.qcow2", "gone.qcow2")})
+    A("up held", "up", ["m.json"], dict(progs, **{"st/quarantine/q-1.json": json.dumps(dict(REC, id="q-1", status="open"))}))
+    A("up corrupt hold", "up", ["m.json"], dict(progs, **{"st/quarantine/q-1.json": "{"}))
+    A("up state is a file", "up", ["m.json"], dict(progs, **{"st": "x"}))
+    A("up usb no policy", "up", ["m.json"], progs, extra={"m.json": lab.replace('"os"', '"disposable": true, "devices": {"usb": ["1234:abcd"]}, "os"')})
+    A("up exchange not own", "up", ["m.json"], progs, extra={"m.json": lab.replace('"os"', '"exchange_dir": "/tmp/x", "exchange_writable": true, "os"')})
+    A("up windows no license", "up", ["m.json"], progs, extra={"m.json": WIN})
+    A("up subnets taken", "up", ["m.json"], dict(progs, **{"st/subnets.json": json.dumps({f"g{i}": i for i in range(1, 255)})}))
+    A("up subnets corrupt", "up", ["m.json"], dict(progs, **{"st/subnets.json": "{"}))
+    A("up twice", "up", ["m.json"], dict(progs, **up))
+    A("up bad manifest", "up", ["m.json"], progs, extra={"m.json": "{"})
+    A("up one arg", "up", [], progs)
+    A("down", "down", ["m.json"], dict(progs, **up))
+    A("down not up", "down", ["m.json"], progs)
+    A("down all fail", "down", ["m.json"], dict(progs, **up), {"FAKE_FAIL_virsh": "1", "FAKE_FAIL_nft": "2", "FAKE_ERR_virsh": "error: no domain"})
+    A("down disposable", "down", ["m.json"], dict(progs, **up, **{"st/lab.overlay.qcow2": "ov"}),
+      extra={"m.json": lab.replace('"os"', '"disposable": true, "os"')})
+    A("down missing deps", "down", ["m.json"], {"bin/virsh*": progs["bin/virsh*"]})
+    A("down not as root", "down", ["m.json"], dict(progs, **up), user=True)
+    A("down state unwritable", "down", ["m.json"], progs, env={"LIMBO_STATE_DIR": "/proc/x"}, state=False)
+    # ---- launch, as root (the state folder's record) and as a person (user.sock) ----
+    view = {"state": "running", "running": True, "address": "10.213.7.2"}
+    A("launch", "launch", ["m.json"], dict(progs, **up))
+    A("launch identity", "launch", ["--identity", "/k/id", "m.json"], dict(progs, **up))
+    A("launch fails", "launch", ["m.json"], dict(progs, **up), {"FAKE_FAIL_waypipe": "3"})
+    A("launch no waypipe", "launch", ["m.json"], {k: v for k, v in dict(progs, **up).items() if "waypipe" not in k})
+    A("launch not up", "launch", ["m.json"], progs)
+    A("launch held", "launch", ["m.json"], dict(progs, **up, **{"st/quarantine/q-1.json": json.dumps(dict(REC, id="q-1", status="dangerous"))}))
+    A("launch closed hold", "launch", ["m.json"], dict(progs, **up, **{"st/quarantine/q-1.json": json.dumps(dict(REC, id="q-1", status="closed"))}))
+    A("launch no pin", "launch", ["m.json"], dict(progs, **up), extra={"m.json": mf(image={"path": "{W}/img/base.qcow2", "sha256": sha}, clipboard="text")})
+    A("launch clipboard off", "launch", ["m.json"], dict(progs, **up), extra={"m.json": lab.replace('"clipboard": "text"', '"clipboard": "off"')})
+    A("launch windows", "launch", ["m.json"], dict(progs, **{"st/subnets.json": '{"win": 9}', "win.iso": "iso", "lic.txt": "key"}),
+      extra={"m.json": WIN})
+    winp = json.loads(WIN)
+    winp["provision"] = {"host_key": WIN_HOST_KEY}
+    winp = json.dumps(winp)
+    A("launch windows pinned", "launch", ["m.json"], dict(progs, **{"st/subnets.json": '{"win": 9}', "win.iso": "iso", "lic.txt": "key"}),
+      extra={"m.json": winp})
+    A("launch windows pinned fails", "launch", ["m.json"], dict(progs, **{"st/subnets.json": '{"win": 9}', "win.iso": "iso", "lic.txt": "key"}),
+      {"FAKE_FAIL_xfreerdp3": "131"}, extra={"m.json": winp})
+    A("launch check windows pinned", "launch", ["--check", "m.json"], dict(progs, **{"st/subnets.json": '{"win": 9}', "win.iso": "iso", "lic.txt": "key"}),
+      extra={"m.json": winp})
+    A("launch windows no license", "launch", ["m.json"], dict(progs, **{"st/subnets.json": '{"win": 9}'}), extra={"m.json": WIN})
+    A("launch tmp missing", "launch", ["m.json"], dict(progs, **up), {"TMPDIR": "{W}/nope"})
+    A("launch tmp slash", "launch", ["m.json"], dict(progs, **up), {"TMPDIR": "{W}/tmp//"})
+    A("launch tmp default", "launch", ["m.json"], dict(progs, **up), {"TMPDIR": None})
+    A("launch check", "launch", ["--check", "m.json"], dict(progs, **up), {"WAYLAND_DISPLAY": "wayland-9"})
+    A("launch check no display", "launch", ["--check", "m.json"], dict(progs, **up))
+    A("launch check ssh fails", "launch", ["--check", "m.json"], dict(progs, **up),
+      {"FAKE_FAIL_ssh": "255", "FAKE_ERR_ssh": "Host key verification failed. " + "x" * 300})
+    A("launch check app missing", "launch", ["--check", "-identity", "/k", "m.json"], dict(progs, **up), {"FAKE_FAILON_ssh": "command -v"})
+    A("launch check no ssh no waypipe", "launch", ["--check", "m.json"],
+      {k: v for k, v in dict(progs, **up).items() if "ssh" not in k and "waypipe" not in k})
+    A("launch check blank app", "launch", ["--check", "m.json"], dict(progs, **up),
+      extra={"m.json": lab.replace('"exec": "wireshark"', '"exec": "  "')})
+    A("launch check quoted app", "launch", ["--check", "m.json"], dict(progs, **up),
+      extra={"m.json": lab.replace('"exec": "wireshark"', '"exec": "it\'s -x"')})
+    A("launch check windows", "launch", ["--check", "m.json"], dict(progs, **{"st/subnets.json": '{"win": 9}', "win.iso": "iso", "lic.txt": "key"}),
+      extra={"m.json": WIN})
+    A("launch check ssh timeout", "launch", ["--check", "m.json"], dict(progs, **up), {"FAKE_SLEEP_ssh": "25"})
+    A("launch person", "launch", ["m.json"], progs, answers=[ok(view)], user=True)
+    A("launch person check", "launch", ["--check", "m.json"], progs, answers=[ok(view)], user=True)
+    A("launch person no daemon", "launch", ["m.json"], progs, answers=[HANGUP], user=True)
+    A("launch person refused", "launch", ["m.json"], progs, answers=[err("403 Forbidden", "not your guest")], user=True)
+    A("launch person bad json", "launch", ["m.json"], progs, answers=[ok("{")], user=True)
+    A("launch person wrong type", "launch", ["m.json"], progs, answers=[ok({"running": "yes"})], user=True)
+    A("launch person hold wrong type", "launch", ["m.json"], progs, answers=[ok(dict(view, hold={"id": 5}))], user=True)
+    A("launch person held", "launch", ["m.json"], progs, answers=[ok(dict(view, hold={"id": "q-9", "status": "open"}))], user=True)
+    A("launch person empty hold", "launch", ["m.json"], progs, answers=[ok(dict(view, hold={}))], user=True)
+    A("launch person null hold", "launch", ["m.json"], progs, answers=[ok(dict(view, hold=None))], user=True)
+    A("launch person stopped", "launch", ["m.json"], progs, answers=[ok(dict(view, running=False))], user=True)
+    A("launch person no address", "launch", ["m.json"], progs, answers=[ok(dict(view, address=""))], user=True)
+    for n, addr in enumerate(["10.213.7.2", "10.213.254.2", "10.213.0.2", "10.213.255.2", "10.213.7.3", "10.214.7.2",
+                              " 10. 213.\t7.2", "10.213.7.2junk", "+10.213.+7.2", "10.213.07.2", "10.213.7", "10..213.7.2",
+                              "10.213.7.2\n", "10.213.\n7.2", "99999999999999999999.213.7.2", "10.213.-7.2", "x", "",
+                              "10.213.\r\n7.2", "10.213.\u00a07.2", "\u20281.2.3.4"]):
+        A(f"launch person address {n}", "launch", ["m.json"], progs, answers=[ok(dict(view, address=addr))], user=True)
+    A("launch person not utf8 id", "launch", ["m.json"], progs, answers=[ok(dict(view, hold={"id": "q\u2028x", "status": "o"}))], user=True)
+    # ---- export and screenshot ----
+    out = "{W}/out/x.qcow2"
+    disk = {"st/lab.disk.qcow2": "overlay", "out/": ""}
+    A("export", "export", ["m.json", out], dict(progs, **disk), {"FAKE_SAY_virsh": "shut off"})
+    A("export sudo user", "export", ["m.json", out], dict(progs, **disk), {"FAKE_SAY_virsh": "shut off", "SUDO_UID": "0", "SUDO_GID": "+0"})
+    A("export running", "export", ["m.json", out], dict(progs, **disk), {"FAKE_SAY_virsh": "  running  "})
+    A("export domstate fails", "export", ["m.json", out], dict(progs, **disk), {"FAKE_FAIL_virsh": "1", "FAKE_SAY_virsh": "running"})
+    A("export no virsh", "export", ["m.json", out], {k: v for k, v in dict(progs, **disk).items() if "virsh" not in k})
+    A("export exists", "export", ["m.json", out], dict(progs, **disk, **{"out/x.qcow2": "x"}), {"FAKE_SAY_virsh": "shut off"})
+    A("export link exists", "export", ["m.json", out], dict(progs, **disk, **{"out/x.qcow2@": "nowhere"}), {"FAKE_SAY_virsh": "shut off"})
+    A("export relative", "export", ["m.json", "x.qcow2"], dict(progs, **disk))
+    A("export empty out", "export", ["m.json", ""], dict(progs, **disk))
+    A("export no disk", "export", ["m.json", out], dict(progs, out=""), {"FAKE_SAY_virsh": "shut off"})
+    A("export convert fails", "export", ["m.json", out], dict(progs, **disk), {"FAKE_SAY_virsh": "shut off", "FAKE_FAILON_qemu_img": "convert"})
+    A("export convert writes nothing", "export", ["m.json", out], dict(progs, **disk), {"FAKE_SAY_virsh": "shut off", "FAKE_NOOUT": "1"})
+    A("export disposable", "export", ["m.json", out], dict(progs, **{"st/lab.overlay.qcow2": "o", "out/": ""}), {"FAKE_SAY_virsh": "shut off"},
+      extra={"m.json": lab.replace('"os"', '"disposable": true, "os"')})
+    A("export not root", "export", ["m.json", out], dict(progs, **disk), user=True)
+    A("export without i-know", "export", ["--state-dir", "{W}/st", "m.json", out], dict(progs, **disk), state=False)
+    A("export one arg", "export", ["m.json"], progs)
+    A("export three args", "export", ["m.json", out, "x"], progs)
+    A("export quoted path", "export", ["m.json", "{W}/out/a \"b\".qcow2"], dict(progs, **disk), {"FAKE_SAY_virsh": "shut off"})
+    A("screenshot", "screenshot", ["m.json", "{W}/out/s.ppm"], dict(progs, **{"out/": ""}))
+    A("screenshot sudo", "screenshot", ["m.json", "{W}/out/s.ppm"], dict(progs, **{"out/": ""}), {"SUDO_UID": "x", "SUDO_GID": "0"})
+    A("screenshot fails", "screenshot", ["m.json", "{W}/out/s.ppm"], progs, {"FAKE_FAILON_virsh": "screenshot"})
+    A("screenshot no virsh", "screenshot", ["m.json", "{W}/out/s.ppm"], {"bin/": ""})
+    A("screenshot relative", "screenshot", ["m.json", "s.ppm"], progs)
+    A("screenshot not root", "screenshot", ["m.json", "{W}/out/s.ppm"], progs, user=True)
+    A("screenshot one arg", "screenshot", ["m.json"], progs)
+    return cs
+
+
 class Server:
     """The scripted socket: records requests, answers from the case's list in order."""
 
@@ -1115,7 +1295,7 @@ def run_one(binary, case, base):
     args = [a.replace("{S}", sockp).replace("{D}", base).replace("{W}", work) for a in case["args"]]
     # LIMBO_RS_NO_GO: limbo-rs fails a command it has not ported instead of handing it to a Go limbo
     env = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "HOME": work, "USER": "tester", "LIMBO_RS_NO_GO": "1"}
-    env.update({k: v.replace("{W}", work) if isinstance(v, str) else v for k, v in case["env"].items()})
+    env.update({k: v.replace("{W}", work).replace("{S}", sockp) if isinstance(v, str) else v for k, v in case["env"].items()})
     env = {k: v for k, v in env.items() if v is not None}
     argv = [binary] + ([case["cmd"]] if case["cmd"] is not None else []) + args
     if case.get("nsrun"):
@@ -1158,7 +1338,7 @@ def main():
     if len(os.path.join(base, "s")) >= 100:
         sys.exit(f"{base}: too long for a socket path")
     os.umask(0o022)
-    cs = [c for c in cases() + local_cases() + analyze_cases() + image_cases() + setup_cases() if a.only in c["name"]]
+    cs = [c for c in cases() + local_cases() + analyze_cases() + image_cases() + setup_cases() + act_cases() if a.only in c["name"]]
     bad = 0
     comparisons = 0
     for c in cs:
