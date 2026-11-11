@@ -14,6 +14,7 @@ set -u
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 . "$REPO/scripts/rust-daemon.sh"
+. "$REPO/scripts/it-common.sh"
 GH="$(cd "$REPO/.." && pwd)"
 HEIMDALL_REPO="${HEIMDALL_REPO:-$GH/Heimdall}"
 SARINA_REPO="${SARINA_REPO:-$GH/Sarina}"
@@ -55,7 +56,7 @@ json.dump({"manifest":m,"ssh_identity":"$WORK/key","max_seconds":240},open("$WOR
 PY
 
 PIDS=""
-cleanup() { for p in $PIDS; do kill "$p" 2>/dev/null; done; "$LIMBO" down --i-know "$WORK/$GUEST.json" >/dev/null 2>&1; nft delete table inet "limbo_$GUEST" >/dev/null 2>&1; }
+cleanup() { for p in $PIDS; do kill "$p" 2>/dev/null; done; stop_test_heimdalld; "$LIMBO" down --i-know "$WORK/$GUEST.json" >/dev/null 2>&1; nft delete table inet "limbo_$GUEST" >/dev/null 2>&1; }
 trap cleanup EXIT
 
 echo "== setup"
@@ -86,10 +87,12 @@ gssh() { ssh -i "$WORK/key" -o BatchMode=yes -o StrictHostKeyChecking=no -o User
 cat >"$WORK/heimdall.json" <<EOF
 { "limbo_event_log": "$LIMBO_STATE_DIR/events.jsonl", "limbo_state_path": "$WORK/heimdall/offset", "limbo_poll_interval_seconds": 1,
   "limbo_control_socket": "$RUN/control.sock", "sarina_url": "http://127.0.0.1:8896", "sarina_token": "real-token",
-  "sarina_cwd": "$WORK/sarina/cwd", "api_addr": "", "telemetry_interval_seconds": 3600, "net_ports": [] }
+  "sarina_cwd": "$WORK/sarina/cwd", "api_addr": "", "telemetry_interval_seconds": 3600, "net_ports": [],
+$(heimdall_isolation "$WORK/heimdall") }
 EOF
 chmod 644 "$WORK/heimdall.json"
-as itq-heimdall "$WORK/bin/heimdalld" run --config "$WORK/heimdall.json" >"$WORK/heimdall.out" 2>"$WORK/heimdall.err" & PIDS="$PIDS $!"
+stop_test_heimdalld
+(cd / && exec runuser -u itq-heimdall -- "$WORK/bin/heimdalld" run --config "$WORK/heimdall.json") >"$WORK/heimdall.out" 2>"$WORK/heimdall.err" & PIDS="$PIDS $!"
 waitfor 15 grep -q "response enabled" "$WORK/heimdall.err" && ok "heimdalld running with the response enabled" || bad "heimdalld: $(head -3 "$WORK/heimdall.err")"
 
 echo "== Part A: Heimdall quarantines a guest and the REAL model gives an advisory (evidence contains an injection attempt)"

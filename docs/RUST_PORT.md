@@ -221,6 +221,19 @@ restart of the Go daemon): switch when Sarina is not running one.
 | chain: "now UNFILTERED" | UFW (on by default here) drops a guest's packets to the host whatever Limbo does, so deleting Limbo's table opened nothing | while UFW is active a temporary UFW rule (removed at exit) lets the guest's bridge reach the test's port: Limbo's own table is then the one barrier, which the healthy check also proves |
 | sarina: 11 of 15 | the script still defaulted to the Python service (`No module named 'sarina'`) | Sarina's Go binary by default (`scripts/it-common.sh`) |
 
+The rerun with `scripts/rust-checks.sh` (2026-11-11): rehearsal NO DIFFERENCE; quarantine 71/71 and sarina 15/15 with
+both daemons; chain 32/32 with limbo-rs but 27/32 with Go, every difference a Sarina-advisory check of the **Go** run.
+Cause: the script started the test heimdalld inside a subshell (`as ... &`), and killing that subshell at exit left
+`runuser` and heimdalld running. Three were still running afterwards (from the first run, the Go rerun and the Rust
+rerun), all watching the same event log and control socket. In the Go rerun the one from the first run, with the old
+configuration (Sarina on the installed 8899, Heimdall's default /var/lib/heimdall paths: the `wifi results ...
+permission denied` lines came from it, writing into the new run's truncated heimdall.err), opened the quarantine
+first, so the advisory went to the installed Sarina and never came; in the Rust rerun a leftover with the new
+configuration happened to answer. Fixed: heimdalld is started with `exec runuser` (the kill reaches it) and every
+heimdalld of the test user is stopped before and after (`stop_test_heimdalld`); the run checks there is exactly one;
+the advisory wait is 60 s and a failure shows this run's heimdalld and Sarina lines and the model's request count.
+`integration-real-model.sh` had the same leak and default paths: fixed the same way (`heimdall_isolation`).
+
 `scripts/rust-checks.sh` runs every script with the Go daemon and with limbo-rs and lists the checks that differ, so a
 failure of the script or the computer is told apart from one of the port.
 

@@ -56,11 +56,17 @@ id itq-heimdall >/dev/null 2>&1 || useradd -M -s /usr/bin/nologin -G limbo-heimd
 chown itq-heimdall "$WORK/heimdall"
 as() { u=$1; shift; (cd / && runuser -u "$u" -- "$@"); }
 jget() { python3 -c "import sys,json; d=json.load(sys.stdin); print(eval('d'+sys.argv[1]))" "$1"; }
+# The test's heimdalld (user itq-heimdall) is stopped before and after (scripts/it-common.sh). Before 2026-11-11 it was
+# started in a subshell and outlived each run: earlier runs' heimdallds kept watching the same event log and control
+# socket, opened the quarantine first with their old configuration (Sarina on the installed 8899, Heimdall's real state
+# paths), and the advisory never came.
+stop_test_heimdalld
 
 PIDS=""
 UFW_RULE=""
 cleanup() {
   for p in $PIDS; do kill "$p" 2>/dev/null; done
+  stop_test_heimdalld
   "$LIMBO" down --i-know "$WORK/$GUEST.json" >/dev/null 2>&1
   nft delete table inet "limbo_$GUEST" >/dev/null 2>&1
   [ -n "$UFW_RULE" ] && ufw --force delete $UFW_RULE >/dev/null 2>&1
@@ -132,19 +138,11 @@ cat >"$WORK/heimdall.json" <<EOF
   "sarina_cwd": "$WORK/sarina-cwd",
   "api_addr": "", "telemetry_interval_seconds": 3600,
   "net_ports": [], "ring_size": 100,
-  "conn_watch": false, "listen_watch": false, "firewall": false, "fim_paths": [], "vault_dirs": [], "ip_databases": [],
-  "grant_requests_path": "$H/grant-requests.json", "rule_drafts_path": "$H/rule-drafts.json",
-  "fim_state_path": "$H/fim.json", "conn_state_path": "$H/connections-state.json",
-  "app_network_policy": "$H/app-network.json", "threat_list_dir": "$H/intel",
-  "security_tracker": "$H/intel/arch-security.json", "kernel_vulns": "$H/intel/linux-kernel.json",
-  "package_audit_state_path": "$H/package-audit.json", "kernel_audit_state_path": "$H/kernel-audit.json",
-  "hardening_state_path": "$H/hardening.json", "agent_state_path": "$H/agent-sessions.json",
-  "vault_state_path": "$H/vault-notes.json", "wifi_results": "$H/wifi/results.jsonl", "lan_dir": "$H/lan",
-  "firewall_cursor_path": "$H/firewall.cursor", "maintenance_path": "$H/maintenance.json",
-  "agent_baseline_state_path": "$H/agent-baseline.json", "mesh_dir": "$H/mesh", "mesh_peers_path": "$H/mesh-peers.json" }
+$(heimdall_isolation "$H") }
 EOF
 chmod 644 "$WORK/heimdall.json"
-as itq-heimdall "$WORK/bin/heimdalld" run --config "$WORK/heimdall.json" >"$WORK/heimdall.out" 2>"$WORK/heimdall.err" &
+# exec: $! is runuser itself, which passes the kill on to heimdalld (a plain subshell would die alone)
+(cd / && exec runuser -u itq-heimdall -- "$WORK/bin/heimdalld" run --config "$WORK/heimdall.json") >"$WORK/heimdall.out" 2>"$WORK/heimdall.err" &
 HEIMDALL=$!; PIDS="$PIDS $HEIMDALL"
 waitfor 15 grep -q "Limbo quarantine response enabled" "$WORK/heimdall.err" && ok "heimdalld (unprivileged) started with the response enabled" || bad "heimdalld: $(cat "$WORK/heimdall.err" | head -5)"
 
@@ -200,7 +198,12 @@ grep -q "quarantined (" "$WORK/heimdall.err" && ok "Heimdall logged the quaranti
 grep -q '"detector_id":"limbo-guest"' "$WORK/heimdall.out" && ok "Heimdall still wrote its own alert" || bad "alert not written"
 
 echo "== Sarina's advisory"
-waitfor 40 sh -c "$LIMBO quarantine --socket $RUN/admin.sock show $QID | grep -q 'ADVISORY from sarina'" && ok "an advisory from Sarina was attached" || bad "no advisory: $(tail -5 "$WORK/heimdall.err")"
+N=$(pgrep -u itq-heimdall -x heimdalld | wc -l)
+[ "$N" = 1 ] && ok "exactly one test heimdalld is running (this run's)" || bad "$N test heimdallds are running"
+# The advisory is asked for when Heimdall opens the quarantine and arrives after Sarina's model answers: wait for it,
+# and on failure show what this run's heimdalld and Sarina said about it (not the last lines of an unrelated watcher).
+waitfor 60 sh -c "$LIMBO quarantine --socket $RUN/admin.sock show $QID | grep -q 'ADVISORY from sarina'" && ok "an advisory from Sarina was attached" \
+  || bad "no advisory: heimdalld: $(grep -iE 'advis|sarina|quarantin' "$WORK/heimdall.err" | tail -5); sarina: $(tail -3 "$WORK/sarina.log"); model requests: $(wc -l <"$WORK/model.jsonl" 2>/dev/null || echo 0)"
 SHOW=$("$LIMBO" quarantine --socket "$RUN/admin.sock" show "$QID")
 echo "$SHOW" | grep -qi "untrusted" && ok "the human sees it labelled untrusted" || bad "advisory not labelled"
 echo "$SHOW" | grep -q "IGNORE PREVIOUS INSTRUCTIONS" && ok "the hostile text in the advisory is shown, not obeyed" || bad "advisory text missing"
