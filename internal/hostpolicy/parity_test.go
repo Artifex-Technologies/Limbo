@@ -18,18 +18,21 @@ import (
 )
 
 // PolicyScenario is one fake host for the Rust port (docs/RUST_PORT.md): its files (sysfs, os-release, the host
-// policy; paths without a leading slash), the approval file, the reboot marker, the processes' open files and the
+// policy, the boot id; paths without a leading slash), the approval file, the reboot markers (Blocked: written by
+// block; Marker and RunMarker: written as they are, by hand or by an older build), the processes' open files and the
 // drivers, and the questions asked of it in order. The Rust test makes the files a real folder and asks the same.
 type PolicyScenario struct {
-	Name     string              `json:"name"`
-	Files    map[string]string   `json:"files"`
-	Approval *ApprovalFile       `json:"approval"`
-	Blocked  bool                `json:"blocked"`
-	Now      string              `json:"now"`
-	Open     map[string][]string `json:"open"`
-	Drv      map[string]string   `json:"drv"`
-	USBDrv   map[string]string   `json:"usb_drv"`
-	Steps    []PolicyStep        `json:"steps"`
+	Name      string              `json:"name"`
+	Files     map[string]string   `json:"files"`
+	Approval  *ApprovalFile       `json:"approval"`
+	Blocked   bool                `json:"blocked"`
+	Marker    *string             `json:"marker"`
+	RunMarker *string             `json:"run_marker"`
+	Now       string              `json:"now"`
+	Open      map[string][]string `json:"open"`
+	Drv       map[string]string   `json:"drv"`
+	USBDrv    map[string]string   `json:"usb_drv"`
+	Steps     []PolicyStep        `json:"steps"`
 }
 
 // ApprovalFile is the approval file as written: its bytes and mode.
@@ -39,7 +42,9 @@ type ApprovalFile struct {
 }
 
 // PolicyStep is one question: check, ready, standing, host_id or after (Before with Drv, then the drivers become
-// DrvAfter, then After with that record, or with none when NoRecord). Advance moves the clock first.
+// DrvAfter, then After with that record, or with none when NoRecord). Advance moves the clock first. Or an event:
+// restart (the daemon starts again: a new Policy on the same folders, the run folder emptied as systemd does at every
+// stop), reboot (the same, the drivers back to Drv and the host's boot id BootID; "-" leaves none), clear (Clear).
 type PolicyStep struct {
 	Op       string            `json:"op"`
 	PCI      []string          `json:"pci"`
@@ -47,6 +52,26 @@ type PolicyStep struct {
 	Advance  int64             `json:"advance_seconds"`
 	DrvAfter map[string]string `json:"drv_after"`
 	NoRecord bool              `json:"no_record"`
+	BootID   string            `json:"boot_id"`
+}
+
+// The boot ids of the fake hosts: every host starts in bootA.
+const (
+	bootA = "6f1c0a52-3c1e-4b8e-9d0a-2b7f4e5c8a11"
+	bootB = "0b9e7d24-81f3-4c55-a6e2-93d1c4f7b260"
+	bootC = "d3a8f6e1-5b2c-47d9-8e10-4f6a9c2b7e35"
+)
+
+// markerText is a marker file's bytes, or "<none>".
+func markerText(path string) string {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "<none>"
+		}
+		return "<unreadable>"
+	}
+	return string(b)
 }
 
 func refusalKind(err error) string {
@@ -85,13 +110,17 @@ func runPolicyScenario(t *testing.T, sc PolicyScenario) []map[string]any {
 	for k, v := range sc.Drv {
 		drv[k] = v
 	}
-	p := &Policy{
-		Root: fsys, StateDir: t.TempDir(), RunDir: t.TempDir(),
-		Now:       func() time.Time { return now },
-		OpenFiles: func() map[string][]string { return sc.Open },
-		Driver:    func(a string) string { return drv[a] },
-		USBDriver: func(i string) string { return sc.USBDrv[i] },
+	state, run := t.TempDir(), t.TempDir()
+	start := func() *Policy {
+		return &Policy{
+			Root: fsys, StateDir: state, RunDir: run,
+			Now:       func() time.Time { return now },
+			OpenFiles: func() map[string][]string { return sc.Open },
+			Driver:    func(a string) string { return drv[a] },
+			USBDriver: func(i string) string { return sc.USBDrv[i] },
+		}
 	}
+	p := start()
 	if sc.Approval != nil {
 		path := filepath.Join(p.StateDir, approvalFile)
 		if err := os.WriteFile(path, []byte(sc.Approval.Body), 0o600); err != nil {
@@ -103,6 +132,13 @@ func runPolicyScenario(t *testing.T, sc PolicyScenario) []map[string]any {
 	}
 	if sc.Blocked {
 		p.block("earlier run")
+	}
+	for path, body := range map[string]*string{filepath.Join(state, blockedFile): sc.Marker, filepath.Join(run, blockedFile): sc.RunMarker} {
+		if body != nil {
+			if err := os.WriteFile(path, []byte(*body), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
 	var out []map[string]any
 	for _, st := range sc.Steps {
@@ -133,8 +169,30 @@ func runPolicyScenario(t *testing.T, sc PolicyScenario) []map[string]any {
 				before = nil
 			}
 			r["err"] = parity.Err(p.After(m, before))
+		case "restart", "reboot":
+			if err := os.RemoveAll(run); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Mkdir(run, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if st.Op == "reboot" { // every device is back under the driver it boots with, and the boot id is new
+				drv = map[string]string{}
+				for k, v := range sc.Drv {
+					drv[k] = v
+				}
+				delete(fsys, bootIDRel)
+				if st.BootID != "-" {
+					fsys[bootIDRel] = &fstest.MapFile{Data: []byte(st.BootID + "\n")}
+				}
+			}
+			p = start()
+		case "clear":
+			r["err"] = parity.Err(p.Clear())
 		}
 		r["blocked"] = p.Blocked()
+		r["marker"] = markerText(filepath.Join(state, blockedFile))
+		r["run_marker"] = markerText(filepath.Join(run, blockedFile))
 		out = append(out, r)
 	}
 	return out
@@ -145,7 +203,7 @@ const pGPU, pAudio, pNIC, pBridge = "0000:03:00.0", "0000:03:00.1", "0000:04:00.
 // policyScenarios: every case of this package's tests, then generated hosts.
 func policyScenarios() []PolicyScenario {
 	base := func(name, osID, config string) PolicyScenario {
-		f := map[string]string{"etc/limbo/host-policy.json": config}
+		f := map[string]string{"etc/limbo/host-policy.json": config, bootIDRel: bootA + "\n"}
 		if osID != "-" {
 			f["etc/os-release"] = "NAME=x\nID=" + osID + "\n"
 		}
@@ -297,6 +355,64 @@ func policyScenarios() []PolicyScenario {
 	sc.Steps = []PolicyStep{rdy(pGPU), rdy(), pci(pGPU)}
 	out = append(out, sc)
 
+	// The marker outlasts a restart of the daemon (systemd empties /run/limbo at every stop) and ends with a reboot.
+	stuck := PolicyStep{Op: "after", PCI: []string{pGPU}, DrvAfter: map[string]string{pGPU: "vfio-pci"}}
+	restart := PolicyStep{Op: "restart"}
+	reboot := func(id string) PolicyStep { return PolicyStep{Op: "reboot", BootID: id} }
+	sc = ready("restart keeps the block")
+	sc.Approval = approval([]string{pGPU}, "2026-10-10T13:00:00Z", 0o600)
+	sc.Steps = []PolicyStep{rdy(pGPU), stuck, rdy(pGPU), restart, rdy(pGPU), restart, rdy(pGPU), pci(pGPU)}
+	out = append(out, sc)
+	sc = ready("reboot ends the block")
+	sc.Approval = approval([]string{pGPU}, "2026-10-10T13:00:00Z", 0o600)
+	sc.Steps = []PolicyStep{stuck, restart, rdy(pGPU), reboot(bootB), rdy(pGPU), stuck, rdy(pGPU), restart, rdy(pGPU), reboot(bootC), rdy(pGPU)}
+	out = append(out, sc)
+	sc = ready("reboot without a boot id")
+	sc.Approval = approval([]string{pGPU}, "2026-10-10T13:00:00Z", 0o600)
+	sc.Steps = []PolicyStep{stuck, reboot("-"), rdy(pGPU), reboot("not a boot id"), rdy(pGPU), reboot(bootB), rdy(pGPU)}
+	out = append(out, sc)
+	sc = ready("block without a boot id")
+	delete(sc.Files, bootIDRel)
+	sc.Approval = approval([]string{pGPU}, "2026-10-10T13:00:00Z", 0o600)
+	sc.Steps = []PolicyStep{stuck, rdy(pGPU), reboot(bootB), rdy(pGPU), restart, rdy(pGPU), {Op: "clear"}, rdy(pGPU)}
+	out = append(out, sc)
+	sc = ready("block twice")
+	sc.Blocked = true
+	sc.Steps = []PolicyStep{stuck, reboot(bootB), stuck, restart, rdy(pGPU)}
+	out = append(out, sc)
+	sc = ready("clear removes both")
+	sc.Approval = approval([]string{pGPU}, "2026-10-10T13:00:00Z", 0o600)
+	sc.Steps = []PolicyStep{stuck, {Op: "clear"}, rdy(pGPU), restart, rdy(pGPU), {Op: "clear"}, rdy(pGPU)}
+	out = append(out, sc)
+	sc = ready("old marker in the run folder")
+	sc.RunMarker = new(string)
+	*sc.RunMarker = "earlier run\n"
+	sc.Approval = approval([]string{pGPU}, "2026-10-10T13:00:00Z", 0o600)
+	sc.Steps = []PolicyStep{rdy(pGPU), restart, rdy(pGPU)}
+	out = append(out, sc)
+	for i, m := range []string{
+		"boot_id " + bootA + "\nwhy\n", "boot_id " + bootB + "\nwhy\n", "boot_id " + bootB, "boot_id " + bootA,
+		"", "earlier run\n", "boot_id \n", "boot_id unknown\nwhy\n", "boot_id " + bootB[:35] + "\n",
+		"boot_id " + strings.ToUpper(bootB) + "\n", "boot_id  " + bootB + "\n", "boot_id " + bootB + "\r\n",
+		"boot_id " + bootB + " \n", " boot_id " + bootB + "\n", "BOOT_ID " + bootB + "\n", "boot_id " + bootB + "x\n",
+		"boot_id " + strings.Replace(bootB, "-", "_", 1) + "\n", "boot_id " + bootB[:8] + "g" + bootB[9:] + "\n",
+		"\nboot_id " + bootB + "\n", "boot_id " + bootB + "\x00\n", "boot_id " + bootB + "\nboot_id " + bootA + "\n",
+	} {
+		sc := ready(fmt.Sprintf("marker %d", i))
+		sc.Marker = &m
+		sc.Approval = approval([]string{pGPU}, "2026-10-10T13:00:00Z", 0o600)
+		sc.Steps = []PolicyStep{rdy(pGPU), restart, rdy(pGPU), reboot(bootC), rdy(pGPU), {Op: "clear"}, rdy(pGPU)}
+		out = append(out, sc)
+	}
+	for i, id := range []string{"", bootA, strings.ToUpper(bootA), bootA[:35], " " + bootA + " \n\n", bootA + bootA, "\u0085" + bootA + "\u00a0"} {
+		sc := ready(fmt.Sprintf("host boot id %d", i))
+		sc.Files[bootIDRel] = id
+		sc.Marker = new(string)
+		*sc.Marker = "boot_id " + bootB + "\nwhy\n"
+		sc.Steps = []PolicyStep{rdy(pGPU), stuck, reboot(bootC), rdy(pGPU)}
+		out = append(out, sc)
+	}
+
 	// USB: TestUSBListedDeviceAllowed ... TestStandingNeverCoversPCI
 	const x4 = "5059:4040"
 	usbAllow := func(allow, standing []string) string {
@@ -389,6 +505,7 @@ func policyScenarios() []PolicyScenario {
 
 	// generated hosts: random sysfs trees, lists, approvals, open files and drivers
 	r := rand.New(rand.NewSource(20261111))
+	ev := rand.New(rand.NewSource(20261112))
 	pciPool := []string{pGPU, pAudio, pNIC, pBridge, "0000:05:00.0"}
 	usbPool := []string{x4, "0403:cc4c", "05e3:0610", "1a86:7523"}
 	pick := func(pool []string, max int) []string {
@@ -478,6 +595,12 @@ func policyScenarios() []PolicyScenario {
 				st.NoRecord = r.Intn(2) == 0
 			}
 			sc.Steps = append(sc.Steps, st)
+		}
+		// a restart or a reboot somewhere in a third of them (its own source: the hosts above stay as they were)
+		if ev.Intn(3) == 0 {
+			e := []PolicyStep{{Op: "restart"}, {Op: "reboot", BootID: bootB}, {Op: "reboot", BootID: "-"}, {Op: "clear"}}[ev.Intn(4)]
+			at := ev.Intn(len(sc.Steps) + 1)
+			sc.Steps = append(sc.Steps[:at], append([]PolicyStep{e}, sc.Steps[at:]...)...)
 		}
 		out = append(out, sc)
 	}

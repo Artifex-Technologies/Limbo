@@ -24,6 +24,10 @@ const (
 	blockedFile  = "passthrough.blocked"
 	defaultRun   = "/run/limbo"
 	maxWho       = 10
+	// bootIDRel is the kernel's random id of this boot (a new one at every boot), read under Root.
+	bootIDRel = "proc/sys/kernel/random/boot_id"
+	// bootPrefix starts the state marker's first line; the boot id it was written in follows.
+	bootPrefix = "boot_id "
 )
 
 // NeedsApproval means no human has approved a passthrough window (or it ran out).
@@ -158,22 +162,90 @@ func (p *Policy) Revoke() error {
 	return nil
 }
 
-// Blocked reports whether a previous run left a device in a bad state.
+// Blocked reports whether a previous run left a device in a bad state and the host has not rebooted since.
+//
+// There are two markers. The one that counts is in the state folder (persistent, root-only): it names the boot it was
+// written in, so it survives any restart of the daemon (systemd empties /run/limbo at every stop, a package upgrade
+// restarts it) and stops counting only once the kernel's boot id differs, which takes a reboot. It counts unless that
+// is proven: a marker that cannot be read, is damaged or names no boot, or a boot id this host cannot tell, all count
+// (`limbo passthrough clear` after recovering the device by hand). The one in the run folder (tmpfs) is written too,
+// for a state folder that cannot be written, and counts while it is there.
 func (p *Policy) Blocked() bool {
-	_, err := os.Stat(p.blockedPath())
-	return err == nil
+	return present(p.blockedPath()) || p.stateBlocked()
 }
 
-// Clear removes the reboot-needed marker. A reboot does it by itself (the marker
-// is on tmpfs); this is for an operator who has recovered the device by hand.
-func (p *Policy) Clear() error {
-	if err := os.Remove(p.blockedPath()); err != nil && !os.IsNotExist(err) {
-		return err
+// present: something is at path, or it cannot be told that nothing is (anything but "does not exist" counts).
+func present(path string) bool {
+	_, err := os.Lstat(path)
+	return !errors.Is(err, fs.ErrNotExist)
+}
+
+func (p *Policy) stateBlockedPath() string { return filepath.Join(p.StateDir, blockedFile) }
+
+// stateBlocked: the state folder's marker is there and not proven to be from an earlier boot.
+func (p *Policy) stateBlocked() bool {
+	if p.StateDir == "" || !present(p.stateBlockedPath()) {
+		return false
 	}
-	return nil
+	b, err := os.ReadFile(p.stateBlockedPath())
+	if err != nil {
+		return true
+	}
+	line, _, _ := strings.Cut(string(b), "\n")
+	then, ok := strings.CutPrefix(line, bootPrefix)
+	now := p.bootID()
+	return !ok || !isBootID(then) || !isBootID(now) || then == now
 }
 
+// bootID is this boot's id as the kernel gives it ("" if unreadable).
+func (p *Policy) bootID() string { return readTrim(p.root(), bootIDRel) }
+
+// isBootID: the form the kernel writes a boot id in, a lower-case UUID (8-4-4-4-12 hex digits).
+func isBootID(s string) bool {
+	if len(s) != 36 {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch i {
+		case 8, 13, 18, 23:
+			if c != '-' {
+				return false
+			}
+		default:
+			if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// Clear removes the reboot-needed markers (both). A reboot makes them count no more by itself; this is for an
+// operator who has recovered the device by hand. Both are tried; the first failure is returned.
+func (p *Policy) Clear() error {
+	var first error
+	if p.StateDir != "" {
+		if err := os.Remove(p.stateBlockedPath()); err != nil && !os.IsNotExist(err) {
+			first = err
+		}
+	}
+	if err := os.Remove(p.blockedPath()); err != nil && !os.IsNotExist(err) && first == nil {
+		first = err
+	}
+	return first
+}
+
+// block records that a device did not come back: the state folder's marker with this boot's id ("unknown" when it
+// cannot be read: such a marker counts until cleared by hand), then the run folder's.
 func (p *Policy) block(why string) {
+	if p.StateDir != "" && os.MkdirAll(p.StateDir, 0o700) == nil {
+		id := p.bootID()
+		if !isBootID(id) {
+			id = "unknown"
+		}
+		_ = os.WriteFile(p.stateBlockedPath(), []byte(bootPrefix+id+"\n"+why+"\n"), 0o600)
+	}
 	if os.MkdirAll(filepath.Dir(p.blockedPath()), 0o755) == nil {
 		_ = os.WriteFile(p.blockedPath(), []byte(why+"\n"), 0o600)
 	}

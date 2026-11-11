@@ -16,6 +16,10 @@ const USB_REL: &str = "sys/bus/usb/devices";
 const APPROVAL_FILE: &str = "passthrough-approval.json";
 const BLOCKED_FILE: &str = "passthrough.blocked";
 const MAX_WHO: usize = 10;
+/// The kernel's random id of this boot (a new one at every boot), read under `root`.
+const BOOT_ID_REL: &str = "proc/sys/kernel/random/boot_id";
+/// The state marker's first line: this, then the boot id it was written in.
+const BOOT_PREFIX: &str = "boot_id ";
 
 /// Why hardware is refused: the kinds runs tell apart.
 #[derive(Clone, Debug, PartialEq)]
@@ -287,13 +291,58 @@ impl Policy {
         go_remove(&self.approval_path())
     }
 
-    /// Clear: removes the reboot-needed marker.
-    pub fn clear(&self) -> Result<(), String> {
-        go_remove(&self.blocked_path())
+    fn state_blocked_path(&self) -> String {
+        sys::join(&[&self.state_dir, BLOCKED_FILE])
     }
 
+    /// Clear: removes both reboot-needed markers (both tried; the first failure returned).
+    pub fn clear(&self) -> Result<(), String> {
+        let mut first = Ok(());
+        if !self.state_dir.is_empty() {
+            first = go_remove(&self.state_blocked_path());
+        }
+        let run = go_remove(&self.blocked_path());
+        first.and(run)
+    }
+
+    /// Blocked: an earlier run left a device in a bad state and the host has not rebooted since. The state folder's
+    /// marker names the boot it was written in, so it outlasts any restart of the daemon (systemd empties /run/limbo at
+    /// every stop) and stops counting only once the boot id differs; anything that does not prove that (unreadable,
+    /// damaged, no boot named, this boot's id unknown) counts. The run folder's marker counts while it is there.
     pub fn blocked(&self) -> bool {
-        std::fs::metadata(self.blocked_path()).is_ok()
+        present(&self.blocked_path()) || self.state_blocked()
+    }
+
+    fn state_blocked(&self) -> bool {
+        if self.state_dir.is_empty() || !present(&self.state_blocked_path()) {
+            return false;
+        }
+        let Ok(b) = std::fs::read(self.state_blocked_path()) else { return true };
+        let line = b.split(|&c| c == b'\n').next().unwrap_or_default();
+        let now = self.boot_id();
+        match line.strip_prefix(BOOT_PREFIX.as_bytes()) {
+            Some(then) => !is_boot_id(then) || !is_boot_id(now.as_bytes()) || then == now.as_bytes(),
+            None => true,
+        }
+    }
+
+    /// This boot's id as the kernel gives it ("" if unreadable).
+    fn boot_id(&self) -> String {
+        self.read_trim(BOOT_ID_REL)
+    }
+
+    /// Records that a device did not come back: the state folder's marker with this boot's id ("unknown" when it
+    /// cannot be read: such a marker counts until cleared by hand), then the run folder's.
+    pub fn block(&self, why: &str) {
+        if !self.state_dir.is_empty() && sys::mkdir_all(&self.state_dir, 0o700).is_ok() {
+            let id = self.boot_id();
+            let id = if is_boot_id(id.as_bytes()) { id.as_str() } else { "unknown" };
+            let _ = sys::write_file(self.state_blocked_path(), format!("{BOOT_PREFIX}{id}\n{why}\n").as_bytes(), 0o600);
+        }
+        let p = self.blocked_path();
+        if sys::mkdir_all(sys::dir(&p), 0o755).is_ok() {
+            let _ = sys::write_file(&p, format!("{why}\n").as_bytes(), 0o600);
+        }
     }
 
     /// Is handing the guest its devices safe right now.
@@ -389,18 +438,15 @@ impl Policy {
         m.devices.pci().iter().map(|a| (a.clone(), self.driver(a))).collect()
     }
 
-    /// After teardown, every device must be back under its driver; if not, a reboot is needed (a marker in the run
-    /// folder blocks every later passthrough start).
+    /// After teardown, every device must be back under its driver; if not, a reboot is needed (the markers block every
+    /// later passthrough start until the host reboots).
     pub fn after(&self, m: &Manifest, before: Option<&BTreeMap<String, String>>) -> Result<(), String> {
         for a in m.devices.pci() {
             let now = self.driver(a);
             let want = before.and_then(|b| b.get(a));
             if want.is_some_and(|w| *w != now) || (want.is_none() && now == "vfio-pci") {
                 let why = format!("device {a} is bound to {} after teardown", gotext::quote(&now));
-                let p = self.blocked_path();
-                if sys::mkdir_all(sys::dir(&p), 0o755).is_ok() {
-                    let _ = sys::write_file(&p, format!("{why}\n").as_bytes(), 0o600);
-                }
+                self.block(&why);
                 return Err(why);
             }
         }
@@ -445,6 +491,23 @@ fn split(devs: &[String]) -> Devices {
 
 /// os.Remove, and its error unless the path did not exist (as `!os.IsNotExist(err)` reads it): unlink, then rmdir;
 /// when both fail, rmdir's error unless it is ENOTDIR.
+/// Something is at `p`, or it cannot be told that nothing is (anything but "does not exist" counts).
+fn present(p: &str) -> bool {
+    match std::fs::symlink_metadata(p) {
+        Ok(_) => true,
+        Err(e) => e.raw_os_error() != Some(libc::ENOENT),
+    }
+}
+
+/// The form the kernel writes a boot id in: a lower-case UUID (8-4-4-4-12 hex digits).
+fn is_boot_id(s: &[u8]) -> bool {
+    s.len() == 36
+        && s.iter().enumerate().all(|(i, &c)| match i {
+            8 | 13 | 18 | 23 => c == b'-',
+            _ => c.is_ascii_digit() || (b'a'..=b'f').contains(&c),
+        })
+}
+
 fn go_remove(p: &str) -> Result<(), String> {
     let Err(e) = std::fs::remove_file(p) else { return Ok(()) };
     let e = match std::fs::remove_dir(p) {

@@ -1,6 +1,8 @@
 //! testdata/parity/hostpolicy.json: Check, Ready, Standing, HostID, Before and After on fake hosts (a sysfs tree,
-//! os-release, the host policy, an approval file, the reboot marker, open files and drivers), as the Go code answers
-//! (internal/hostpolicy/parity_test.go: every case of the package's tests, then 120 generated hosts).
+//! os-release, the host policy, the boot id, an approval file, the reboot markers, open files and drivers), with the
+//! daemon restarted (the run folder emptied, as systemd does at every stop), the host rebooted (a new boot id) and the
+//! markers cleared between questions, as the Go code answers (internal/hostpolicy/parity_test.go: every case of the
+//! package's tests, then 120 generated hosts). After each step the markers' bytes are compared too.
 
 mod common;
 use common::{fixture, s, Diffs};
@@ -39,6 +41,36 @@ fn kind(r: &Result<(), Refused>) -> (&'static str, String) {
     }
 }
 
+/// A marker file's bytes, or "<none>".
+fn marker_text(path: &str) -> String {
+    match std::fs::read(path) {
+        Ok(b) => String::from_utf8(b).expect("the fixtures' markers are UTF-8"),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => "<none>".into(),
+        Err(_) => "<unreadable>".into(),
+    }
+}
+
+/// A Policy on these folders, as a newly started daemon makes it.
+fn start(
+    root: &str,
+    state: &str,
+    run: &str,
+    open: &BTreeMap<String, Vec<String>>,
+    drv: &Arc<Mutex<BTreeMap<String, String>>>,
+    usb_drv: &BTreeMap<String, String>,
+) -> Policy {
+    let mut p = Policy::new(state, run);
+    p.root = root.to_string();
+    p.now = now;
+    let open = open.clone();
+    p.open_files = Some(Box::new(move || open.clone()));
+    let drv = drv.clone();
+    p.driver = Some(Box::new(move |a: &str| drv.lock().unwrap().get(a).cloned().unwrap_or_default()));
+    let usb_drv = usb_drv.clone();
+    p.usb_driver = Some(Box::new(move |i: &str| usb_drv.get(i).cloned().unwrap_or_default()));
+    p
+}
+
 fn tempdir(tag: &str) -> String {
     let p = std::env::temp_dir().join(format!("limbo-hp-{tag}-{}-{}", std::process::id(), limbo::sys::rand_hex(4)));
     std::fs::create_dir_all(&p).unwrap();
@@ -62,9 +94,6 @@ fn hostpolicy_matches_go() {
             std::fs::write(&p, s(&a["body"])).unwrap();
             std::fs::set_permissions(&p, std::fs::Permissions::from_mode(a["mode"].as_u64().unwrap() as u32)).unwrap();
         }
-        if sc["blocked"].as_bool().unwrap() {
-            std::fs::write(format!("{run}/passthrough.blocked"), "earlier run\n").unwrap();
-        }
         let t = Time::parse_rfc3339(&s(&sc["now"])).unwrap();
         NOW.store(t.unix_nanos() as i64, Ordering::SeqCst);
         let open: BTreeMap<String, Vec<String>> = sc["open"]
@@ -73,13 +102,17 @@ fn hostpolicy_matches_go() {
             .unwrap_or_default();
         let drv = Arc::new(Mutex::new(smap(&sc["drv"])));
         let usb_drv = smap(&sc["usb_drv"]);
-        let mut p = Policy::new(&state, &run);
-        p.root = root.clone();
-        p.now = now;
-        p.open_files = Some(Box::new(move || open.clone()));
-        let drv2 = drv.clone();
-        p.driver = Some(Box::new(move |a: &str| drv2.lock().unwrap().get(a).cloned().unwrap_or_default()));
-        p.usb_driver = Some(Box::new(move |i: &str| usb_drv.get(i).cloned().unwrap_or_default()));
+        let mut p = start(&root, &state, &run, &open, &drv, &usb_drv);
+        if sc["blocked"].as_bool().unwrap() {
+            p.block("earlier run");
+        }
+        let (marker, run_marker) = (format!("{state}/passthrough.blocked"), format!("{run}/passthrough.blocked"));
+        for (path, body) in [(&marker, &sc["marker"]), (&run_marker, &sc["run_marker"])] {
+            if let Some(b) = body.as_str() {
+                std::fs::write(path, b).unwrap();
+                std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600)).unwrap();
+            }
+        }
 
         let want = c["out"].as_array().unwrap();
         for (i, st) in sc["steps"].as_array().unwrap().iter().enumerate() {
@@ -107,9 +140,27 @@ fn hostpolicy_matches_go() {
                     let r = p.after(&m, if st["no_record"].as_bool().unwrap() { None } else { Some(&before) });
                     d.eq(&format!("after of {what}"), &r.err().unwrap_or_default(), &s(&w["err"]));
                 }
+                op @ ("restart" | "reboot") => {
+                    std::fs::remove_dir_all(&run).unwrap();
+                    std::fs::create_dir(&run).unwrap();
+                    if op == "reboot" {
+                        // every device back under the driver it boots with, and a new boot id
+                        *drv.lock().unwrap() = smap(&sc["drv"]);
+                        let id = format!("{root}/proc/sys/kernel/random/boot_id");
+                        let _ = std::fs::remove_file(&id);
+                        if s(&st["boot_id"]) != "-" {
+                            std::fs::create_dir_all(std::path::Path::new(&id).parent().unwrap()).unwrap();
+                            std::fs::write(&id, format!("{}\n", s(&st["boot_id"]))).unwrap();
+                        }
+                    }
+                    p = start(&root, &state, &run, &open, &drv, &usb_drv);
+                }
+                "clear" => d.eq(&format!("clear of {what}"), &p.clear().err().unwrap_or_default(), &s(&w["err"])),
                 op => panic!("unknown op {op}"),
             }
             d.eq(&format!("blocked after {what}"), &p.blocked().to_string(), &w["blocked"].to_string());
+            d.eq(&format!("state marker after {what}"), &marker_text(&marker), &s(&w["marker"]));
+            d.eq(&format!("run marker after {what}"), &marker_text(&run_marker), &s(&w["run_marker"]));
         }
         for dir in [&root, &state, &run] {
             let _ = std::fs::remove_dir_all(dir);

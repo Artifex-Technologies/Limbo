@@ -3,6 +3,8 @@ package hostpolicy
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -261,6 +263,67 @@ func TestAfterDetectsDeviceNotReturned(t *testing.T) {
 	}
 	if err := h.p.Clear(); err != nil || h.p.Blocked() {
 		t.Fatalf("clear failed: %v", err)
+	}
+}
+
+// TestBlockOutlastsRestartEndsWithReboot: systemd empties /run/limbo at every stop of the service, so the marker that
+// counts is the state folder's, tied to the boot it was written in.
+func TestBlockOutlastsRestartEndsWithReboot(t *testing.T) {
+	const bootA, bootB = "6f1c0a52-3c1e-4b8e-9d0a-2b7f4e5c8a11", "0b9e7d24-81f3-4c55-a6e2-93d1c4f7b260"
+	h := ready(t)
+	h.file(bootIDRel, bootA+"\n")
+	if _, err := h.p.Approve([]string{gpu}, time.Hour, "me"); err != nil {
+		t.Fatal(err)
+	}
+	before := h.p.Before(guest(gpu))
+	h.drv[gpu] = "vfio-pci"
+	if err := h.p.After(guest(gpu), before); err == nil {
+		t.Fatal("device left on vfio-pci not detected")
+	}
+	b, err := os.ReadFile(filepath.Join(h.p.StateDir, blockedFile))
+	if err != nil || !strings.HasPrefix(string(b), "boot_id "+bootA+"\n") {
+		t.Fatalf("the state folder's marker does not name this boot: %q %v", b, err)
+	}
+	restart := func() {
+		if err := os.RemoveAll(h.p.RunDir); err != nil {
+			t.Fatal(err)
+		}
+		h.p = &Policy{Root: h.fs, StateDir: h.p.StateDir, RunDir: h.p.RunDir, Now: h.p.Now, OpenFiles: h.p.OpenFiles, Driver: h.p.Driver}
+	}
+	var rb *RebootNeeded
+	restart()
+	if err := h.p.Ready(guest(gpu)); !errors.As(err, &rb) {
+		t.Fatalf("a restart of the daemon lifted the block: %v", err)
+	}
+	if _, err := h.p.Approve([]string{gpu}, time.Hour, "me"); !errors.As(err, &rb) {
+		t.Fatalf("an approval was granted after a restart: %v", err)
+	}
+	delete(h.fs, bootIDRel) // a boot id this host cannot tell proves no reboot
+	restart()
+	if !h.p.Blocked() {
+		t.Fatal("an unreadable boot id lifted the block")
+	}
+	h.file(bootIDRel, bootB+"\n")
+	h.drv[gpu] = "nvidia"
+	restart()
+	if err := h.p.Ready(guest(gpu)); err != nil {
+		t.Fatalf("a reboot did not end the block: %v", err)
+	}
+}
+
+func TestDamagedMarkerCountsUntilCleared(t *testing.T) {
+	h := ready(t)
+	h.file(bootIDRel, "0b9e7d24-81f3-4c55-a6e2-93d1c4f7b260\n")
+	for _, body := range []string{"", "earlier run\n", "boot_id unknown\n", "boot_id 6F1C0A52-3C1E-4B8E-9D0A-2B7F4E5C8A11\n"} {
+		if err := os.WriteFile(filepath.Join(h.p.StateDir, blockedFile), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if !h.p.Blocked() {
+			t.Fatalf("marker %q did not count", body)
+		}
+	}
+	if err := h.p.Clear(); err != nil || h.p.Blocked() {
+		t.Fatalf("clear: %v", err)
 	}
 }
 

@@ -117,10 +117,11 @@ func (p *Policy) Standing() (standing, ignored []string) {
 type Policy struct {
 	// Root is the filesystem the host's files are read from; default the real root.
 	Root fs.FS
-	// StateDir holds the approval file. Empty means no approval can exist.
+	// StateDir holds the approval file and the reboot-needed marker that survives a restart of the daemon (it names
+	// the boot it was written in, so a reboot ends it: consent.go). Empty means no approval can exist.
 	StateDir string
-	// RunDir holds the reboot-needed marker; default /run/limbo, a tmpfs, so the
-	// marker disappears when the host reboots, which is exactly its meaning.
+	// RunDir holds a second reboot-needed marker; default /run/limbo, a tmpfs. systemd empties it whenever the
+	// service stops, so it alone would not outlast a restart: the state folder's marker is the one that does.
 	RunDir string
 	// Now, OpenFiles and Driver are seams for tests; production leaves them nil.
 	Now func() time.Time
