@@ -169,13 +169,15 @@ impl Store {
     }
 
     pub fn open_with_clock(dir: &str, now: fn() -> Time) -> Result<Store, String> {
-        sys::mkdir_all(dir, 0o700).map_err(|e| e.to_string())?;
+        // Go's texts: "mkdir ...", "open DIR: ...", "open|read FILE: ..."
+        sys::go_mkdir_all(dir, 0o700)?;
         let mut recs = BTreeMap::new();
-        for (name, ft) in sys::read_dir_sorted(dir).map_err(|e| e.to_string())? {
+        for (name, ft) in sys::read_dir_sorted(dir).map_err(|e| sys::go_path_error("open", dir, &e))? {
             if ft.is_dir() || !name.ends_with(".json") {
                 continue;
             }
-            let b = std::fs::read(sys::join(&[dir, &name])).map_err(|e| e.to_string())?;
+            let p = sys::join(&[dir, &name]);
+            let b = read_file(&p)?;
             let r =
                 gojson::unmarshal(&b, Record::default(), "quarantine.Record").map_err(|e| format!("quarantine: {name} is corrupt: {e}"))?;
             recs.insert(r.id.clone(), r);
@@ -318,6 +320,15 @@ impl Store {
         sys::write_file(&tmp, b.as_bytes(), 0o600).map_err(Error::Io)?;
         std::fs::rename(&tmp, &path).map_err(Error::Io)
     }
+}
+
+/// os.ReadFile with Go's error text.
+fn read_file(p: &str) -> Result<Vec<u8>, String> {
+    use std::io::Read;
+    let mut f = std::fs::File::open(p).map_err(|e| sys::go_path_error("open", p, &e))?;
+    let mut b = vec![];
+    f.read_to_end(&mut b).map_err(|e| sys::go_path_error("read", p, &e))?;
+    Ok(b)
 }
 
 /// Bounds a string and strips control characters, newlines and tabs becoming spaces (Go's clean).

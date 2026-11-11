@@ -285,6 +285,29 @@ pub fn to_lower(s: &str) -> String {
     out
 }
 
+/// Go's `strings.ToUpper`: each character by its simple uppercase mapping. Where Rust's full mapping is longer than one
+/// character, Go keeps the character (ß, the ligatures, ...), except the Greek letters with a subscript iota, whose simple
+/// mapping is the matching capital with the subscript.
+pub fn to_upper(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        let mut u = c.to_uppercase();
+        match (u.next(), u.next()) {
+            (Some(one), None) => out.push(one),
+            _ => {
+                let x = c as u32;
+                let simple = match x {
+                    0x1f80..=0x1f87 | 0x1f90..=0x1f97 | 0x1fa0..=0x1fa7 => x + 8,
+                    0x1fb3 | 0x1fc3 | 0x1ff3 => x + 9,
+                    _ => x,
+                };
+                out.push(char::from_u32(simple).unwrap_or(c));
+            }
+        }
+    }
+    out
+}
+
 /// Go's `strconv.Atoi`: decimal, optional sign, no spaces, within int64.
 pub fn atoi(s: &str) -> Option<i64> {
     let t = s.strip_prefix(['+', '-']).unwrap_or(s);

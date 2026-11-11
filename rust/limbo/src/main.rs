@@ -1,5 +1,5 @@
 //! limbo-rs: `limbo serve`, the socket-client commands (quarantine, settings, instance, license, exchange) and the
-//! manifest commands that touch nothing (version, validate, plan, address) in Rust.
+//! manifest and file commands (version, validate, plan, address, report) in Rust.
 //! Every other command is handed, unchanged, to the Go limbo binary (docs/RUST_PORT.md).
 
 use std::os::unix::process::CommandExt;
@@ -85,7 +85,7 @@ fn main() {
     }
     if args.get(1).map(String::as_str) == Some("rs-version") {
         println!(
-            "limbo-rs {} (serve, quarantine, settings, instance, license, exchange, version, validate, plan and address in Rust; every other command runs the Go limbo)",
+            "limbo-rs {} (serve, quarantine, settings, instance, license, exchange, version, validate, plan, address and report in Rust; every other command runs the Go limbo)",
             env!("CARGO_PKG_VERSION")
         );
         return;

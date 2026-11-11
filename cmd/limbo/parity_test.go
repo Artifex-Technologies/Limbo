@@ -140,5 +140,29 @@ func TestParityCLI(t *testing.T) {
 		tm, _ := time.Parse(time.RFC3339Nano, s)
 		cases = append(cases, parity.Case{Fn: "rfc3339", In: s, Out: tm.Format(time.RFC3339)})
 	}
+	// limbo report --since: parseSince (fmt.Sscanf's %d, time.ParseDuration, time.Parse of a date) from a fixed now,
+	// on chosen inputs and on random strings over the characters they are made of.
+	now := time.Date(2026, 11, 11, 12, 30, 15, 123456789, time.UTC)
+	since := []string{"7d", "0d", "-1d", "+2d", " 3d", "\t4d", "\n5d", "\r\n5d", "\r5d", "5xd", "99999999999999999999d", "106752d",
+		"9223372036854775807d", "24h", "1h30m", "1.5h", ".5h", "1.h", ".h", "0", "-0", "+0", "-24h", "+24h", "0h", "1\u00b5s", "1\u03bcs",
+		"1us", "1ns", "1ms", "5", "h", "", "d", "1e3h", "9223372036854775807ns", "9223372036854775808ns", "2562047h", "2562048h",
+		"1.00000000000000000001h", "0.0000000001s", "\u30002d", "\u00a0" + "2d", "1d2", "2026-11-02", "2024-02-29", "2026-02-29",
+		"0000-01-01", "9999-12-31", "2026-1-01", "2026-11-02x", "+026-11-02", "2026-11-31", "2026-04-31", "2026-00-10", "2026-10-00"}
+	alpha := []string{"0", "1", "9", ".", "-", "+", "h", "m", "s", "u", "\u00b5", "n", "d", " ", "\t", "\n", "x", "e", "2026-"}
+	for i := 0; i < 3000; i++ {
+		var b strings.Builder
+		for n := r.Intn(9); n > 0; n-- {
+			b.WriteString(alpha[r.Intn(len(alpha))])
+		}
+		since = append(since, b.String())
+	}
+	for _, s := range since {
+		tm, err := parseSince(s, now)
+		out := ""
+		if err == nil {
+			out = tm.Format(time.RFC3339Nano)
+		}
+		cases = append(cases, parity.Case{Fn: "since", In: s, Out: map[string]any{"time": out, "err": parity.Err(err)}})
+	}
 	parity.Fixture(t, "cli", cases)
 }

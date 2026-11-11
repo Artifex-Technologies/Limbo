@@ -11,6 +11,7 @@ pub mod sys;
 pub mod events;
 pub mod manifest;
 pub mod quarantine;
+pub mod report;
 pub mod settings;
 
 pub mod disk;

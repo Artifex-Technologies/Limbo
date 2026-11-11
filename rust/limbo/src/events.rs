@@ -92,3 +92,75 @@ impl Emitter for Recorder {
         Ok(())
     }
 }
+
+/// One line of the log as Go's `events.Event` reads it.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Event {
+    pub time: Time,
+    pub kind: String,
+    pub guest: String,
+    pub detail: Option<std::collections::BTreeMap<String, String>>,
+}
+crate::go_struct!(Event as "events.Event" {
+    time: "time" => "time.Time", kind: "kind" => "string", guest: "guest" => "string", detail: "detail" => "map[string]string",
+});
+
+impl Event {
+    /// A detail value ("" when absent).
+    pub fn get(&self, k: &str) -> Option<&str> {
+        self.detail.as_ref().and_then(|d| d.get(k)).map(String::as_str)
+    }
+}
+
+/// bufio.Scanner's limit as Read sets it, and its error text.
+const MAX_LINE: usize = 1 << 20;
+pub const ERR_TOO_LONG: &str = "bufio.Scanner: token too long";
+
+/// What [`read`] failed with: Go's error text, and whether it is os.IsNotExist.
+#[derive(Debug)]
+pub struct ReadErr {
+    pub not_exist: bool,
+    pub msg: String,
+}
+
+/// Go's `events.Read`: every line that reads as an event with a kind, and how many lines did not (blank lines are
+/// neither). The error is Go's: an open or read failure, or a line longer than the scanner takes (the events before it
+/// are returned with it, as Go returns them).
+pub fn read(path: &str) -> (Vec<Event>, usize, Option<ReadErr>) {
+    use std::io::Read;
+    let mut f = match File::open(path) {
+        Ok(f) => f,
+        Err(e) => {
+            let msg = crate::sys::go_path_error("open", path, &e);
+            return (vec![], 0, Some(ReadErr { not_exist: e.kind() == io::ErrorKind::NotFound, msg }));
+        }
+    };
+    let mut b = vec![];
+    let read_err = f.read_to_end(&mut b).err();
+    let (mut evs, mut skipped) = (vec![], 0);
+    let mut rest = &b[..];
+    while !rest.is_empty() {
+        let (line, next, terminated) = match rest.iter().position(|&c| c == b'\n') {
+            Some(i) => (&rest[..i], &rest[i + 1..], true),
+            None => (rest, &rest[rest.len()..], false),
+        };
+        // the scanner needs the line and its newline in a buffer of at most MAX_LINE bytes
+        if line.len() + usize::from(terminated) > MAX_LINE || (!terminated && line.len() >= MAX_LINE) {
+            return (evs, skipped, Some(ReadErr { not_exist: false, msg: ERR_TOO_LONG.into() }));
+        }
+        rest = next;
+        let line = crate::cli::commands::trim_space(line);
+        if line.is_empty() {
+            continue;
+        }
+        match gojson::unmarshal(line, Event::default(), "events.Event") {
+            Ok(e) if !e.kind.is_empty() => evs.push(e),
+            _ => skipped += 1,
+        }
+    }
+    if let Some(e) = read_err {
+        let msg = crate::sys::go_path_error("read", path, &e);
+        return (evs, skipped, Some(ReadErr { not_exist: false, msg }));
+    }
+    (evs, skipped, None)
+}

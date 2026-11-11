@@ -123,6 +123,17 @@ impl Time {
         format!("{h:02}:{mi:02}")
     }
 
+    /// Go's `Format(time.RFC3339)`: seconds, no fraction.
+    pub fn rfc3339(&self) -> String {
+        Time { nanos: 0, ..*self }.rfc3339_nano()
+    }
+
+    /// Go's `time.Date(y, m, d, 0, 0, 0, 0, time.UTC)` for a valid date.
+    pub fn date_utc(y: i64, m: u32, d: u32) -> Time {
+        let days = days_from_civil(y, m, d);
+        Time { secs: days * 86_400 + GO_ZERO_TO_UNIX, nanos: 0, offset: 0 }
+    }
+
     /// Go's `Format(time.RFC3339Nano)`, which is how `time.Time` is written to JSON.
     pub fn rfc3339_nano(&self) -> String {
         let (y, mo, d, h, mi, s) = self.civil();
@@ -333,6 +344,124 @@ fn civil_from_days(z: i64) -> (i64, u32, u32) {
     let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
     let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
     (if m <= 2 { y + 1 } else { y }, m, d)
+}
+
+/// Go's `time.ParseDuration`: nanoseconds, or None where Go returns an error (its text is not needed).
+pub fn parse_duration(orig: &str) -> Option<i64> {
+    const BIG: u64 = 1 << 63;
+    let mut s = orig.as_bytes();
+    let mut neg = false;
+    if let Some(&c) = s.first() {
+        if c == b'-' || c == b'+' {
+            neg = c == b'-';
+            s = &s[1..];
+        }
+    }
+    if s == b"0" {
+        return Some(0);
+    }
+    if s.is_empty() {
+        return None;
+    }
+    let mut d: u64 = 0;
+    while !s.is_empty() {
+        if !(s[0] == b'.' || s[0].is_ascii_digit()) {
+            return None;
+        }
+        // leadingInt
+        let mut v: u64 = 0;
+        let mut i = 0;
+        while i < s.len() && s[i].is_ascii_digit() {
+            if v > BIG / 10 {
+                return None;
+            }
+            v = v * 10 + (s[i] - b'0') as u64;
+            if v > BIG {
+                return None;
+            }
+            i += 1;
+        }
+        let pre = i > 0;
+        s = &s[i..];
+        // leadingFraction
+        let (mut f, mut scale, mut post) = (0u64, 1f64, false);
+        if s.first() == Some(&b'.') {
+            s = &s[1..];
+            let mut i = 0;
+            let mut overflow = false;
+            while i < s.len() && s[i].is_ascii_digit() {
+                if !overflow {
+                    if f > (BIG - 1) / 10 {
+                        overflow = true;
+                    } else {
+                        let y = f * 10 + (s[i] - b'0') as u64;
+                        if y > BIG {
+                            overflow = true;
+                        } else {
+                            f = y;
+                            scale *= 10.0;
+                        }
+                    }
+                }
+                i += 1;
+            }
+            post = i > 0;
+            s = &s[i..];
+        }
+        if !pre && !post {
+            return None;
+        }
+        let i = s.iter().position(|&c| c == b'.' || c.is_ascii_digit()).unwrap_or(s.len());
+        if i == 0 {
+            return None;
+        }
+        let unit: u64 = match &s[..i] {
+            b"ns" => 1,
+            b"us" | b"\xc2\xb5s" | b"\xce\xbcs" => 1_000, // us, U+00B5 s, U+03BC s
+            b"ms" => 1_000_000,
+            b"s" => 1_000_000_000,
+            b"m" => 60_000_000_000,
+            b"h" => 3_600_000_000_000,
+            _ => return None,
+        };
+        s = &s[i..];
+        if v > BIG / unit {
+            return None;
+        }
+        v *= unit;
+        if f > 0 {
+            v += (f as f64 * (unit as f64 / scale)) as u64;
+            if v > BIG {
+                return None;
+            }
+        }
+        d += v;
+        if d > BIG {
+            return None;
+        }
+    }
+    if neg {
+        return Some((d as i64).wrapping_neg());
+    }
+    if d > BIG - 1 {
+        return None;
+    }
+    Some(d as i64)
+}
+
+/// Go's `time.Parse("2006-01-02", s)`: midnight UTC of that date, or None.
+pub fn parse_date(s: &str) -> Option<Time> {
+    let b = s.as_bytes();
+    if b.len() != 10 || b[4] != b'-' || b[7] != b'-' {
+        return None;
+    }
+    let num =
+        |r: std::ops::Range<usize>| -> Option<i64> { b[r.clone()].iter().all(u8::is_ascii_digit).then(|| s[r].parse().ok()).flatten() };
+    let (y, m, d) = (num(0..4)?, num(5..7)?, num(8..10)?);
+    if !(1..=12).contains(&m) || d < 1 || d > days_in_month(y, m as u32) as i64 {
+        return None;
+    }
+    Some(Time::date_utc(y, m as u32, d as u32))
 }
 
 #[cfg(test)]

@@ -231,6 +231,35 @@ pub fn go_err(e: &io::Error) -> String {
     }
 }
 
+/// os.MkdirAll with Go's error text: "mkdir P: not a directory" for the first path in the way that is not a folder,
+/// "mkdir P: permission denied" for the one that could not be made.
+pub fn go_mkdir_all(path: &str, perm: u32) -> Result<(), String> {
+    match fs::metadata(path) {
+        Ok(m) if m.is_dir() => return Ok(()),
+        Ok(_) => return Err(format!("mkdir {path}: not a directory")),
+        Err(_) => {}
+    }
+    let b = path.as_bytes();
+    let mut i = b.len();
+    while i > 0 && b[i - 1] == b'/' {
+        i -= 1;
+    }
+    let mut j = i;
+    while j > 0 && b[j - 1] != b'/' {
+        j -= 1;
+    }
+    if j > 1 {
+        go_mkdir_all(&path[..j - 1], perm)?;
+    }
+    match fs::DirBuilder::new().mode(perm).create(path) {
+        Ok(()) => Ok(()),
+        Err(e) => match fs::symlink_metadata(path) {
+            Ok(m) if m.is_dir() => Ok(()),
+            _ => Err(go_path_error("mkdir", path, &e)),
+        },
+    }
+}
+
 /// Go's *fs.PathError text: "open /x: no such file or directory".
 pub fn go_path_error(op: &str, path: &str, e: &io::Error) -> String {
     format!("{op} {path}: {}", go_err(e))

@@ -1,6 +1,6 @@
 //! testdata/parity/cli.json: the pieces of the socket-client commands' output against Go (cmd/limbo/parity_test.go):
 //! flag parsing with its messages and usage, text/tabwriter, json.Indent, a RawMessage's compaction and lookup, `%v`
-//! of a float, RFC3339 and the CLI's sizes.
+//! of a float, RFC3339, the CLI's sizes, and `limbo report --since` (parseSince).
 
 mod common;
 use common::{fixture, s, Diffs};
@@ -87,6 +87,15 @@ fn cli_pieces_match_go() {
             "rfc3339" => {
                 let t = Time::parse_rfc3339(&s(i)).unwrap();
                 d.eq(&format!("rfc3339 {}", s(i)), &text::rfc3339(&t), &s(o));
+            }
+            "since" => {
+                let now = Time::parse_rfc3339("2026-11-11T12:30:15.123456789Z").unwrap();
+                let (t, e) = match limbo::cli::local::parse_since(&s(i), now) {
+                    Ok(t) => (t.rfc3339_nano(), String::new()),
+                    Err(e) => (String::new(), e),
+                };
+                d.eq(&format!("since {:?}", s(i)), &t, &s(&o["time"]));
+                d.eq(&format!("since error {:?}", s(i)), &e, &s(&o["err"]));
             }
             f => panic!("unknown fn {f}"),
         }

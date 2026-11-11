@@ -1,5 +1,5 @@
-//! The Go CLI's commands that read a manifest and the files here (cmd/limbo/main.go): `limbo version | validate | plan
-//! | address`, an unknown command (which Go reads as one taking a manifest), and no command at all. Same arguments,
+//! The Go CLI's commands that read a manifest and the files here (cmd/limbo/main.go, report_cmd.go): `limbo version |
+//! validate | plan | address | report`, an unknown command (which Go reads as one taking a manifest), and no command. Same arguments,
 //! output, errors and exit status as Go; rust/parity/cli-differential.py compares the two binaries.
 
 use super::commands::{Fail, Io};
@@ -17,10 +17,9 @@ const USAGE: &str = "usage: limbo <validate|plan|seed|up|launch|down|address|exp
 
 /// The commands main.go's `run` handles before its manifest flag set, and those it handles after it that are still
 /// the Go binary's.
-const OWN_SWITCH: [&str; 14] = [
+const OWN_SWITCH: [&str; 13] = [
     "serve",
     "quarantine",
-    "report",
     "doctor",
     "setup",
     "passthrough",
@@ -35,13 +34,16 @@ const OWN_SWITCH: [&str; 14] = [
 ];
 const STILL_GO: [&str; 7] = ["seed", "up", "down", "launch", "capture", "export", "screenshot"];
 
-/// `limbo` with no command, `version`, `validate`, `plan`, `address` and any command Go does not know; None for the
-/// rest.
+/// `limbo` with no command, `version`, `validate`, `plan`, `address`, `report` and any command Go does not know; None
+/// for the rest.
 pub fn run(cmd: Option<&str>, args: &[String], io: &mut Io) -> Option<Result<(), Fail>> {
     let Some(cmd) = cmd else { return Some(Err(Fail::Msg(USAGE.into()))) };
     if cmd == "version" {
         let _ = writeln!(io.out, "{VERSION}");
         return Some(Ok(()));
+    }
+    if cmd == "report" {
+        return Some(report(args, io));
     }
     if OWN_SWITCH.contains(&cmd) || STILL_GO.contains(&cmd) {
         return None;
@@ -138,4 +140,95 @@ fn plan(m: &Manifest, state: &str, io: &mut Io) -> Result<(), Fail> {
     let _ = writeln!(io.out, "# addresses are placeholders: each guest's subnet is given and recorded at up (limbo address MANIFEST)");
     let _ = write!(io.out, "# libvirt network\n{net}\n# libvirt domain\n{dom}\n# nftables\n{rules}\n# launch\n{launch_line}\n");
     Ok(())
+}
+
+// ---- report (cmd/limbo/report_cmd.go) ----
+
+fn report(args: &[String], io: &mut Io) -> Result<(), Fail> {
+    let mut fs = FlagSet::new("report");
+    fs.string("state-dir", &default_state_dir(io), "directory holding events.jsonl and quarantine/");
+    fs.string("guest", "", "only this guest");
+    fs.string("since", "", "only this period: a duration like 24h or 7d, or a date like 2026-10-01");
+    fs.string("out", "", "write to this file instead of stdout");
+    let mut stderr = vec![];
+    let r = super::flags::parse_interspersed(&mut fs, args.to_vec(), &mut stderr);
+    let _ = io.err.write_all(&stderr);
+    r.map_err(Fail::Msg)?;
+    let (state, since, out) = (fs.str("state-dir"), fs.str("since"), fs.str("out"));
+    let now = crate::gotime::Time::now().utc();
+    let mut inp =
+        crate::report::Input { events: vec![], skipped: 0, records: vec![], guest: fs.str("guest"), since: Default::default(), now };
+    if !since.is_empty() {
+        inp.since = parse_since(&since, now)?;
+    }
+    let (evs, skipped, err) = crate::events::read(&sys::join(&[&state, "events.jsonl"]));
+    if let Some(e) = err {
+        if !e.not_exist {
+            return Err(Fail::Msg(e.msg));
+        }
+    }
+    inp.events = evs;
+    inp.skipped = skipped;
+    let store = crate::quarantine::Store::open(&sys::join(&[&state, "quarantine"]))?;
+    inp.records = store.list();
+    let doc = crate::report::render(&inp);
+    if out.is_empty() {
+        let _ = io.out.write_all(doc.as_bytes());
+        return Ok(());
+    }
+    sys::write_file(&out, doc.as_bytes(), 0o644).map_err(|e| Fail::Msg(sys::go_path_error("open", &out, &e)))
+}
+
+/// parseSince: "36h", "7d" or a calendar date.
+pub fn parse_since(s: &str, now: crate::gotime::Time) -> Result<crate::gotime::Time, String> {
+    let n = s.len();
+    if n > 1 && s.ends_with('d') {
+        if let Some(days) = sscanf_int(&s[..n - 1]) {
+            if days > 0 {
+                // Go: now.Add(-time.Duration(days) * 24 * time.Hour), int64 arithmetic that wraps
+                return Ok(now.add(days.wrapping_neg().wrapping_mul(86_400_000_000_000)));
+            }
+        }
+    }
+    if let Some(d) = crate::gotime::parse_duration(s) {
+        if d > 0 {
+            return Ok(now.add(-d));
+        }
+    }
+    if let Some(t) = crate::gotime::parse_date(s) {
+        return Ok(t);
+    }
+    Err("--since must be a duration (24h, 7d) or a date (2026-10-01)".into())
+}
+
+/// fmt's isSpace (the scanner's own table).
+fn fmt_space(c: char) -> bool {
+    matches!(c as u32, 0x09..=0x0d | 0x20 | 0x85 | 0xa0 | 0x1680 | 0x2000..=0x200a | 0x2028 | 0x2029 | 0x202f | 0x205f | 0x3000)
+}
+
+/// `fmt.Sscanf(s, "%d", &n)`: spaces skipped (a newline is an error), an optional sign, at least one digit, within
+/// int64; anything after the number is left unread.
+fn sscanf_int(s: &str) -> Option<i64> {
+    let mut rest = s;
+    loop {
+        let c = rest.chars().next()?;
+        if c == '\r' && rest[1..].starts_with('\n') {
+            rest = &rest[1..];
+            continue;
+        }
+        if c == '\n' {
+            return None;
+        }
+        if !fmt_space(c) {
+            break;
+        }
+        rest = &rest[c.len_utf8()..];
+    }
+    let b = rest.as_bytes();
+    let sign = usize::from(matches!(b.first(), Some(b'+' | b'-')));
+    let digits = b[sign..].iter().take_while(|c| c.is_ascii_digit()).count();
+    if digits == 0 {
+        return None;
+    }
+    rest[..sign + digits].parse().ok()
 }

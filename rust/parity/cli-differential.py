@@ -22,6 +22,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -391,9 +392,9 @@ def local_cases():
     """The commands that read a manifest and the files here (cli/local.rs): no socket."""
     cs = []
 
-    def L(name, cmd, args, files=None, env=None, stdin=b""):
-        cs.append({"name": "m " + name[2:], "cmd": cmd, "args": list(args), "answers": [], "env": env or {}, "stdin": stdin,
-                   "files": files or {}})
+    def L(name, cmd, args, files=None, env=None, stdin=b"", norm=None):
+        cs.append({"name": name if cmd == "report" else "m " + name[2:], "cmd": cmd, "args": list(args), "answers": [],
+                   "env": env or {}, "stdin": stdin, "files": files or {}, "norm": norm or []})
 
     lin = {"m.json": MANIFEST}
     pinned = {"m.json": mf(clipboard="text", provision={"host_key": HOST_KEY})}
@@ -469,7 +470,129 @@ def local_cases():
     L("l address env", "address", ["m.json"], {"m.json": MANIFEST, "e/subnets.json": '{"lab": 33}'}, env={"LIMBO_STATE_DIR": "e"})
     L("l frobnicate state", "frobnicate", ["-state-dir", "x", "m.json"], lin)
     L("l plan non-utf8 manifest", "plan", ["m.json"], {"m.json": mf(app={"name": "W", "exec": "a\u00ffb"})})
+    report_cases(L)
     return cs
+
+
+def ev(t, kind, guest="lab", **detail):
+    e = {"time": t, "kind": kind, "guest": guest}
+    if detail:
+        e["detail"] = detail
+    return json.dumps(e)
+
+
+LONG_CMD = "echo " + "\u00e9" * 50 + " && " + "x" * 40
+EVENTS = "\n".join([
+    ev("2026-11-01T10:00:00Z", "guest.start"),
+    ev("2026-11-01T09:00:00+02:00", "guest.define"),
+    "",
+    "   \t",
+    "not json",
+    '{"time": "2026-11-01T10:00:00Z", "kind": ""}',
+    '{"time": "2026-11-01T10:00:00Z", "guest": "lab"}',
+    '{"time": "yesterday", "kind": "guest.stop"}',
+    '{"time": "2026-11-01T10:00:00Z", "kind": "guest.stop", "detail": {"n": 1}}',
+    '{"time": "2026-11-01T10:05:00,5Z", "KIND": "guest.stop", "Guest": "lab", "extra": [1]}\r',
+    '{"time": "2026-11-01T10:06:00Z", "kind": "policy.apply", "guest": "lab", "detail": null}',
+    '{"time": "2026-11-01T10:07:00Z", "kind": "x", "kind": "policy.remove", "guest": "lab", "detail": {"a": "1", "a": "2"}} ',
+    ev("2026-11-02T08:00:00Z", "run.start", "r-1", command="nmap -sV 198.51.100.0/24 | tee `out` *bold* [link](x) <b>"),
+    ev("2026-11-02T08:01:00Z", "run.end", "r-1", status="done", exit_code="0"),
+    ev("2026-11-02T08:02:00Z", "run.start", "r-2", command=LONG_CMD),
+    ev("2026-11-02T08:03:00Z", "run.end", "r-2", status="timeout"),
+    ev("2026-11-02T08:04:00Z", "run.start", "r-3", command=""),
+    ev("2026-11-02T08:05:00Z", "run.end", "r-3", status="failed", exit_code="2"),
+    ev("2026-11-02T08:06:00Z", "run.start", "r-4"),
+    ev("2026-11-02T08:07:00Z", "run.end", "r-9", status="done"),
+    ev("2026-11-02T08:08:00Z", "run.start", "r-1", command="again"),
+    ev("2026-11-03T00:00:00Z", "image.rejected", "", reason="weekly check: changed", path="/var/lib/limbo/images/a.qcow2"),
+    ev("2026-11-03T00:01:00Z", "gate.blocked", "w\u00e9b|x", reason="guest is quarantined (q-1, open)"),
+    ev("2026-11-03T00:02:00Z", "policy.restrict", "lab", level="restrict", note="tab\there\nnewline\u0007bell\u202eRLO\u200bzw"),
+    ev("2026-11-03T00:03:00Z", "policy.release", "lab"),
+    ev("2026-11-03T00:04:00Z", "link.down", "lab", why="x" * 170),
+    ev("2026-11-03T00:05:00Z", "link.up", "lab", why="\u00e9" * 100),
+    ev("2026-10-01T00:00:00Z", "guest.start", "old"),
+    ev("0001-01-01T00:00:00Z", "guest.start", "zero"),
+    ev("2026-11-03T00:06:00Z", "net.flow", "other", dst="192.0.2.1", bytes="12"),
+]) + "\n"
+
+
+def qrec(id, guest, status, opened, **more):
+    r = {"id": id, "guest": guest, "reason": "port scan from guest", "source": "heimdall:limbo-guest", "level": "isolate",
+         "status": status, "opened": opened}
+    r.update(more)
+    return json.dumps(r, indent=2)
+
+
+QDIR = ".local/state/limbo/quarantine/"
+RECS = {
+    QDIR + "q-1.json": qrec("q-1", "lab", "open", "2026-11-03T00:00:00Z",
+                            evidence={"zeta": "last", "alpha": "first `x` | y", "mid": "tab\there"},
+                            advisory=[{"source": "sarina", "time": "2026-11-03T01:00:00+02:00",
+                                       "text": "looks like nmap\n```\n# not a heading\n````x\u0007\u202e\n\n"}]),
+    QDIR + "q-2.json": qrec("q-2", "w\u00e9b", "safe", "2026-11-02T00:00:00Z",
+                            verdict={"value": "safe", "by": "alice", "note": "fine <ok>", "time": "2026-11-02T03:00:00Z"}),
+    QDIR + "q-3.json": qrec("q-3", "lab", "dangerous", "2026-11-01T00:00:00Z",
+                            verdict={"value": "dangerous", "by": "bob", "note": "", "time": "2026-11-01T05:00:00-05:00"},
+                            advisory=[{"source": "a", "time": "2026-11-01T00:00:00Z", "text": ""},
+                                      {"source": "b`b", "time": "2026-11-01T00:00:01Z", "text": "````````"}]),
+    QDIR + "q-4.json": qrec("q-4", "other", "closed", "2026-10-01T00:00:00Z"),
+    QDIR + "q-5.json": qrec("q-5", "other", "stra\u00dfe-\u1f80-\u0149", "2026-09-01T00:00:00Z"),
+    QDIR + "notes.txt": "ignored",
+    QDIR + "sub.json/": "",
+}
+ST = ".local/state/limbo/"
+
+
+def report_cases(L):
+    """limbo report: the event log and the quarantine records here, rendered."""
+    gen = [(r"Generated \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ\.", "Generated NOW.")]
+    rel = gen + [(r"since \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ\.", "since REL.")]
+    full = dict(RECS, **{ST + "events.jsonl": EVENTS})
+    L("report empty", "report", [], norm=gen)
+    L("report full", "report", [], full, norm=gen)
+    L("report guest", "report", ["--guest", "lab"], full, norm=gen)
+    L("report guest md", "report", ["-guest=w\u00e9b|x"], full, norm=gen)
+    L("report guest none", "report", ["--guest", "nobody"], full, norm=gen)
+    for s in ["2026-11-02", "2026-11-03", "2000-01-01", "2026-02-29", "2024-02-29", "2026-13-01", "2026-1-01", "20261-01-01",
+              "0000-01-01", "2026-11-02x", "7d", "3650d", "1d", "0d", "-1d", "+2d", " 3d", "\t4d", "\n5d", "\r\n5d", "5xd",
+              "99999999999999999999d", "106752d", "24h", "1h30m", "1.5h", ".5h", "1.h", "0", "-24h", "+24h", "0h", "1\u00b5s",
+              "1\u03bcs", "1us", "5", "h", "", "d", "1e3h", "9223372036854775807ns", "9223372036854775808ns", "2562047h",
+              "2562048h", "1.00000000000000000001h", "\u3000" + "2d", "1d2"]:
+        L(f"report since {s!r}", "report", ["--since", s], full, norm=gen if re.fullmatch(r"\d{4}-\d\d-\d\d", s) else rel)
+    L("report since then guest", "report", ["--since", "2026-11-02", "--guest", "lab"], full, norm=gen)
+    L("report out", "report", ["--out", "r.md"], full, norm=gen)
+    L("report out exists", "report", ["--out", "r.md"], dict(full, **{"r.md": "old"}), norm=gen)
+    L("report out folder", "report", ["--out", "d"], dict(full, **{"d/": ""}), norm=gen)
+    L("report out missing dir", "report", ["--out", "no/r.md"], full, norm=gen)
+    L("report positional", "report", ["extra", "--guest", "lab"], full, norm=gen)
+    L("report bad flag", "report", ["--bogus"], full, norm=gen)
+    L("report help", "report", ["-h"], full, norm=gen)
+    L("report flag no value", "report", ["--since"], full, norm=gen)
+    L("report state-dir", "report", ["--state-dir", "s"], {"s/events.jsonl": EVENTS}, norm=gen)
+    L("report state env", "report", [], {"e/events.jsonl": EVENTS}, env={"LIMBO_STATE_DIR": "e"}, norm=gen)
+    L("report state empty", "report", ["--state-dir", ""], {"events.jsonl": EVENTS}, norm=gen)
+    L("report events folder", "report", [], {ST + "events.jsonl/": ""}, norm=gen)
+    L("report events link loop", "report", [], {ST + "events.jsonl@": "events.jsonl"}, norm=gen)
+    L("report state is file", "report", ["--state-dir", "f"], {"f": "x"}, norm=gen)
+    L("report quarantine is file", "report", [], {ST + "quarantine": "x"}, norm=gen)
+    L("report corrupt record", "report", [], {QDIR + "q-9.json": "{"}, norm=gen)
+    L("report corrupt record type", "report", [], {QDIR + "q-9.json": '{"id": 5}'}, norm=gen)
+    L("report record bad time", "report", [], {QDIR + "q-9.json": '{"id": "q", "opened": "x"}'}, norm=gen)
+    L("report record link to folder", "report", [], {QDIR + "d/": "", QDIR + "l.json@": "d"}, norm=gen)
+    L("report record dup id", "report", [], {QDIR + "a.json": qrec("q", "a", "open", "2026-11-01T00:00:00Z"),
+                                              QDIR + "b.json": qrec("q", "b", "safe", "2026-11-02T00:00:00Z")}, norm=gen)
+    L("report bytes in log", "report", [], {ST + "events.jsonl": b'{"time":"2026-11-01T00:00:00Z","kind":"k\xff\xe2\x82","guest":"g\xc3"}\n'
+                                             + b'{"time":"2026-11-01T00:00:01Z","kind":"run.start","guest":"r","detail":{"command":"'
+                                             + b"\xe2\x82\xac" * 30 + b'"}}\n'}, norm=gen)
+    big = '{"time":"2026-11-01T00:00:00Z","kind":"k","guest":"g","detail":{"x":"%s"}}'
+    pad = len(big) - 2
+    for n, extra in [("fits", (1 << 20) - 1), ("one over", 1 << 20)]:
+        line = big % ("y" * (extra - pad))
+        L(f"report line {n}", "report", [], {ST + "events.jsonl": ev("2026-11-01T00:00:00Z", "a") + "\n" + line + "\n"}, norm=gen)
+        L(f"report last line {n}", "report", [], {ST + "events.jsonl": line[:-1] + "}"}, norm=gen)
+    L("report last line at limit", "report", [], {ST + "events.jsonl": big % ("y" * ((1 << 20) - pad))}, norm=gen)
+    L("report last line under limit", "report", [], {ST + "events.jsonl": big % ("y" * ((1 << 20) - 1 - pad))}, norm=gen)
+    L("report no home", "report", [], env={"HOME": None}, norm=gen)
 
 
 class Server:
@@ -561,12 +684,22 @@ def make_files(work, files):
             os.makedirs(p, exist_ok=True)
         elif name.endswith("@"):
             os.symlink(content, p)
+        elif isinstance(content, bytes):
+            with open(p, "wb") as f:
+                f.write(content)
         else:
             with open(p, "w") as f:
                 f.write(content.replace("{W}", work))
 
 
-def snapshot(work):
+def normalize(data, norm):
+    """The case's (pattern, replacement) pairs applied: what differs between two runs by design (the time now)."""
+    for pat, rep in norm:
+        data = re.sub(pat.encode(), rep.encode(), data)
+    return data
+
+
+def snapshot(work, norm=()):
     out = {}
     for root, dirs, fnames in os.walk(work):
         for n in sorted(dirs + fnames):
@@ -579,7 +712,7 @@ def snapshot(work):
                 out[rel] = "dir %o" % (st.st_mode & 0o7777)
             else:
                 with open(p, "rb") as f:
-                    out[rel] = "file %o %s" % (st.st_mode & 0o7777, hashlib.sha256(f.read()).hexdigest()[:16])
+                    out[rel] = "file %o %s" % (st.st_mode & 0o7777, hashlib.sha256(normalize(f.read(), norm)).hexdigest()[:16])
     return out
 
 
@@ -602,14 +735,16 @@ def run_one(binary, case, base):
                 p = subprocess.run(argv, cwd=work, env=env, stdin=dn, capture_output=True, timeout=30)
         else:
             p = subprocess.run(argv, cwd=work, env=env, input=stdin, capture_output=True, timeout=30)
-        res = {"stdout": p.stdout.decode("utf-8", "backslashreplace"), "stderr": p.stderr.decode("utf-8", "backslashreplace"),
+        norm = case.get("norm", [])
+        res = {"stdout": normalize(p.stdout, norm).decode("utf-8", "backslashreplace"),
+               "stderr": p.stderr.decode("utf-8", "backslashreplace"),
                "exit": p.returncode}
     except subprocess.TimeoutExpired:
         res = {"stdout": "", "stderr": "TIMEOUT", "exit": -1}
     finally:
         srv.close()
     res["requests"] = srv.requests
-    res["files"] = snapshot(work)
+    res["files"] = snapshot(work, case.get("norm", []))
     return res
 
 
