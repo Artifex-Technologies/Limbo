@@ -1,5 +1,5 @@
 //! limbo-rs: `limbo serve`, the socket-client commands (quarantine, settings, instance, license, exchange) and the
-//! manifest and file commands (version, validate, plan, address, report) in Rust.
+//! manifest and file commands (version, validate, plan, address, report) and analyze in Rust.
 //! Every other command is handed, unchanged, to the Go limbo binary (docs/RUST_PORT.md).
 
 use std::os::unix::process::CommandExt;
@@ -29,7 +29,7 @@ fn go_binary() -> Option<String> {
 /// The commands ported so far (src/cli/commands.rs, src/cli/local.rs), when their arguments and the environment they read are
 /// UTF-8 (otherwise the Go limbo runs them, as it did before: it takes any bytes).
 fn cli_command(args: &[std::ffi::OsString]) -> Option<i32> {
-    const VARS: [&str; 7] = ["SUDO_USER", "USER", "PKEXEC_UID", "SUDO_UID", "SUDO_GID", "HOME", "LIMBO_STATE_DIR"];
+    const VARS: [&str; 8] = ["SUDO_USER", "USER", "PKEXEC_UID", "SUDO_UID", "SUDO_GID", "HOME", "LIMBO_STATE_DIR", "TMPDIR"];
     let cmd = match args.get(1) {
         Some(c) => Some(c.to_str()?),
         None => None,
@@ -85,7 +85,7 @@ fn main() {
     }
     if args.get(1).map(String::as_str) == Some("rs-version") {
         println!(
-            "limbo-rs {} (serve, quarantine, settings, instance, license, exchange, version, validate, plan, address and report in Rust; every other command runs the Go limbo)",
+            "limbo-rs {} (serve, quarantine, settings, instance, license, exchange, version, validate, plan, address, report and analyze in Rust; every other command runs the Go limbo)",
             env!("CARGO_PKG_VERSION")
         );
         return;

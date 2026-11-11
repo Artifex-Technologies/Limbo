@@ -3,6 +3,7 @@
 //! HTTP client over the unix socket (`url`, `client`, pinned by `testdata/parity/cliclient.json`), and the commands
 //! themselves (`commands`, compared with the Go binary by rust/parity/cli-differential.py).
 
+pub mod analyze;
 pub mod client;
 pub mod commands;
 pub mod flags;

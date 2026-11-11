@@ -17,24 +17,11 @@ const USAGE: &str = "usage: limbo <validate|plan|seed|up|launch|down|address|exp
 
 /// The commands main.go's `run` handles before its manifest flag set, and those it handles after it that are still
 /// the Go binary's.
-const OWN_SWITCH: [&str; 13] = [
-    "serve",
-    "quarantine",
-    "doctor",
-    "setup",
-    "passthrough",
-    "analyze",
-    "settings",
-    "instance",
-    "license",
-    "exchange",
-    "net",
-    "wine",
-    "image",
-];
+const OWN_SWITCH: [&str; 12] =
+    ["serve", "quarantine", "doctor", "setup", "passthrough", "settings", "instance", "license", "exchange", "net", "wine", "image"];
 const STILL_GO: [&str; 7] = ["seed", "up", "down", "launch", "capture", "export", "screenshot"];
 
-/// `limbo` with no command, `version`, `validate`, `plan`, `address`, `report` and any command Go does not know; None
+/// `limbo` with no command, `version`, `validate`, `plan`, `address`, `report`, `analyze` and any command Go does not know; None
 /// for the rest.
 pub fn run(cmd: Option<&str>, args: &[String], io: &mut Io) -> Option<Result<(), Fail>> {
     let Some(cmd) = cmd else { return Some(Err(Fail::Msg(USAGE.into()))) };
@@ -44,6 +31,9 @@ pub fn run(cmd: Option<&str>, args: &[String], io: &mut Io) -> Option<Result<(),
     }
     if cmd == "report" {
         return Some(report(args, io));
+    }
+    if cmd == "analyze" {
+        return Some(super::analyze::run(args, io));
     }
     if OWN_SWITCH.contains(&cmd) || STILL_GO.contains(&cmd) {
         return None;

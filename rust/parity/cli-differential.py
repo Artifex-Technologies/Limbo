@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """The Go and the Rust CLI commands, compared: the socket-client commands (limbo quarantine | settings | instance | license
 | exchange) on the same scripted socket, and the manifest commands (version, validate, plan, address, an unknown
-command; local_cases) on the same files.
+command; local_cases) on the same files, limbo report on the same log and records, and limbo analyze (an inbox
+here, the scripted socket; analyze_cases).
 
 A fake server listens on a unix socket in a scratch folder, records every request it gets (method, target, Host,
 Content-Length, Referer, Transfer-Encoding, the other header names, the body) and answers each with the next raw
@@ -595,6 +596,64 @@ def report_cases(L):
     L("report no home", "report", [], env={"HOME": None}, norm=gen)
 
 
+def analyze_cases():
+    """limbo analyze: the sample copied into an inbox here, the run asked for and polled (every 3 s) on the socket."""
+    cs = []
+    norm = [(r"\.incoming-\d+", ".incoming-N")]
+    base = {"inbox/": "", "sample.bin": "MZ\x00 not really a program\n"}
+
+    def A(name, args, answers=(), files=None, sock=True, inbox=True):
+        pre = ["--inbox", "{W}/inbox"] if inbox else []
+        c = C(name, pre + list(args), answers, files=dict(base, **(files or {})), sock=sock)
+        cs.append(dict(c, cmd="analyze", norm=norm))
+
+    go = ok({"id": "r00000001", "status": "running"}, "202 Accepted")
+    done = ok({"id": "r00000001", "status": "done", "stdout": "== triage\nPE32 executable\n", "stderr": "warn: stripped\n",
+               "exit_code": 0})
+    A("an no args", [], sock=False, inbox=False)
+    A("an too many", ["a", "b", "c"])
+    A("an bad flag", ["--bogus", "sample.bin"])
+    A("an help", ["-h"])
+    A("an flag after file", ["sample.bin", "--json"], [go, done])
+    A("an missing file", ["nope.bin"])
+    A("an file is folder", ["inbox"])
+    A("an inbox missing flag", ["--inbox", "{W}/nowhere", "sample.bin"], inbox=False)
+    A("an inbox is file", ["--inbox", "{W}/sample.bin", "sample.bin"], inbox=False)
+    A("an inbox slash", ["--inbox", "{W}/inbox/", "sample.bin"], [err("400 Bad Request", "no such profile")], inbox=False)
+    A("an socket missing", ["--socket", "{D}/none", "sample.bin"], sock=False)
+    A("an refused", ["sample.bin"], [err("400 Bad Request", "profile_unknown: no profile \"x\"", "profile_unknown")])
+    A("an refused no error", ["sample.bin"], [ok({"id": ""}, "202 Accepted")])
+    A("an refused number", ["sample.bin"], [ok({"error": 1.5e21}, "409 Conflict")])
+    A("an refused map", ["sample.bin"], [ok({"error": {"b": [1, "x", None], "a": True}}, "409 Conflict")])
+    A("an 200 with id", ["sample.bin"], [ok({"id": "r1"})])
+    A("an 202 id number", ["sample.bin"], [ok({"id": 5}, "202 Accepted")])
+    A("an 202 array", ["sample.bin"], [ok([{"id": "r1"}], "202 Accepted")])
+    A("an 202 bad json", ["sample.bin"], [ok('{"id": "r1"', "202 Accepted")])
+    A("an 202 empty", ["sample.bin"], [resp("", "202 Accepted")])
+    A("an 202 trailing", ["--timeout", "-400", "sample.bin"], [ok('{"id": "r1"} garbage', "202 Accepted")])
+    A("an 202 dup id", ["--timeout", "-400", "sample.bin"], [ok('{"id": "r1", "id": "r2"}', "202 Accepted")])
+    A("an hangup", ["sample.bin"], [HANGUP])
+    A("an post 307", ["--timeout=-400", "sample.bin"], [redirect("307 Temporary Redirect", "/v1/sample-runs2"), go])
+    A("an post 301", ["--timeout=-400", "sample.bin"], [redirect("301 Moved Permanently", "/v1/sample-runs2"), go])
+    A("an past deadline", ["--timeout", "-400", "-profile", "p<1>&", "sample.bin", "cat sample | xxd <x> & echo é"], [go])
+    A("an done", ["sample.bin"], [go, done])
+    A("an done json", ["--json", "sample.bin"], [go, done])
+    A("an running then done", ["sample.bin"], [go, go, done])
+    A("an error", ["sample.bin"], [go, ok({"status": "failed", "stdout": "", "error": "boot_failed: the guest did not boot"})])
+    A("an error json", ["-json", "sample.bin"], [go, ok({"status": "failed", "error": "boot_failed"})])
+    A("an stdout kinds", ["sample.bin"], [go, ok({"status": "done", "stdout": {"z": 1, "a": [True, None, 2.5e-7]}, "stderr": 7})])
+    A("an no stdout", ["sample.bin"], [go, ok({"status": "done"})])
+    A("an result not json", ["sample.bin"], [go, resp("<html>oops</html>", "500 Internal Server Error")])
+    A("an result not json json", ["--json", "sample.bin"], [go, resp("<html>oops</html>", "500 Internal Server Error")])
+    A("an result status number", ["sample.bin"], [go, ok({"status": 1, "stdout": "x"})])
+    A("an result hangup", ["sample.bin"], [go, HANGUP])
+    A("an not finished", ["--timeout", "-398", "sample.bin"], [go, go, go])
+    A("an id escape", ["sample.bin"], [ok({"id": "%zz"}, "202 Accepted")])
+    A("an id query", ["sample.bin"], [ok({"id": "a b?c=d#e"}, "202 Accepted"), done])
+    A("an command arg", ["--profile", "decompile", "--timeout", "60", "sample.bin", "strings -n 8 sample"], [go, done])
+    return cs
+
+
 class Server:
     """The scripted socket: records requests, answers from the case's list in order."""
 
@@ -737,7 +796,7 @@ def run_one(binary, case, base):
             p = subprocess.run(argv, cwd=work, env=env, input=stdin, capture_output=True, timeout=30)
         norm = case.get("norm", [])
         res = {"stdout": normalize(p.stdout, norm).decode("utf-8", "backslashreplace"),
-               "stderr": p.stderr.decode("utf-8", "backslashreplace"),
+               "stderr": normalize(p.stderr, norm).decode("utf-8", "backslashreplace"),
                "exit": p.returncode}
     except subprocess.TimeoutExpired:
         res = {"stdout": "", "stderr": "TIMEOUT", "exit": -1}
@@ -762,7 +821,7 @@ def main():
     if len(os.path.join(base, "s")) >= 100:
         sys.exit(f"{base}: too long for a socket path")
     os.umask(0o022)
-    cs = [c for c in cases() + local_cases() if a.only in c["name"]]
+    cs = [c for c in cases() + local_cases() + analyze_cases() if a.only in c["name"]]
     bad = 0
     comparisons = 0
     for c in cs:

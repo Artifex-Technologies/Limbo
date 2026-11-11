@@ -133,7 +133,16 @@ fn partial<T: FromGo>(raw: &[u8], mut init: T, ty: &str) -> T {
 }
 
 /// json.Unmarshal into a map[string]any: the members, last one of a key winning; nil for null.
-fn unmarshal_map(raw: &[u8]) -> Result<Vec<(String, Value)>, String> {
+pub(crate) fn unmarshal_map(raw: &[u8]) -> Result<Vec<(String, Value)>, String> {
+    map_of(gojson::parse(raw).map_err(|e| e.0)?)
+}
+
+/// json.NewDecoder(body).Decode into a map[string]any: the first value only.
+pub(crate) fn decode_map(raw: &[u8]) -> Result<Vec<(String, Value)>, String> {
+    map_of(gojson::parse_first(raw).map_err(|e| e.0)?)
+}
+
+fn map_of(v: Value) -> Result<Vec<(String, Value)>, String> {
     // a number beyond float64 anywhere in it fails the whole document
     fn floats(v: &Value, path: &mut Vec<(String, bool)>) -> Result<(), String> {
         match v {
@@ -157,7 +166,7 @@ fn unmarshal_map(raw: &[u8]) -> Result<Vec<(String, Value)>, String> {
             _ => Ok(()),
         }
     }
-    match gojson::parse(raw).map_err(|e| e.0)? {
+    match v {
         Value::Null => Ok(vec![]),
         Value::Object(m) => {
             for (k, x) in &m {
@@ -177,7 +186,7 @@ fn unmarshal_map(raw: &[u8]) -> Result<Vec<(String, Value)>, String> {
     }
 }
 
-fn map_get<'a>(m: &'a [(String, Value)], k: &str) -> Option<&'a Value> {
+pub(crate) fn map_get<'a>(m: &'a [(String, Value)], k: &str) -> Option<&'a Value> {
     m.iter().rev().find(|(key, _)| key == k).map(|(_, v)| v)
 }
 

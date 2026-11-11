@@ -609,6 +609,8 @@ struct Req {
     url: Url,
     body: Option<Vec<u8>>,
     referer: Option<Vec<u8>>,
+    /// The Content-Type header (http.Client.Post's), copied to every redirect that keeps the body.
+    content_type: Option<String>,
 }
 
 /// (*http.Request).write: the request line and headers as the transport sends them (less User-Agent and
@@ -633,6 +635,11 @@ fn request_bytes(r: &Req) -> Vec<u8> {
         cred.extend_from_slice(u.password.as_deref().unwrap_or_default());
         out.extend_from_slice(b"Authorization: Basic ");
         out.extend_from_slice(base64(&cred).as_bytes());
+        out.extend_from_slice(b"\r\n");
+    }
+    if let Some(ct) = &r.content_type {
+        out.extend_from_slice(b"Content-Type: ");
+        out.extend_from_slice(ct.as_bytes());
         out.extend_from_slice(b"\r\n");
     }
     if let Some(rf) = &r.referer {
@@ -680,6 +687,11 @@ pub fn request_url(path: &str) -> Result<Url, String> {
 
 /// Client.Do of a request already made (see `send`).
 pub fn send_url(sock: &str, method: &str, first: Url, body: Option<Vec<u8>>) -> Result<Response, String> {
+    send_typed(sock, method, first, body, None)
+}
+
+/// [`send_url`] with a Content-Type header: `http.Client.Post(url, content_type, body)`.
+pub fn send_typed(sock: &str, method: &str, first: Url, body: Option<Vec<u8>>, content_type: Option<&str>) -> Result<Response, String> {
     let deadline = Instant::now() + TIMEOUT;
     let op = {
         let mut c = method.chars();
@@ -690,7 +702,8 @@ pub fn send_url(sock: &str, method: &str, first: Url, body: Option<Vec<u8>>) -> 
     };
     let uerr = |u: &[u8], e: &str| format!("{op} {}: {e}", quote_bytes(u));
     let orig_body = body.clone();
-    let mut cur = Req { method: method.into(), url: first, body, referer: None };
+    let content_type = content_type.map(String::from);
+    let mut cur = Req { method: method.into(), url: first, body, referer: None, content_type: content_type.clone() };
     let mut include_body = true;
     let mut sent = 0;
     loop {
@@ -735,7 +748,9 @@ pub fn send_url(sock: &str, method: &str, first: Url, body: Option<Vec<u8>>) -> 
             return Err(uerr(&loc, "stopped after 10 redirects"));
         }
         let body = if include_body { orig_body.clone() } else { None };
-        cur = Req { method: next_method, url: u, body, referer };
+        // a redirect that drops the body drops its Content-Type too, as Go's client does
+        let ct = if include_body { content_type.clone() } else { None };
+        cur = Req { method: next_method, url: u, body, referer, content_type: ct };
     }
 }
 
