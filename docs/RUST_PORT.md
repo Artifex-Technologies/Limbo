@@ -244,6 +244,13 @@ Next, in order:
 1. The owner reruns `scripts/rust-checks.sh` (both daemons): only checks in summary.txt marked DIFFERS count against
    the port. Then the switch, and the Rust daemon's figures after it.
 2. (hostpolicy done: `hostpolicy.json`.) Carry over the runs tests that use a fake clock and executor (`internal/runs/*_test.go`) as fixtures; today the differential run covers runs end to end, not each branch.
+   Plan: `internal/runs/parity_test.go` with a runner that fails by line prefix as `engine/parity_test.go` words it
+   (`<line>: exit status 1: <stderr>`; the Rust side builds `CmdErr` with the same text, `not_found` for
+   exec.ErrNotFound), a fake executor (out, errOut, exit, truncated, an error that is or is not errConnection, block
+   until the command timeout), the profile variants of `setup()`, and per scenario: the Start error (code, message,
+   remedy), the finished Result with id and times normalised (`r00000001`...), the command lines per run, the events
+   (kind, guest, detail) and the files left under state/. Scenarios needing a caller's context (boot timeout through
+   ctx, cancel) stay with the differential run: the Rust `Manager::start` takes none.
 3. Then the CLI commands, starting with the ones the daemon's users call most (`limbo quarantine`, `settings`,
    `instance`, `license`, `exchange`: all talk to the sockets). The integration scripts call `limbo quarantine` through
    limbo-rs, so a ported command is exercised by the owner's next run of them.
