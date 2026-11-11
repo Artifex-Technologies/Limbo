@@ -43,7 +43,6 @@ pub const CODE_COMMAND_TIMEOUT: &str = "command_timeout";
 pub const CODE_GUEST_KILLED: &str = "guest_killed";
 pub const CODE_HOST_RESOURCES: &str = "host_resources";
 pub const CODE_VIRT_UNAVAIL: &str = "virt_unavailable";
-pub const CODE_RUN_UNKNOWN: &str = "run_unknown";
 pub const CODE_RUN_FAILED: &str = "run_failed";
 pub const CODE_HARDWARE_DENIED: &str = "hardware_denied";
 pub const CODE_APPROVAL_REQUIRED: &str = "approval_required";

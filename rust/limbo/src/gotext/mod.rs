@@ -251,25 +251,6 @@ pub fn fixed(x: f64, prec: usize) -> String {
     format!("{x:.prec$}")
 }
 
-/// Go's `strconv.ParseFloat(s, 64)` for the values Heimdall reads (decimal and exponent forms, "inf"/"nan" words): `None`
-/// where Go returns an error, including out of range.
-pub fn parse_float(s: &str) -> Option<f64> {
-    let t = s.strip_prefix(['+', '-']).unwrap_or(s);
-    let lower = t.to_ascii_lowercase();
-    if matches!(lower.as_str(), "inf" | "infinity" | "nan") {
-        return s.parse::<f64>().ok(); // Rust reads these words as Go does, any case, with a sign
-    }
-    // Go accepts hex floats and underscores only in other forms Heimdall never writes; plain decimal is what is checked here.
-    if t.is_empty() || !t.bytes().all(|b| b.is_ascii_digit() || matches!(b, b'.' | b'e' | b'E' | b'+' | b'-')) {
-        return None;
-    }
-    let v: f64 = s.parse().ok()?;
-    if v.is_infinite() {
-        return None; // Go: value out of range
-    }
-    Some(v)
-}
-
 /// Go's `strings.ToLower`: each character by its simple lowercase mapping. Rust's `str::to_lowercase` differs in two places:
 /// it writes the dotted capital I (U+0130) as two characters where Go writes `i`, and it writes a word-final capital sigma as
 /// final sigma where Go writes σ.

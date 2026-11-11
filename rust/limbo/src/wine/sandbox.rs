@@ -55,9 +55,7 @@ pub struct DataFile {
     pub content: Vec<u8>,
 }
 
-/// The descriptors the runner passes to bwrap: the stop pipe, the started pipe, then the data files.
-pub const FD_STOP: i32 = 3;
-pub const FD_STARTED: i32 = 4;
+/// The first data file's descriptor: the runner passes bwrap the stop pipe on 3, the started pipe on 4, then the data files.
 pub const FD_DATA: i32 = 5;
 
 pub fn runtime_dir(uid: u32) -> String {

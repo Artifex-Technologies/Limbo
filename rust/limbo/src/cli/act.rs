@@ -69,9 +69,7 @@ impl Drop for Remove {
 
 /// launchView: what a person's launch asks Limbo about the guest.
 #[derive(Default)]
-#[allow(dead_code)]
 struct View {
-    state: String,
     running: bool,
     address: String,
     hold: Option<Hold>,
@@ -83,7 +81,7 @@ struct Hold {
 }
 crate::go_struct!(Hold as "" { id: "id" => "string", status: "status" => "string" });
 crate::go_struct!(View as "main.launchView" {
-    state: "state" => "string", running: "running" => "bool", address: "address" => "string",
+    running: "running" => "bool", address: "address" => "string",
     hold: "hold" => "*struct { ID string \"json:\\\"id\\\"\"; Status string \"json:\\\"status\\\"\" }",
 });
 
