@@ -179,3 +179,66 @@ fn arb_json() -> impl Strategy<Value = serde_json::Value> {
         ]
     })
 }
+
+/// A fake host where every requested PCI device is listed, present, alone in its IOMMU group and approved: only the
+/// host's OS can refuse it.
+fn eligible_host(os_line: &str, devs: &[String]) -> (limbo::hostpolicy::Policy, String) {
+    let root = std::env::temp_dir().join(format!("limbo-prop-hp-{}-{}", std::process::id(), limbo::sys::rand_hex(6)));
+    let r = root.to_string_lossy().into_owned();
+    std::fs::create_dir_all(format!("{r}/etc/limbo")).unwrap();
+    std::fs::create_dir_all(format!("{r}/state")).unwrap();
+    std::fs::write(format!("{r}/etc/os-release"), format!("NAME=x\n{os_line}\n")).unwrap();
+    let list = serde_json::to_string(devs).unwrap();
+    std::fs::write(format!("{r}/etc/limbo/host-policy.json"), format!(r#"{{"pci_allow":{list}}}"#)).unwrap();
+    for a in devs {
+        std::fs::create_dir_all(format!("{r}/sys/bus/pci/devices/{a}/iommu_group/devices")).unwrap();
+        std::fs::write(format!("{r}/sys/bus/pci/devices/{a}/class"), "0x030000\n").unwrap();
+        std::fs::write(format!("{r}/sys/bus/pci/devices/{a}/iommu_group/devices/{a}"), "").unwrap();
+    }
+    let approval = format!(r#"{{"devices":{list},"expires":"2999-01-01T00:00:00Z","by":"me"}}"#);
+    let ap = format!("{r}/state/passthrough-approval.json");
+    std::fs::write(&ap, approval).unwrap();
+    // an approval anyone but its owner can read counts as none
+    std::fs::set_permissions(&ap, std::os::unix::fs::PermissionsExt::from_mode(0o600)).unwrap();
+    let mut p = limbo::hostpolicy::Policy::new(&format!("{r}/state"), &format!("{r}/run"));
+    p.root = r.clone();
+    p.open_files = Some(Box::new(Default::default));
+    p.driver = Some(Box::new(|_: &str| String::new()));
+    (p, r)
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(300))]
+
+    /// LykanOS (and its old ID) never hands over a device, whatever the list, the approval and the device say; any OS
+    /// but Labyrinth neither; on Labyrinth the eligible device is allowed and ready. A guest asking for nothing passes.
+    #[test]
+    fn only_labyrinth_ever_allows_passthrough(
+        id in "(lykanos|chymaera|LykanOS|\"chymaera\"|labyrinth|\"Labyrinth\"|'labyrinth'|debian|arch|cachyos|labyrinthos|[a-z]{0,10})",
+        devs in proptest::collection::btree_set("0000:0[0-9]:00\\.[0-7]", 1..4),
+        no_id_line in proptest::bool::weighted(0.1),
+    ) {
+        let devs: Vec<String> = devs.into_iter().collect();
+        let line = if no_id_line { "VERSION=1".to_string() } else { format!("ID={id}") };
+        let (p, root) = eligible_host(&line, &devs);
+        let m = limbo::manifest::Manifest {
+            devices: limbo::manifest::Devices { pci: Some(devs.clone()), usb: None },
+            ..Default::default()
+        };
+        let normal = id.trim_matches(['"', '\'']).to_lowercase();
+        let check = p.check(&m);
+        let none = p.check(&limbo::manifest::Manifest::default());
+        let ready = p.ready(&m);
+        let _ = std::fs::remove_dir_all(&root);
+        prop_assert!(none.is_ok());
+        if !no_id_line && normal == "labyrinth" {
+            prop_assert!(check.is_ok(), "{check:?}");
+            prop_assert!(ready.is_ok(), "{ready:?}");
+        } else {
+            prop_assert!(matches!(check, Err(limbo::hostpolicy::Refused::Denied(_))), "{id}: {check:?}");
+            if !no_id_line && (normal == "lykanos" || normal == "chymaera") {
+                prop_assert_eq!(check.unwrap_err().to_string(), format!("hardware passthrough denied: this host ({normal}) does not allow hardware passthrough"));
+            }
+        }
+    }
+}

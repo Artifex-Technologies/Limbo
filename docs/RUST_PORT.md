@@ -79,13 +79,14 @@ behaviour differs from Go's, the port carries Go's:
   | `quarantine.json` | clean() and 25 generated store sequences (records, errors, holding, the list, the files on disk) | 3,140 |
   | `engine.json` | 184 scenarios: up for eight manifests with each step failing in turn, down, holds, release, defined, held and condemned guests, wrong images, subnets taken; every command line and stdin, event, error and file | 1,598 |
   | `api.json` | 14 scenarios, 172 requests on the four sockets with the Go handlers' own fakes: route tables, the mux, holds, verdicts, a failing audit log, runs and their codes, decoder errors, the password switch | 736 |
+  | `hostpolicy.json` | 181 fake hosts (each a sysfs tree, os-release, host policy, approval file, reboot marker, open files, drivers; made a real folder by the Rust test): every case of the hostpolicy tests, then 120 generated hosts; Check, Ready, Standing, HostID, Before/After with every refusal's kind and text | 2,484 |
 
-  **All 7,338 comparisons equal.** Mapping to the Go test functions of serve's packages: the manifest, virt, policy,
+  **All 9,822 comparisons equal.** Mapping to the Go test functions of serve's packages: the manifest, virt, policy,
   provision and hostfw tests' inputs are all in `manifests.json`; the flows and quarantine tests' scenarios are in theirs
   plus generated ones; the engine tests' scenarios in `engine.json`; `TestRouteTablesPerPrincipal`, the open, verdict,
   close, oversized-body, agent-error, profiles, sample-run and Settings-switch tests in `api.json`. The runs, instances,
   exchange, license, settings and image-proof tests (which need a real folder, a clock or a running daemon) are covered
-  by the differential run below instead of fixtures; the hostpolicy tests (a fake sysfs) are not carried over yet.
+  by the differential run below instead of fixtures; every hostpolicy test is a case of `hostpolicy.json`.
 - **The differential run** (`rust/parity/daemon-differential.py`): the Go and the Rust daemon, each in its own user,
   mount and network namespace (root inside, nobody outside; /etc/limbo a private empty bind mount; loopback only), with
   fake virsh, qemu-img, nft, ssh, xorriso, ufw and clamscan on PATH that record what they are asked. The same 114 steps
@@ -103,7 +104,9 @@ behaviour differs from Go's, the port carries Go's:
   route outside their restrict-only sets for every one of the 32 combinations of services; user.sock never has a
   verdict, close, down, settings, instance-registry or license-key route); any path and method on control.sock or
   agent.sock reaches only allowed routes (proptest, 2,000 cases); route tables well formed; a raise never lowers;
-  gojson agrees with serde_json on valid documents.
+  gojson agrees with serde_json on valid documents; only Labyrinth ever hands over a device (proptest, 300 fake hosts
+  with every device listed, eligible and approved: LykanOS and its old ID refused by name, any other OS or a missing
+  ID refused, Labyrinth allowed and ready).
 - **Fuzzing** (`rust/fuzz`, nightly): `http_request` (any bytes on any socket: no panic, and control and agent reach only
   their routes), `json`, `manifest` (parses, validates and round-trips, or is refused; the XML and rules are made),
   `nflog`. Their bodies also run on stable in `tests/properties.rs` on every `cargo test`.
@@ -240,8 +243,7 @@ Next, in order:
 
 1. The owner reruns `scripts/rust-checks.sh` (both daemons): only checks in summary.txt marked DIFFERS count against
    the port. Then the switch, and the Rust daemon's figures after it.
-2. Carry over the hostpolicy tests (fake sysfs trees as fixture folders) and the runs tests that use a fake clock and
-   executor (`internal/runs/*_test.go`) as fixtures; today the differential run covers runs end to end, not each branch.
+2. (hostpolicy done: `hostpolicy.json`.) Carry over the runs tests that use a fake clock and executor (`internal/runs/*_test.go`) as fixtures; today the differential run covers runs end to end, not each branch.
 3. Then the CLI commands, starting with the ones the daemon's users call most (`limbo quarantine`, `settings`,
    `instance`, `license`, `exchange`: all talk to the sockets). The integration scripts call `limbo quarantine` through
    limbo-rs, so a ported command is exercised by the owner's next run of them.
