@@ -19,7 +19,7 @@ pub fn check(m: &Manifest) -> Result<(), String> {
     if m.windows.iso.is_empty() || m.windows.license_file.is_empty() {
         return Err(ERR_WINDOWS_NOT_CONFIGURED.into());
     }
-    // Go ranges over a map here, so which missing file it names first varies; the ISO is checked first here
+    // the ISO first, as Go does since 2026-11-11 (it ranged over a map, and the order varied)
     for (label, p) in [("windows.iso", &m.windows.iso), ("windows.license_file", &m.windows.license_file)] {
         let ok = std::fs::metadata(p).map(|md| md.is_file() && md.len() > 0).unwrap_or(false);
         if !ok {

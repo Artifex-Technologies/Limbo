@@ -61,9 +61,13 @@ impl FlagSet {
         self.get(name).value.parse().unwrap_or(0)
     }
 
-    /// Go's `defaultUsage`: "Usage of NAME:" and `PrintDefaults`, flags sorted by name.
+    /// Go's `defaultUsage`: "Usage of NAME:" ("Usage:" for a set without a name) and `PrintDefaults`, flags sorted by name.
     pub fn usage(&self, out: &mut Vec<u8>) {
-        out.extend_from_slice(format!("Usage of {}:\n", self.name).as_bytes());
+        if self.name.is_empty() {
+            out.extend_from_slice(b"Usage:\n");
+        } else {
+            out.extend_from_slice(format!("Usage of {}:\n", self.name).as_bytes());
+        }
         let mut fl: Vec<&Flag> = self.flags.iter().collect();
         fl.sort_by(|a, b| a.name.cmp(b.name));
         for f in fl {

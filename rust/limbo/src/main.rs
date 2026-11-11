@@ -1,4 +1,5 @@
-//! limbo-rs: `limbo serve` and the socket-client commands (quarantine, settings, instance, license, exchange) in Rust.
+//! limbo-rs: `limbo serve`, the socket-client commands (quarantine, settings, instance, license, exchange) and the
+//! manifest commands that touch nothing (version, validate, plan, address) in Rust.
 //! Every other command is handed, unchanged, to the Go limbo binary (docs/RUST_PORT.md).
 
 use std::os::unix::process::CommandExt;
@@ -25,15 +26,18 @@ fn go_binary() -> Option<String> {
     })
 }
 
-/// The socket-client commands in Rust (src/cli/commands.rs), when their arguments and the environment they read are
+/// The commands ported so far (src/cli/commands.rs, src/cli/local.rs), when their arguments and the environment they read are
 /// UTF-8 (otherwise the Go limbo runs them, as it did before: it takes any bytes).
 fn cli_command(args: &[std::ffi::OsString]) -> Option<i32> {
-    const VARS: [&str; 5] = ["SUDO_USER", "USER", "PKEXEC_UID", "SUDO_UID", "SUDO_GID"];
-    let cmd = args.get(1)?.to_str()?;
-    if !matches!(cmd, "quarantine" | "settings" | "instance" | "license" | "exchange") {
+    const VARS: [&str; 7] = ["SUDO_USER", "USER", "PKEXEC_UID", "SUDO_UID", "SUDO_GID", "HOME", "LIMBO_STATE_DIR"];
+    let cmd = match args.get(1) {
+        Some(c) => Some(c.to_str()?),
+        None => None,
+    };
+    if cmd == Some("rs-version") {
         return None;
     }
-    let rest: Vec<String> = args[2..].iter().map(|a| a.to_str().map(String::from)).collect::<Option<_>>()?;
+    let rest: Vec<String> = args.get(2..).unwrap_or_default().iter().map(|a| a.to_str().map(String::from)).collect::<Option<_>>()?;
     if VARS.iter().any(|v| std::env::var_os(v).is_some_and(|x| x.to_str().is_none())) {
         return None;
     }
@@ -50,7 +54,10 @@ fn cli_command(args: &[std::ffi::OsString]) -> Option<i32> {
         out: &mut out,
         err: &mut stderr,
     };
-    let r = limbo::cli::commands::run(cmd, &rest, &mut io)?;
+    let r = match cmd.and_then(|c| limbo::cli::commands::run(c, &rest, &mut io)) {
+        Some(r) => r,
+        None => limbo::cli::local::run(cmd, &rest, &mut io)?,
+    };
     use std::io::Write;
     let _ = out.flush();
     Some(match r {
@@ -78,7 +85,7 @@ fn main() {
     }
     if args.get(1).map(String::as_str) == Some("rs-version") {
         println!(
-            "limbo-rs {} (serve, quarantine, settings, instance, license and exchange in Rust; every other command runs the Go limbo)",
+            "limbo-rs {} (serve, quarantine, settings, instance, license, exchange, version, validate, plan and address in Rust; every other command runs the Go limbo)",
             env!("CARGO_PKG_VERSION")
         );
         return;

@@ -30,7 +30,9 @@ func Check(m *manifest.Manifest) error {
 	if m.Windows.ISO == "" || m.Windows.LicenseFile == "" {
 		return ErrWindowsNotConfigured
 	}
-	for label, p := range map[string]string{"windows.iso": m.Windows.ISO, "windows.license_file": m.Windows.LicenseFile} {
+	// In this order (a map's order varied, so which missing file was named first did too).
+	for _, f := range [][2]string{{"windows.iso", m.Windows.ISO}, {"windows.license_file", m.Windows.LicenseFile}} {
+		label, p := f[0], f[1]
 		fi, err := os.Stat(p)
 		if err != nil || !fi.Mode().IsRegular() || fi.Size() == 0 {
 			return fmt.Errorf("%w (%s %q is missing or empty)", ErrWindowsNotConfigured, label, p)

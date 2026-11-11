@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""The Go and the Rust socket-client commands (limbo quarantine | settings | instance | license | exchange) on the same
-scripted socket, compared.
+"""The Go and the Rust CLI commands, compared: the socket-client commands (limbo quarantine | settings | instance | license
+| exchange) on the same scripted socket, and the manifest commands (version, validate, plan, address, an unknown
+command; local_cases) on the same files.
 
 A fake server listens on a unix socket in a scratch folder, records every request it gets (method, target, Host,
 Content-Length, Referer, Transfer-Encoding, the other header names, the body) and answers each with the next raw
@@ -366,6 +367,111 @@ def cases():
     return [c for c in cs if c]
 
 
+HOST_KEY = "ssh-ed25519 " + "A" * 68
+WIN_HOST_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOtq1lTZ8bS0bYpDn3m0Yy3uKQ0o4m6F1rYqJcVv8hJX limbo-win"
+
+
+def mf(**over):
+    """A manifest (JSON text) from MANIFEST with fields replaced (None drops one)."""
+    m = json.loads(MANIFEST)
+    for k, v in over.items():
+        if v is None:
+            m.pop(k, None)
+        else:
+            m[k] = v
+    return json.dumps(m)
+
+
+WIN = mf(name="win", os="windows", clipboard="text", access={"user": "analyst"},
+         app={"name": "Notepad", "exec": "C:\\Windows\\notepad.exe"},
+         windows={"iso": "{W}/win.iso", "license_file": "{W}/lic.txt"})
+
+
+def local_cases():
+    """The commands that read a manifest and the files here (cli/local.rs): no socket."""
+    cs = []
+
+    def L(name, cmd, args, files=None, env=None, stdin=b""):
+        cs.append({"name": "m " + name[2:], "cmd": cmd, "args": list(args), "answers": [], "env": env or {}, "stdin": stdin,
+                   "files": files or {}})
+
+    lin = {"m.json": MANIFEST}
+    pinned = {"m.json": mf(clipboard="text", provision={"host_key": HOST_KEY})}
+    L("l no command", None, [])
+    L("l version", "version", [])
+    L("l version args", "version", ["x", "--bogus"])
+    for cmd in ("validate", "plan", "address", "frobnicate", ""):
+        L(f"l {cmd} no manifest", cmd, [])
+        L(f"l {cmd} missing file", cmd, ["nope.json"])
+        L(f"l {cmd} folder", cmd, ["d"], {"d/": ""})
+        L(f"l {cmd} help", cmd, ["-h"])
+        L(f"l {cmd} bad flag", cmd, ["--bogus", "m.json"], lin)
+        L(f"l {cmd} ok", cmd, ["m.json"], lin)
+    L("l validate flags", "validate", ["-state-dir", "s", "--iso=x", "-i-know", "--seconds", "5", "-check", "-identity", "k", "m.json"], lin)
+    L("l validate after positional", "validate", ["m.json", "--bogus"], lin)
+    L("l validate dashdash", "validate", ["--", "-m.json"], {"-m.json": MANIFEST})
+    L("l validate seconds bad", "validate", ["--seconds", "x", "m.json"], lin)
+    L("l validate seconds range", "validate", ["--seconds", "99999999999999999999", "m.json"], lin)
+    L("l validate flag no value", "validate", ["m.json", "-state-dir"][::-1], lin)
+    L("l validate bool value", "validate", ["-check=maybe", "m.json"], lin)
+    L("l validate state-dir empty value", "validate", ["-state-dir=", "m.json"], lin)
+    for n, doc in enumerate([
+        "", "{", "[]", "null", "{} {}", MANIFEST + " trailing", MANIFEST + "{", '{"name": 5}', '{"nmae": "x"}',
+        mf(name="Bad Name"), mf(os="macos"), mf(image=None), mf(cpus=-1), mf(memory_mb=1 << 40),
+        mf(network={"mode": "allowlist", "allow": [{"addr": "192.0.2.0/24", "port": 443, "proto": "tcp"}]}),
+        mf(network={"mode": "allowlist", "allow": [{"addr": "not-an-ip"}]}),
+        mf(network={"mode": "internet-only"}), mf(network={"mode": "bridge"}),
+        mf(clipboard="text"), mf(clipboard="all"), mf(disposable=True), mf(exchange_dir="/tmp/x", exchange_writable=True),
+        mf(provision={"host_key": "ssh-rsa AAAA"}), mf(provision={"host_key": HOST_KEY + " with comment"}),
+        mf(devices={"usb": ["1234:abcd"]}, disposable=True), mf(devices={"pci": ["0000:01:00.0"]}, disposable=True),
+        mf(devices={"usb": ["zz"]}), mf(console_log="/tmp/c.log"), mf(disk_gb=5000), mf(subnet=7),
+        WIN, mf(name="w\u00e9b"), "\ufeff" + MANIFEST, '{"name": "a\\u0000b"}',
+    ]):
+        L(f"l validate doc {n}", "validate", ["m.json"], {"m.json": doc})
+        L(f"l plan doc {n}", "plan", ["m.json"], {"m.json": doc})
+    L("l plan pinned", "plan", ["m.json"], pinned)
+    L("l plan pinned identity", "plan", ["--identity", "/k", "m.json"], pinned)
+    L("l plan state-dir", "plan", ["-state-dir", "/var/lib/elsewhere/../st", "m.json"], pinned)
+    L("l plan state env", "plan", ["m.json"], pinned, env={"LIMBO_STATE_DIR": "rel/state"})
+    L("l plan no home", "plan", ["m.json"], pinned, env={"HOME": None})
+    L("l plan home slash", "plan", ["m.json"], pinned, env={"HOME": "/x/y/"})
+    L("l plan home dot", "plan", ["m.json"], pinned, env={"HOME": "."})
+    L("l plan help home", "plan", ["-help"], env={"HOME": "/h"})
+    L("l plan disposable", "plan", ["m.json"], {"m.json": mf(disposable=True, clipboard="text", provision={"host_key": HOST_KEY})})
+    L("l plan win no files", "plan", ["m.json"], {"m.json": WIN})
+    L("l plan win iso only", "plan", ["m.json"], {"m.json": WIN, "win.iso": "iso"})
+    L("l plan win empty lic", "plan", ["m.json"], {"m.json": WIN, "win.iso": "iso", "lic.txt": ""})
+    L("l plan win lic folder", "plan", ["m.json"], {"m.json": WIN, "win.iso": "iso", "lic.txt/": ""})
+    L("l plan win both", "plan", ["m.json"], {"m.json": WIN, "win.iso": "iso", "lic.txt": "key"})
+    L("l plan win iso link", "plan", ["m.json"], {"m.json": WIN, "real.iso": "iso", "win.iso@": "real.iso", "lic.txt": "key"})
+    L("l plan win clip off", "plan", ["m.json"], {"m.json": WIN.replace('"clipboard": "text"', '"clipboard": "off"'),
+                                                  "win.iso": "iso", "lic.txt": "key"})
+    L("l plan win unattended key", "plan", ["m.json"], {"m.json": mf(
+        name="win2", os="windows", access={"user": "analyst"}, app={"name": "a,b", "exec": "x y"},
+        windows={"iso": "{W}/win.iso", "license_file": "{W}/lic.txt"}, provision={"host_key": WIN_HOST_KEY}),
+        "win.iso": "iso", "lic.txt": "key"})
+    L("l plan allowlist", "plan", ["m.json"], {"m.json": mf(network={"mode": "allowlist", "allow": [
+        {"addr": "192.0.2.10", "port": 443, "proto": "tcp"}, {"addr": "2001:db8::/32", "proto": "udp", "port": 53},
+        {"addr": "198.51.100.0/24", "port": 22}]})})
+    L("l plan usb", "plan", ["m.json"], {"m.json": mf(devices={"usb": ["1234:abcd"]}, disposable=True)})
+    subs = {"lab": 7, "other": 9, "BAD": 3, "big": 300}
+    st = ".local/state/limbo/subnets.json"
+    L("l address not up", "address", ["m.json"], lin)
+    L("l address up", "address", ["m.json"], {"m.json": MANIFEST, st: json.dumps(subs)})
+    L("l address state-dir", "address", ["--state-dir", "s", "m.json"], {"m.json": MANIFEST, "s/subnets.json": '{"lab": 254}'})
+    L("l address zero", "address", ["m.json"], {"m.json": MANIFEST, st: '{"lab": 0}'})
+    L("l address dup", "address", ["m.json"], {"m.json": MANIFEST, st: '{"lab": 4, "lab": 5}'})
+    L("l address float", "address", ["m.json"], {"m.json": MANIFEST, st: '{"lab": 4.0}'})
+    L("l address bad json", "address", ["m.json"], {"m.json": MANIFEST, st: '{"lab": 4'})
+    L("l address wrong type", "address", ["m.json"], {"m.json": MANIFEST, st: '{"lab": 4, "x": "y"}'})
+    L("l address array", "address", ["m.json"], {"m.json": MANIFEST, st: "[1]"})
+    L("l address folder", "address", ["m.json"], {"m.json": MANIFEST, st + "/": ""})
+    L("l address env", "address", ["m.json"], {"m.json": MANIFEST, "e/subnets.json": '{"lab": 33}'}, env={"LIMBO_STATE_DIR": "e"})
+    L("l frobnicate state", "frobnicate", ["-state-dir", "x", "m.json"], lin)
+    L("l plan non-utf8 manifest", "plan", ["m.json"], {"m.json": mf(app={"name": "W", "exec": "a\u00ffb"})})
+    return cs
+
+
 class Server:
     """The scripted socket: records requests, answers from the case's list in order."""
 
@@ -457,7 +563,7 @@ def make_files(work, files):
             os.symlink(content, p)
         else:
             with open(p, "w") as f:
-                f.write(content)
+                f.write(content.replace("{W}", work))
 
 
 def snapshot(work):
@@ -484,17 +590,18 @@ def run_one(binary, case, base):
     os.makedirs(work)
     make_files(work, case["files"])
     srv = Server(sockp, case["answers"])
-    args = [a.replace("{S}", sockp).replace("{D}", base) for a in case["args"]]
+    args = [a.replace("{S}", sockp).replace("{D}", base).replace("{W}", work) for a in case["args"]]
     env = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "HOME": work, "USER": "tester"}
     env.update(case["env"])
-    env = {k: v for k, v in env.items()}
+    env = {k: v for k, v in env.items() if v is not None}
+    argv = [binary] + ([case["cmd"]] if case["cmd"] is not None else []) + args
     stdin = case["stdin"]
     try:
         if stdin is None:
             with open(os.devnull, "rb") as dn:
-                p = subprocess.run([binary, case["cmd"]] + args, cwd=work, env=env, stdin=dn, capture_output=True, timeout=30)
+                p = subprocess.run(argv, cwd=work, env=env, stdin=dn, capture_output=True, timeout=30)
         else:
-            p = subprocess.run([binary, case["cmd"]] + args, cwd=work, env=env, input=stdin, capture_output=True, timeout=30)
+            p = subprocess.run(argv, cwd=work, env=env, input=stdin, capture_output=True, timeout=30)
         res = {"stdout": p.stdout.decode("utf-8", "backslashreplace"), "stderr": p.stderr.decode("utf-8", "backslashreplace"),
                "exit": p.returncode}
     except subprocess.TimeoutExpired:
@@ -520,7 +627,7 @@ def main():
     if len(os.path.join(base, "s")) >= 100:
         sys.exit(f"{base}: too long for a socket path")
     os.umask(0o022)
-    cs = [c for c in cases() if a.only in c["name"]]
+    cs = [c for c in cases() + local_cases() if a.only in c["name"]]
     bad = 0
     comparisons = 0
     for c in cs:

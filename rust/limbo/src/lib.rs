@@ -24,6 +24,7 @@ pub mod exchange;
 pub mod hostpolicy;
 pub mod image;
 pub mod instances;
+pub mod launch;
 pub mod license;
 pub mod runs;
 

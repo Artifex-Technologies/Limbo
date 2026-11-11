@@ -6,6 +6,7 @@
 pub mod client;
 pub mod commands;
 pub mod flags;
+pub mod local;
 pub mod tabw;
 pub mod text;
 pub mod url;

@@ -49,15 +49,23 @@ impl Error {
 /// Go's nesting limit (encoding/json's scanner refuses deeper documents).
 const MAX_DEPTH: usize = 10_000;
 
-/// Go's quoteChar: how the scanner names the byte it stopped at.
-fn quote_char(c: u8) -> String {
+/// Go 1.27's quoteChar for the input at a byte: the whole character when the bytes there are UTF-8 ('é', '\ufeff'),
+/// else the one byte ('\xef').
+fn quote_char(b: &[u8], at: usize) -> String {
+    let c = b.get(at).copied().unwrap_or(0);
     match c {
         b'\'' => "'\\''".into(),
         b'"' => "'\"'".into(),
         _ => {
-            // strconv.Quote(string(c)): the byte as the rune of the same number
-            let q = gotext::quote(&char::from(c).to_string());
-            format!("'{}'", &q[1..q.len() - 1])
+            let rest = &b[at.min(b.len())..];
+            let ch = (1..=rest.len().min(4)).find_map(|k| std::str::from_utf8(&rest[..k]).ok().and_then(|s| s.chars().next()));
+            match ch {
+                Some(ch) => {
+                    let q = gotext::quote(&ch.to_string());
+                    format!("'{}'", &q[1..q.len() - 1])
+                }
+                None => format!("'\\x{c:02x}'"),
+            }
         }
     }
 }
@@ -67,10 +75,6 @@ enum Stop {
     Syntax(String),
     /// The input ended inside the value.
     End,
-}
-
-fn syn<T>(c: u8, context: &str) -> Result<T, Stop> {
-    Err(Stop::Syntax(format!("invalid character {} {context}", quote_char(c))))
 }
 
 struct Parser<'a> {
@@ -84,6 +88,11 @@ fn is_ws(c: u8) -> bool {
 }
 
 impl<'a> Parser<'a> {
+    /// A syntax error at the current byte (every caller stops on the byte it names).
+    fn syn<T>(&self, context: &str) -> Result<T, Stop> {
+        Err(Stop::Syntax(format!("invalid character {} {context}", quote_char(self.b, self.i))))
+    }
+
     fn ws(&mut self) {
         while self.b.get(self.i).is_some_and(|&c| is_ws(c)) {
             self.i += 1;
@@ -104,7 +113,7 @@ impl<'a> Parser<'a> {
             b'f' => self.word(b"false", Value::Bool(false)),
             b'n' => self.word(b"null", Value::Null),
             b'-' | b'0'..=b'9' => self.number(),
-            _ => syn(c, "looking for beginning of value"),
+            _ => self.syn("looking for beginning of value"),
         }
     }
 
@@ -114,23 +123,23 @@ impl<'a> Parser<'a> {
         for &want in &w[1..] {
             let c = self.peek()?;
             if c != want {
-                return syn(c, &format!("in literal {name} (expecting '{}')", want as char));
+                return self.syn(&format!("in literal {name} (expecting '{}')", want as char));
             }
             self.i += 1;
         }
         Ok(v)
     }
 
-    fn enter(&mut self, c: u8) -> Result<(), Stop> {
+    fn enter(&mut self) -> Result<(), Stop> {
         self.depth += 1;
         if self.depth > MAX_DEPTH {
-            return syn(c, "exceeded max depth");
+            return self.syn("exceeded max depth");
         }
         Ok(())
     }
 
     fn object(&mut self) -> Result<Value, Stop> {
-        self.enter(b'{')?;
+        self.enter()?;
         self.i += 1;
         let mut members = Vec::new();
         self.ws();
@@ -143,13 +152,13 @@ impl<'a> Parser<'a> {
             self.ws();
             let c = self.peek()?;
             if c != b'"' {
-                return syn(c, "looking for beginning of object key string");
+                return self.syn("looking for beginning of object key string");
             }
             let k = self.string()?;
             self.ws();
             let c = self.peek()?;
             if c != b':' {
-                return syn(c, "after object key");
+                return self.syn("after object key");
             }
             self.i += 1;
             self.ws();
@@ -163,13 +172,13 @@ impl<'a> Parser<'a> {
                     self.depth -= 1;
                     return Ok(Value::Object(members));
                 }
-                c => return syn(c, "after object key:value pair"),
+                _ => return self.syn("after object key:value pair"),
             }
         }
     }
 
     fn array(&mut self) -> Result<Value, Stop> {
-        self.enter(b'[')?;
+        self.enter()?;
         self.i += 1;
         let mut items = Vec::new();
         self.ws();
@@ -189,7 +198,7 @@ impl<'a> Parser<'a> {
                     self.depth -= 1;
                     return Ok(Value::Array(items));
                 }
-                c => return syn(c, "after array element"),
+                _ => return self.syn("after array element"),
             }
         }
     }
@@ -208,14 +217,14 @@ impl<'a> Parser<'a> {
         match self.peek()? {
             b'0' => self.i += 1,
             b'1'..=b'9' => self.digits(),
-            c => return syn(c, "in numeric literal"),
+            _ => return self.syn("in numeric literal"),
         }
         // a number may end the input (a top-level "5"); the stream reader then knows it is complete
         if self.b.get(self.i) == Some(&b'.') {
             self.i += 1;
             let c = self.peek()?;
             if !c.is_ascii_digit() {
-                return syn(c, "after decimal point in numeric literal");
+                return self.syn("after decimal point in numeric literal");
             }
             self.digits();
         }
@@ -226,7 +235,7 @@ impl<'a> Parser<'a> {
             }
             let c = self.peek()?;
             if !c.is_ascii_digit() {
-                return syn(c, "in exponent of numeric literal");
+                return self.syn("in exponent of numeric literal");
             }
             self.digits();
         }
@@ -240,7 +249,7 @@ impl<'a> Parser<'a> {
             let d = (c as char).to_digit(16);
             match d {
                 Some(d) => v = v * 16 + d,
-                None => return syn(c, "in \\u hexadecimal character escape"),
+                None => return self.syn("in \\u hexadecimal character escape"),
             }
             self.i += 1;
         }
@@ -279,7 +288,7 @@ impl<'a> Parser<'a> {
                     // stray bytes become U+FFFD one by one, as Go's decoder writes them
                     return Ok(gotext::lossy_owned(out));
                 }
-                c if c < 0x20 => return syn(c, "in string"),
+                c if c < 0x20 => return self.syn("in string"),
                 _ => {
                     self.i += 1; // the backslash
                     let e = self.peek()?;
@@ -293,7 +302,7 @@ impl<'a> Parser<'a> {
                         b'r' => Some(b'\r'),
                         b't' => Some(b'\t'),
                         b'u' => None,
-                        _ => return syn(e, "in string escape code"),
+                        _ => return self.syn("in string escape code"),
                     };
                     self.i += 1;
                     if let Some(c) = simple {
@@ -332,8 +341,8 @@ pub fn parse(b: &[u8]) -> Result<Value, Error> {
         Err(Stop::Syntax(s)) => return Err(Error(s)),
     };
     p.ws();
-    if let Some(&c) = b.get(p.i) {
-        return Err(Error(format!("invalid character {} after top-level value", quote_char(c))));
+    if p.i < b.len() {
+        return Err(Error(format!("invalid character {} after top-level value", quote_char(b, p.i))));
     }
     Ok(v)
 }
@@ -968,7 +977,9 @@ mod tests {
             (b"1e+", "unexpected end of JSON input", "unexpected EOF"),
             (b"{", "unexpected end of JSON input", "unexpected EOF"),
             (b"'a'", "invalid character '\\'' looking for beginning of value", "same"),
-            (b"\xc3\xa9", "invalid character '\u{c3}' looking for beginning of value", "same"),
+            (b"\xc3\xa9", "invalid character '\u{e9}' looking for beginning of value", "same"),
+            (b"\xef\xbb", "invalid character '\\xef' looking for beginning of value", "same"),
+            (b"[\xe2\x80\xa8]", "invalid character '\\u2028' looking for beginning of value", "same"),
             (b"  ", "unexpected end of JSON input", "EOF"),
         ] {
             assert_eq!(parse(doc).unwrap_err().0, unmarshal, "{:?}", String::from_utf8_lossy(doc));
