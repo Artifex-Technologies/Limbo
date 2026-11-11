@@ -17,11 +17,11 @@ const USAGE: &str = "usage: limbo <validate|plan|seed|up|launch|down|address|exp
 
 /// The commands main.go's `run` handles before its manifest flag set, and those it handles after it that are still
 /// the Go binary's.
-const OWN_SWITCH: [&str; 12] =
-    ["serve", "quarantine", "doctor", "setup", "passthrough", "settings", "instance", "license", "exchange", "net", "wine", "image"];
+const OWN_SWITCH: [&str; 11] =
+    ["serve", "quarantine", "doctor", "setup", "passthrough", "settings", "instance", "license", "exchange", "net", "wine"];
 const STILL_GO: [&str; 6] = ["up", "down", "launch", "capture", "export", "screenshot"];
 
-/// `limbo` with no command, `version`, `validate`, `plan`, `seed`, `address`, `report`, `analyze` and any command Go does not know; None
+/// `limbo` with no command, `version`, `validate`, `plan`, `seed`, `address`, `report`, `analyze`, `image` and any command Go does not know; None
 /// for the rest.
 pub fn run(cmd: Option<&str>, args: &[String], io: &mut Io) -> Option<Result<(), Fail>> {
     let Some(cmd) = cmd else { return Some(Err(Fail::Msg(USAGE.into()))) };
@@ -34,6 +34,9 @@ pub fn run(cmd: Option<&str>, args: &[String], io: &mut Io) -> Option<Result<(),
     }
     if cmd == "analyze" {
         return Some(super::analyze::run(args, io));
+    }
+    if cmd == "image" {
+        return Some(super::image::run(args, io));
     }
     if OWN_SWITCH.contains(&cmd) || STILL_GO.contains(&cmd) {
         return None;
@@ -56,6 +59,17 @@ pub fn default_state_dir(io: &Io) -> String {
         return "limbo-state".into();
     }
     sys::join(&[&home, ".local", "state", "limbo"])
+}
+
+/// checkRootStateDir: as root, only the daemon's state folder unless --i-know.
+pub fn check_root_state_dir(io: &Io, state: &str, i_know: bool) -> Result<(), Fail> {
+    if io.euid != 0 || i_know || sys::clean(state) == DAEMON_STATE_DIR {
+        return Ok(());
+    }
+    Err(Fail::Msg(format!(
+        "as root the state folder is the daemon's ({DAEMON_STATE_DIR}), where the quarantine holds and Heimdall's view are; \
+         add --i-know to use {state} anyway"
+    )))
 }
 
 /// The flags every manifest command shares (main.go's `run`).

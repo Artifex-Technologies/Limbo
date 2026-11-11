@@ -2,7 +2,8 @@
 """The Go and the Rust CLI commands, compared: the socket-client commands (limbo quarantine | settings | instance | license
 | exchange) on the same scripted socket, and the manifest commands (version, validate, plan, address, an unknown
 command; local_cases) on the same files, limbo report on the same log and records, and limbo analyze (an inbox
-here, the scripted socket; analyze_cases).
+here, the scripted socket; analyze_cases), limbo image (records here, the trusted ones under `unshare -r`;
+image_cases).
 
 A fake server listens on a unix socket in a scratch folder, records every request it gets (method, target, Host,
 Content-Length, Referer, Transfer-Encoding, the other header names, the body) and answers each with the next raw
@@ -16,7 +17,7 @@ them.
 
     python3 -I rust/parity/cli-differential.py --go GO_LIMBO --rs LIMBO_RS [--out DIR] [--only SUBSTRING] [--show]
 
-Runs as an ordinary user (no root, no namespaces). Exit status 0 when the two agree on every case.
+Runs as an ordinary user (no root; the image cases that need root's files run under `unshare -r`). Exit status 0 when the two agree on every case.
 """
 
 import argparse
@@ -767,6 +768,115 @@ def seed_cases(L):
                                                                          "out/ssh_host_ed25519_key.pub": b"ssh-ed25519 \xff\xfe more"}))
 
 
+def proofs_prep(records, chmods=(), version=1, raw=None, extra=None):
+    """A case's prep: the record file written after the case's files exist, each record with the image's real
+    signature (device, inode, size, times) unless it overrides them. records: (image name under img/, sha256 or None for
+    the file's own, overrides dict)."""
+
+    def prep(work):
+        for rel, mode in chmods:
+            if not rel.startswith("st"):
+                os.chmod(os.path.join(work, rel), mode)
+        imgs = []
+        for name, sha, over in records:
+            p = os.path.join(work, "img", name) if not name.startswith("/") else name
+            try:
+                st = os.lstat(p)
+                sig = {"dev": st.st_dev, "ino": st.st_ino, "size": st.st_size, "mtime_ns": st.st_mtime_ns, "ctime_ns": st.st_ctime_ns}
+                own = hashlib.sha256(open(p, "rb").read()).hexdigest() if os.path.isfile(p) else "0" * 64
+            except OSError:
+                sig, own = {"dev": 1, "ino": 2, "size": 3, "mtime_ns": 4, "ctime_ns": 5}, "0" * 64
+            r = {"path": p}
+            r.update(sig)
+            r.update({"sha256": sha or own, "hashed_at": "2026-03-08T09:30:00Z"})
+            r.update(over)
+            imgs.append(r)
+        doc = raw if raw is not None else json.dumps({"version": version, "images": imgs, **(extra or {})}, indent=2)
+        with open(os.path.join(work, "st", "image-proofs.json"), "w") as f:
+            f.write(doc)
+        for rel, mode in chmods:
+            if rel.startswith("st"):
+                os.chmod(os.path.join(work, rel), mode)
+
+    return prep
+
+
+def image_cases():
+    """limbo image list | verify. The trusted record is root's: those cases run under `unshare -r` (uid 0 in a user
+    namespace, so the files made here are root's), with --state-dir here and --i-know."""
+    cs = []
+    norm = [(r"\(hashed in [^)]*\)", "(hashed in T)"), (r'"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d+Z"', '"NOW"'),
+            (r'"(dev|ino|mtime_ns|ctime_ns)": \d+', r'"\1": N')]
+
+    def I(name, args, files=None, prep=None, env=None, root=True, state=True):
+        pre = (["--state-dir", "st"] if state else []) + (["--i-know"] if root and state else [])
+        cs.append({"name": name, "cmd": "image", "args": pre + list(args), "answers": [], "env": env or {}, "stdin": b"",
+                   "files": dict({"st/": "", "img/": ""}, **(files or {})), "norm": norm, "prep": prep, "userns": root})
+
+    imgs = {"img/a.qcow2": "base image a\n", "img/b.qcow2": "b" * 3000, "img/c.qcow2": "c", "img/e.qcow2": "e",
+            "img/f@": "a.qcow2", "img/g/": "", "img/sub/h.qcow2": "h", "img/big.qcow2": "x" * (5 << 20)}
+    good = [("a.qcow2", None, {}), ("big.qcow2", None, {"hashed_at": "2026-11-01T08:59:59Z"})]
+    every = good + [
+        ("b.qcow2", None, {"mtime_ns": 1, "hashed_at": "2026-11-01T09:00:00Z"}),
+        ("c.qcow2", None, {"refused_at": "2026-11-02T00:00:00Z", "found": "f" * 64, "hashed_at": "2026-07-01T23:59:00+00:00"}),
+        ("d.qcow2", None, {"hashed_at": "2025-12-31T23:30:00Z"}),
+        ("e.qcow2", None, {}), ("f", None, {}), ("g", None, {}), ("sub/h.qcow2", None, {})]
+    chm = [("img/e.qcow2", 0o664), ("img/sub", 0o775)]
+    I("image no args", [], root=False)
+    I("image two args", ["list", "verify"], root=False)
+    I("image bogus", ["frob"], root=False)
+    I("image bad flag", ["--bogus", "list"], root=False)
+    I("image help", ["-h"], root=False)
+    I("image list missing", ["list"])
+    I("image list missing user", ["list"], root=False)
+    I("image list not root's", ["list"], imgs, proofs_prep(good), root=False)
+    I("image list root no i-know", ["--state-dir", "st", "list"], state=False)
+    I("image list root daemon folder by env", ["list", "--i-know"], env={"LIMBO_STATE_DIR": "{W}/st"}, state=False)
+    I("image list", ["list"], imgs, proofs_prep(every, chm))
+    for tz in ["UTC", "America/New_York", ":Asia/Kolkata", "", "Bogus/Zone", "<+03>-3", "EST5EDT", "/usr/share/zoneinfo/Australia/Lord_Howe",
+               ":/usr/share/zoneinfo/Pacific/Chatham", "/etc/localtime", "/nowhere", "{W}/img/a.qcow2", "../../../../usr/share/zoneinfo/Europe/Paris",
+               "Europe/London", "America/Sao_Paulo", None]:
+        I(f"image list TZ {tz!r}", ["list"], imgs, proofs_prep(every, chm), env={"TZ": tz} if tz is not None else {})
+    I("image list empty", ["list"], imgs, proofs_prep([]))
+    I("image list images null", ["list"], imgs, proofs_prep([], raw='{"version": 1, "images": null}'))
+    for n, (raw, extra) in enumerate([
+            ("", None), ("{", None), ("[]", None), ('{"version": 2, "images": []}', None), ('{"version": 1}', None),
+            ('{"version": 1, "images": []} {}', None), ('{"version": 1, "images": []}\n\n  ', None), ('{"version": "1"}', None),
+            ('{"version": 1, "images": [{"dev": "x"}]}', None), ('{"version": 1, "images": [{"path": "/a", "size": 1.5}]}', None),
+            ('{"version": 1, "images": [{"path": "/a", "Dev": -1}]}', None), ('{"version": 1, "bogus": 1}', None),
+            ('{"version": 1, "images": [{"path": "a", "sha256": "' + "0" * 64 + '", "size": 1, "hashed_at": "2026-01-01T00:00:00Z"}]}', None),
+            ('{"version": 1, "images": [{"path": "/a/../b", "sha256": "' + "0" * 64 + '", "size": 1, "hashed_at": "2026-01-01T00:00:00Z"}]}', None),
+            ('{"version": 1, "images": [{"path": "/a", "sha256": "' + "A" * 64 + '", "size": 1, "hashed_at": "2026-01-01T00:00:00Z"}]}', None),
+            ('{"version": 1, "images": [{"path": "/a", "sha256": "' + "0" * 64 + '", "size": -1, "hashed_at": "2026-01-01T00:00:00Z"}]}', None),
+            ('{"version": 1, "images": [{"path": "/a", "sha256": "' + "0" * 64 + '", "size": 1}]}', None),
+            ('{"version": 1, "images": [{"path": "/a", "sha256": "' + "0" * 64 + '", "size": 1, "hashed_at": "2026-01-01T00:00:00Z", "found": "x"}]}', None),
+            ('{"version": 1, "images": [{"path": "/a", "sha256": "' + "0" * 64 + '", "size": 1, "hashed_at": "2026-01-01T00:00:00Z", "found": "' + "1" * 64 + '"}]}', None),
+            ('{"version": 1, "images": [{"path": "/a", "sha256": "' + "0" * 64 + '", "size": 1, "hashed_at": "2026-01-01T00:00:00Z"}, {"path": "/a", "sha256": "' + "0" * 64 + '", "size": 1, "hashed_at": "2026-01-01T00:00:00Z"}]}', None),
+            ('{"version": 1, "images": [' + ",".join(['{"path": "/a%d", "sha256": "%s", "size": 1, "hashed_at": "2026-01-01T00:00:00Z"}' % (i, "0" * 64) for i in range(1001)]) + ']}', None),
+            (" " * ((1 << 20) + 1), None)]):
+        I(f"image list damaged {n}", ["list"], imgs, proofs_prep([], raw=raw))
+    I("image list record group-writable", ["list"], imgs, proofs_prep(good, [("st/image-proofs.json", 0o664)]))
+    I("image list folder group-writable", ["list"], imgs, proofs_prep(good, [("st", 0o775)]))
+    I("image list record is folder", ["list"], dict(imgs, **{"st/image-proofs.json/": ""}))
+    I("image list record is link", ["list"], dict(imgs, **{"st/real.json": '{"version": 1, "images": []}', "st/image-proofs.json@": "real.json"}))
+    I("image list state is file", ["--state-dir", "f", "--i-know", "list"], {"f": "x"}, state=False)
+    I("image verify not root", ["verify"], imgs, proofs_prep(good), root=False)
+    I("image verify missing", ["verify"])
+    I("image verify empty", ["verify"], imgs, proofs_prep([]))
+    I("image verify ok", ["verify"], imgs, proofs_prep(good))
+    changed = [("a.qcow2", "1" * 64, {}), ("b.qcow2", "2" * 64, {"mtime_ns": 5}),
+               ("c.qcow2", "3" * 64, {"refused_at": "2026-11-02T00:00:00Z", "found": hashlib.sha256(b"c").hexdigest()}),
+               ("e.qcow2", "4" * 64, {"refused_at": "2026-11-02T00:00:00Z", "found": "5" * 64})]
+    I("image verify changed", ["verify"], imgs, proofs_prep(changed))
+    I("image verify every kind", ["verify"], imgs, proofs_prep(every, chm))
+    I("image verify ignored", ["verify"], imgs, proofs_prep([], raw="{"))
+    I("image verify log is folder", ["verify"], dict(imgs, **{"st/events.jsonl/": ""}), proofs_prep(good))
+    I("image verify log appended", ["verify"], dict(imgs, **{"st/events.jsonl": '{"time":"2026-01-01T00:00:00Z","kind":"x","guest":""}\n'}),
+      proofs_prep(changed))
+    I("image verify state folder group-writable", ["verify"], imgs, proofs_prep(changed, [("st", 0o775)]))
+    return cs
+
+
 class Server:
     """The scripted socket: records requests, answers from the case's list in order."""
 
@@ -896,6 +1006,8 @@ def run_one(binary, case, base):
     shutil.rmtree(work, ignore_errors=True)
     os.makedirs(work)
     make_files(work, case["files"])
+    if case.get("prep"):
+        case["prep"](work)
     srv = Server(sockp, case["answers"])
     args = [a.replace("{S}", sockp).replace("{D}", base).replace("{W}", work) for a in case["args"]]
     # LIMBO_RS_NO_GO: limbo-rs fails a command it has not ported instead of handing it to a Go limbo
@@ -903,6 +1015,9 @@ def run_one(binary, case, base):
     env.update({k: v.replace("{W}", work) if isinstance(v, str) else v for k, v in case["env"].items()})
     env = {k: v for k, v in env.items() if v is not None}
     argv = [binary] + ([case["cmd"]] if case["cmd"] is not None else []) + args
+    if case.get("userns"):
+        # uid 0 in a user namespace: the files made here are root's there (no real root)
+        argv = [shutil.which("unshare") or "/usr/bin/unshare", "-r"] + argv
     stdin = case["stdin"]
     try:
         if stdin is None:
@@ -937,7 +1052,7 @@ def main():
     if len(os.path.join(base, "s")) >= 100:
         sys.exit(f"{base}: too long for a socket path")
     os.umask(0o022)
-    cs = [c for c in cases() + local_cases() + analyze_cases() if a.only in c["name"]]
+    cs = [c for c in cases() + local_cases() + analyze_cases() + image_cases() if a.only in c["name"]]
     bad = 0
     comparisons = 0
     for c in cs:

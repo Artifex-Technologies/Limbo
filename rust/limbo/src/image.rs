@@ -146,6 +146,51 @@ struct RecordFile {
 }
 go_struct!(RecordFile as "image.recordFile" { version: "version" => "int", images: "images" => "[]image.Record" });
 
+/// One record for `limbo image list`.
+#[derive(Clone, Debug)]
+pub struct Status {
+    pub record: Record,
+    /// Whether a start would skip the hash now (for a manifest asking for the recorded SHA-256); `why` says why not.
+    pub quick: bool,
+    pub why: String,
+}
+
+pub const RESULT_OK: &str = "ok";
+pub const RESULT_DROPPED: &str = "dropped";
+pub const RESULT_CHANGED: &str = "changed";
+pub const RESULT_GONE: &str = "gone";
+pub const RESULT_ERROR: &str = "error";
+
+/// One recorded image's result in the weekly check (Go's Outcome).
+#[derive(Clone, Debug, Default)]
+pub struct Outcome {
+    pub path: String,
+    pub result: &'static str,
+    pub detail: String,
+    pub recorded: String,
+    pub found: String,
+    /// The file's device, inode, size and times were still those recorded (a change with no trace in its metadata).
+    pub stat_same: bool,
+    /// Not refused before for the same content (so the event is not repeated every week).
+    pub newly_refused: bool,
+    pub took_ns: i64,
+}
+
+/// How the weekly check failed: the record file was ignored (Go's ErrRecordsIgnored, with why), or anything else.
+#[derive(Debug)]
+pub enum VerifyErr {
+    Ignored(String),
+    Other(String),
+}
+
+/// What load made of the record file.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FileState {
+    Missing,
+    Ok,
+    Ignored,
+}
+
 /// Remembers which images were hashed in full (the record file) and, for listings, what this process hashed itself.
 pub struct Proofs {
     pub path: String,
@@ -277,82 +322,207 @@ impl Proofs {
         Ok(())
     }
 
-    /// The trusted records, keyed by path (empty when the file is missing, damaged or not Owner's), and whether it was
-    /// read (`Some(reason)` when it was there but ignored).
+    /// The trusted records, keyed by path (empty when the file is missing, damaged or not Owner's), and why the file was
+    /// ignored (`Some` only then).
     pub fn load(&self) -> (BTreeMap<String, Record>, Option<String>) {
+        let (m, _, why) = self.load_why();
+        (m, why)
+    }
+
+    /// Go's loadWhy: the records, what was made of the file, and why it was ignored (Go's texts).
+    pub fn load_why(&self) -> (BTreeMap<String, Record>, FileState, Option<String>) {
         let empty = BTreeMap::new();
         if self.path.is_empty() {
-            return (empty, None);
+            return (empty, FileState::Missing, None);
         }
         let m = match std::fs::symlink_metadata(&self.path) {
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return (empty, None),
-            Err(e) => return (empty, Some(sys::go_err(&e))),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return (empty, FileState::Missing, None),
+            Err(e) => return (empty, FileState::Ignored, Some(sys::go_path_error("lstat", &self.path, &e))),
             Ok(m) => m,
         };
         let st = sys::Stat::of(&m);
         if !st.is_regular() {
-            return (empty, Some("the record file is not a regular file".into()));
+            return (empty, FileState::Ignored, Some("the record file is not a regular file".into()));
         }
         if st.uid != self.owner {
-            return (empty, Some(format!("the record file is owned by uid {}, not {}", st.uid, self.owner_name())));
+            return (empty, FileState::Ignored, Some(format!("the record file is owned by uid {}, not {}", st.uid, self.owner_name())));
         }
         if st.perm() & 0o022 != 0 {
-            return (empty, Some("the record file is writable by group or others".into()));
+            return (empty, FileState::Ignored, Some("the record file is writable by group or others".into()));
         }
         if let Err(e) = self.own_folder(&sys::dir(&self.path)) {
-            return (empty, Some(format!("the record file's folder: {e}")));
+            return (empty, FileState::Ignored, Some(format!("the record file's folder: {e}")));
         }
         let mut f = match std::fs::OpenOptions::new().read(true).custom_flags(libc::O_NOFOLLOW).open(&self.path) {
             Ok(f) => f,
-            Err(e) => return (empty, Some(sys::go_err(&e))),
+            Err(e) => return (empty, FileState::Ignored, Some(sys::go_path_error("open", &self.path, &e))),
         };
         match f.metadata() {
             Ok(fm) if sys::Stat::of(&fm).dev == st.dev && sys::Stat::of(&fm).ino == st.ino => {}
-            _ => return (empty, Some("the record file changed while it was opened".into())),
+            _ => return (empty, FileState::Ignored, Some("the record file changed while it was opened".into())),
         }
         let mut b = Vec::new();
         if let Err(e) = (&mut f).take(MAX_FILE_SIZE as u64 + 1).read_to_end(&mut b) {
-            return (empty, Some(sys::go_err(&e)));
+            return (empty, FileState::Ignored, Some(sys::go_path_error("read", &self.path, &e)));
         }
         if b.len() > MAX_FILE_SIZE {
-            return (empty, Some("the record file is too large".into()));
+            return (empty, FileState::Ignored, Some("the record file is too large".into()));
         }
         let (v, more) = match gojson::parse_first_more(&b) {
             Ok(x) => x,
-            Err(e) => return (empty, Some(format!("the record file is damaged: {e}"))),
+            Err(e) => return (empty, FileState::Ignored, Some(format!("the record file is damaged: {e}"))),
         };
         let mut cx = gojson::Ctx::new(true);
         let mut rf = RecordFile::default();
         gojson::FromGo::read(&mut rf, &v, &mut cx, "image.recordFile");
         if let Err(e) = cx.finish() {
-            return (empty, Some(format!("the record file is damaged: {e}")));
+            return (empty, FileState::Ignored, Some(format!("the record file is damaged: {e}")));
         }
         if more {
-            return (empty, Some("the record file is damaged: data after the record".into()));
+            return (empty, FileState::Ignored, Some("the record file is damaged: data after the record".into()));
         }
         if rf.version != FILE_VERSION {
-            return (empty, Some(format!("the record file has version {}, not {FILE_VERSION}", rf.version)));
+            return (empty, FileState::Ignored, Some(format!("the record file has version {}, not {FILE_VERSION}", rf.version)));
         }
         let images = rf.images.unwrap_or_default();
         if images.len() > MAX_RECORDS {
-            return (empty, Some("the record file holds too many records".into()));
+            return (empty, FileState::Ignored, Some("the record file holds too many records".into()));
         }
         let mut out = BTreeMap::new();
         for r in images {
             if let Err(e) = r.valid() {
-                return (empty, Some(format!("the record file is damaged: {e}")));
+                return (empty, FileState::Ignored, Some(format!("the record file is damaged: {e}")));
             }
             if out.contains_key(&r.path) {
-                return (empty, Some(format!("the record file is damaged: {} twice", r.path)));
+                return (empty, FileState::Ignored, Some(format!("the record file is damaged: {} twice", r.path)));
             }
             out.insert(r.path.clone(), r);
         }
-        (out, None)
+        (out, FileState::Ok, None)
+    }
+
+    /// Go's List: every record (sorted by path) with whether a start would skip the hash now and why not, what load
+    /// made of the file, and why it was ignored.
+    pub fn list(&self) -> (Vec<Status>, FileState, Option<String>) {
+        let (recs, st, why) = self.load_why();
+        let out = recs
+            .into_values()
+            .map(|r| {
+                let (quick, why) = if r.refused() {
+                    (false, format!("refused by the weekly check: it hashed to {}", r.found))
+                } else {
+                    match self.eligible(&r.path) {
+                        Err(e) => (false, e),
+                        Ok(sig) if sig != r.sig => (false, "changed since it was hashed (the next start hashes it in full)".into()),
+                        Ok(_) => (true, String::new()),
+                    }
+                };
+                Status { record: r, quick, why }
+            })
+            .collect();
+        (out, st, why)
+    }
+
+    /// Go's VerifyAll, the weekly check: every recorded image hashed in full again and compared with its record, each
+    /// reported as soon as it is done, then the records renewed, dropped or marked refused (only where nobody replaced
+    /// them meanwhile). `Err(Ignored(why))` when the record file cannot be trusted.
+    pub fn verify_all(&self, report: &mut dyn FnMut(&Outcome)) -> Result<Vec<Outcome>, VerifyErr> {
+        if self.path.is_empty() {
+            return Err(VerifyErr::Other("image proofs: no record file".into()));
+        }
+        let (recs, st, why) = self.load_why();
+        if st == FileState::Ignored {
+            return Err(VerifyErr::Ignored(why.unwrap_or_default()));
+        }
+        let mut outs = vec![];
+        let mut apply: Vec<(Record, Option<Record>)> = vec![]; // (as checked, replacement or None to drop)
+        for (path, rec) in recs {
+            let start = std::time::Instant::now();
+            let mut o = Outcome { path: path.clone(), recorded: rec.sha256.clone(), ..Default::default() };
+            let r = hash_path(&path);
+            o.took_ns = start.elapsed().as_nanos() as i64;
+            match r {
+                Err(CheckErr::Io { not_exist: true, .. }) => {
+                    o.result = RESULT_GONE;
+                    o.detail = "the file is not there any more".into();
+                    apply.push((rec, None));
+                }
+                Err(e) => {
+                    o.result = RESULT_ERROR;
+                    o.detail = e.to_string();
+                }
+                Ok((_, _, false)) => {
+                    o.result = RESULT_DROPPED;
+                    o.detail = "it changed while it was read".into();
+                    apply.push((rec, None));
+                }
+                Ok((sum, before, true)) if sum == rec.sha256 => match self.eligible(&path) {
+                    Err(e) => {
+                        o.result = RESULT_DROPPED;
+                        o.detail = format!("not eligible for the quick check: {e}");
+                        apply.push((rec, None));
+                    }
+                    Ok(sig) if sig != before => {
+                        o.result = RESULT_DROPPED;
+                        o.detail = "the path names another file than the one read".into();
+                        apply.push((rec, None));
+                    }
+                    Ok(_) => {
+                        o.result = RESULT_OK;
+                        let renewed = Record {
+                            path: path.clone(),
+                            sig: before,
+                            sha256: sum,
+                            hashed_at: (self.now)().utc(),
+                            refused_at: None,
+                            found: String::new(),
+                        };
+                        apply.push((rec, Some(renewed)));
+                    }
+                },
+                Ok((sum, before, true)) => {
+                    o.result = RESULT_CHANGED;
+                    o.stat_same = before == rec.sig;
+                    o.newly_refused = !rec.refused() || rec.found != sum;
+                    o.detail = format!("it hashes to {sum}, not to the {} it was proven to have", rec.sha256);
+                    let mut refused = rec.clone();
+                    if o.newly_refused {
+                        refused.refused_at = Some((self.now)().utc());
+                        refused.found = sum.clone();
+                    }
+                    o.found = sum;
+                    apply.push((rec, Some(refused)));
+                }
+            }
+            report(&o);
+            outs.push(o);
+        }
+        if apply.is_empty() {
+            return Ok(outs);
+        }
+        self.update(|cur| {
+            for (was, now) in apply {
+                // only a record nobody replaced meanwhile (Go's sameRecord: times compared as instants)
+                if cur.get(&was.path).is_some_and(|r| *r == was) {
+                    match now {
+                        Some(n) => {
+                            cur.insert(was.path.clone(), n);
+                        }
+                        None => {
+                            cur.remove(&was.path);
+                        }
+                    }
+                }
+            }
+        })
+        .map_err(VerifyErr::Other)?;
+        Ok(outs)
     }
 
     fn update(&self, change: impl FnOnce(&mut BTreeMap<String, Record>)) -> Result<(), String> {
         self.own_folder(&sys::dir(&self.path)).map_err(|e| format!("image proofs: not written: {e}"))?;
-        let _l = sys::lock_file(&format!("{}.lock", self.path)).map_err(|e| sys::go_err(&e))?;
+        let lock = format!("{}.lock", self.path);
+        let _l = sys::lock_file(&lock).map_err(|e| sys::go_path_error("open", &lock, &e))?;
         let mut recs = self.load().0;
         change(&mut recs);
         self.save(&recs).map_err(|e| sys::go_err(&e))

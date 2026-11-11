@@ -1,0 +1,8115 @@
+{
+ "cases": [
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a696632000000000000000000000000000000000000000000000000000000000000000000000100000004000000000009555443000a0a",
+    "name": "abbrev index"
+   },
+   "out": {
+    "error": "malformed time zone information"
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a69663200000000000000000000000000000000000000000000000000000000000001000000010000000400000000000000000000000e100100445354000a0a",
+    "name": "all dst"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": true,
+      "local": "-32873-11-13 00:23",
+      "name": "DST",
+      "offset": 3600,
+      "sec": -1099511627776
+     },
+     {
+      "dst": true,
+      "local": "1883-11-18 19:59",
+      "name": "DST",
+      "offset": 3600,
+      "sec": -2717643601
+     },
+     {
+      "dst": true,
+      "local": "1883-11-18 20:00",
+      "name": "DST",
+      "offset": 3600,
+      "sec": -2717643600
+     },
+     {
+      "dst": true,
+      "local": "1969-12-30 21:13",
+      "name": "DST",
+      "offset": 3600,
+      "sec": -100000
+     },
+     {
+      "dst": true,
+      "local": "1970-01-01 00:59",
+      "name": "DST",
+      "offset": 3600,
+      "sec": -1
+     },
+     {
+      "dst": true,
+      "local": "1970-01-01 01:00",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 0
+     },
+     {
+      "dst": true,
+      "local": "1970-01-02 04:46",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 99999
+     },
+     {
+      "dst": true,
+      "local": "1970-01-02 04:46",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 100000
+     },
+     {
+      "dst": true,
+      "local": "2001-09-09 02:46",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 1000000000
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 09:59",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 1710061199
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 10:00",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 1710061200
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 08:59",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 1730620799
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 09:00",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 1730620800
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 09:00",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 1730620801
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 09:59",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 1741510799
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 10:00",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 1741510800
+     },
+     {
+      "dst": true,
+      "local": "2025-11-03 08:59",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 1762156799
+     },
+     {
+      "dst": true,
+      "local": "2025-11-03 09:00",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 1762156800
+     },
+     {
+      "dst": true,
+      "local": "2025-11-11 07:50",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 1762843815
+     },
+     {
+      "dst": true,
+      "local": "2026-02-25 07:13",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 1772000000
+     },
+     {
+      "dst": true,
+      "local": "2026-03-29 03:00",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 1774749600
+     },
+     {
+      "dst": true,
+      "local": "2026-03-29 04:00",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 1774753200
+     },
+     {
+      "dst": true,
+      "local": "2026-10-25 02:00",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 1792890000
+     },
+     {
+      "dst": true,
+      "local": "2027-01-15 09:00",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 1800000000
+     },
+     {
+      "dst": true,
+      "local": "2030-03-17 18:46",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 1900000000
+     },
+     {
+      "dst": true,
+      "local": "2100-01-01 01:00",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 4102444800
+     },
+     {
+      "dst": true,
+      "local": "36812-02-20 01:36",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696678000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "name": "bad version"
+   },
+   "out": {
+    "error": "malformed time zone information"
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a696632000000000000000000000000000000000000000000000000000000000000070000000400000010ffffffff5e040cb0ffffffff9ea63a90ffffffff9fbb0780ffffffffcb890c90",
+    "name": "cut"
+   },
+   "out": {
+    "error": "malformed time zone information"
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a696632000000000000000000000000000000000000000000000000000000000000070000000400000010ffffffff5e040cb0ffffffff9ea63a90ffffffff9fbb0780ffffffffcb890c90ffffffffd223f4700000000065ed76900000000067272d8002010203020102ffffadd40000ffffb9b00104ffffaba00008ffffb9b0010c4c4d54004344540043535400435754000a435354364344542c4d332e322e300a",
+    "name": "dst zone bad rule"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 17:33",
+      "name": "LMT",
+      "offset": -21036,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 13:09",
+      "name": "LMT",
+      "offset": -21036,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 13:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 14:13",
+      "name": "CST",
+      "offset": -21600,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 17:59",
+      "name": "CST",
+      "offset": -21600,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 18:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 21:46",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 21:46",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-08 19:46",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 02:59",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1710061199
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 04:00",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1710061200
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 02:59",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 02:59",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 03:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 01:59",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 00:50",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 00:13",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-03-28 20:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-03-28 21:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-24 19:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 11:46",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2099-12-31 18:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-19 18:36",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a696632000000000000000000000000000000000000000000000000000000000000070000000400000010ffffffff5e040cb0ffffffff9ea63a90ffffffff9fbb0780ffffffffcb890c90ffffffffd223f4700000000065ed76900000000067272d8002010203020102ffffadd40000ffffb9b00104ffffaba00008ffffb9b0010c4c4d54004344540043535400435754000a0a",
+    "name": "dst zone no rule"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 17:33",
+      "name": "LMT",
+      "offset": -21036,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 13:09",
+      "name": "LMT",
+      "offset": -21036,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 13:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 14:13",
+      "name": "CST",
+      "offset": -21600,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 17:59",
+      "name": "CST",
+      "offset": -21600,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 18:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 21:46",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 21:46",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-08 19:46",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 02:59",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1710061199
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 04:00",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1710061200
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 02:59",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 02:59",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 03:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 01:59",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 00:50",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 00:13",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-03-28 20:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-03-28 21:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-24 19:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 11:46",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2099-12-31 18:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-19 18:36",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a6966000000000000000000000000000000000000000000000000000000000000000700000004000000105e040cb09ea63a909fbb0780cb890c90d223f47065ed769067272d8002010203020102ffffadd40000ffffb9b00104ffffaba00008ffffb9b0010c4c4d5400434454004353540043575400",
+    "name": "dst zone v1"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 17:33",
+      "name": "LMT",
+      "offset": -21036,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 13:09",
+      "name": "LMT",
+      "offset": -21036,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 13:09",
+      "name": "LMT",
+      "offset": -21036,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 14:22",
+      "name": "LMT",
+      "offset": -21036,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 18:09",
+      "name": "LMT",
+      "offset": -21036,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 18:09",
+      "name": "LMT",
+      "offset": -21036,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 21:56",
+      "name": "LMT",
+      "offset": -21036,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 21:56",
+      "name": "LMT",
+      "offset": -21036,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-08 19:56",
+      "name": "LMT",
+      "offset": -21036,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 02:59",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1710061199
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 04:00",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1710061200
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 02:59",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 02:59",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 03:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 01:59",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 00:50",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 00:13",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-03-28 20:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-03-28 21:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-24 19:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 11:46",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2099-12-31 18:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-19 18:36",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a696632000000000000000000000000000000000000000000000000000000000000070000000400000010ffffffff5e040cb0ffffffff9ea63a90ffffffff9fbb0780ffffffffcb890c90ffffffffd223f4700000000065ed76900000000067272d8002010203020102ffffadd40000ffffb9b00104ffffaba00008ffffb9b0010c4c4d54004344540043535400435754000a435354364344542c4d332e322e302c4d31312e312e300a",
+    "name": "dst zone v2"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 17:33",
+      "name": "LMT",
+      "offset": -21036,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 13:09",
+      "name": "LMT",
+      "offset": -21036,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 13:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 14:13",
+      "name": "CST",
+      "offset": -21600,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 17:59",
+      "name": "CST",
+      "offset": -21600,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 18:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 21:46",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 21:46",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-08 19:46",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 02:59",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1710061199
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 04:00",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1710061200
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 02:59",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1730620801
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 03:59",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1741510799
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 04:00",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 01:59",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 00:50",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 00:13",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1772000000
+     },
+     {
+      "dst": true,
+      "local": "2026-03-28 21:00",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1774749600
+     },
+     {
+      "dst": true,
+      "local": "2026-03-28 22:00",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1774753200
+     },
+     {
+      "dst": true,
+      "local": "2026-10-24 20:00",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1800000000
+     },
+     {
+      "dst": true,
+      "local": "2030-03-17 12:46",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2099-12-31 18:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-19 18:36",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696633000000000000000000000000000000000000000000000000000000000000000000000000000000545a696633000000000000000000000000000000000000000000000000000000000000070000000400000010ffffffff5e040cb0ffffffff9ea63a90ffffffff9fbb0780ffffffffcb890c90ffffffffd223f4700000000065ed76900000000067272d8002010203020102ffffadd40000ffffb9b00104ffffaba00008ffffb9b0010c4c4d54004344540043535400435754000a435354364344542c4d332e322e302c4d31312e312e300a",
+    "name": "dst zone v3"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 17:33",
+      "name": "LMT",
+      "offset": -21036,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 13:09",
+      "name": "LMT",
+      "offset": -21036,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 13:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 14:13",
+      "name": "CST",
+      "offset": -21600,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 17:59",
+      "name": "CST",
+      "offset": -21600,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 18:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 21:46",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 21:46",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-08 19:46",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 02:59",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1710061199
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 04:00",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1710061200
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 02:59",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1730620801
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 03:59",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1741510799
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 04:00",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 01:59",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 00:50",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 00:13",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1772000000
+     },
+     {
+      "dst": true,
+      "local": "2026-03-28 21:00",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1774749600
+     },
+     {
+      "dst": true,
+      "local": "2026-03-28 22:00",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1774753200
+     },
+     {
+      "dst": true,
+      "local": "2026-10-24 20:00",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1800000000
+     },
+     {
+      "dst": true,
+      "local": "2030-03-17 12:46",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2099-12-31 18:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-19 18:36",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a696632000000000000000000000000000000000000000000000000000000000000020000000300000008000000000000000000000000000186a0000100000e10010000000000000400000e10010044535400535444000a0a",
+    "name": "first dst"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 23:23",
+      "name": "STD",
+      "offset": 0,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 18:59",
+      "name": "STD",
+      "offset": 0,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 19:00",
+      "name": "STD",
+      "offset": 0,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 20:13",
+      "name": "STD",
+      "offset": 0,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 23:59",
+      "name": "STD",
+      "offset": 0,
+      "sec": -1
+     },
+     {
+      "dst": true,
+      "local": "1970-01-01 01:00",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 0
+     },
+     {
+      "dst": true,
+      "local": "1970-01-02 04:46",
+      "name": "DST",
+      "offset": 3600,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 03:46",
+      "name": "STD",
+      "offset": 0,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-09 01:46",
+      "name": "STD",
+      "offset": 0,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 08:59",
+      "name": "STD",
+      "offset": 0,
+      "sec": 1710061199
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 09:00",
+      "name": "STD",
+      "offset": 0,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 07:59",
+      "name": "STD",
+      "offset": 0,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:00",
+      "name": "STD",
+      "offset": 0,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:00",
+      "name": "STD",
+      "offset": 0,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 08:59",
+      "name": "STD",
+      "offset": 0,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 09:00",
+      "name": "STD",
+      "offset": 0,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 07:59",
+      "name": "STD",
+      "offset": 0,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 08:00",
+      "name": "STD",
+      "offset": 0,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 06:50",
+      "name": "STD",
+      "offset": 0,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 06:13",
+      "name": "STD",
+      "offset": 0,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 02:00",
+      "name": "STD",
+      "offset": 0,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 03:00",
+      "name": "STD",
+      "offset": 0,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-25 01:00",
+      "name": "STD",
+      "offset": 0,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 08:00",
+      "name": "STD",
+      "offset": 0,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 17:46",
+      "name": "STD",
+      "offset": 0,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2100-01-01 00:00",
+      "name": "STD",
+      "offset": 0,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-20 00:36",
+      "name": "STD",
+      "offset": 0,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a696632000000000000000000000000000000000000000000000000000000000000070000000400000010ffffffff5e040cb0ffffffff9ea63a90ffffffff9fbb0780ffffffffcb890c90ffffffffd223f4700000000065ed76900000000067272d8002010203020102ffffadd40000ffffb9b00104ffffaba00008ffffb9b0010c4c4d54004344540043535400435754000a435354364344542c4d332e322e302c4d31312e312e30",
+    "name": "footer without its last newline"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 17:33",
+      "name": "LMT",
+      "offset": -21036,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 13:09",
+      "name": "LMT",
+      "offset": -21036,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 13:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 14:13",
+      "name": "CST",
+      "offset": -21600,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 17:59",
+      "name": "CST",
+      "offset": -21600,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 18:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 21:46",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 21:46",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-08 19:46",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 02:59",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1710061199
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 04:00",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1710061200
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 02:59",
+      "name": "CDT",
+      "offset": -18000,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 02:59",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 03:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 01:59",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 00:50",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 00:13",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-03-28 20:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-03-28 21:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-24 19:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 02:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 11:46",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2099-12-31 18:00",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-19 18:36",
+      "name": "CST",
+      "offset": -21600,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000030000000000005554430a0a",
+    "name": "no nul"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 23:23",
+      "name": "UTC",
+      "offset": 0,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 18:59",
+      "name": "UTC",
+      "offset": 0,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 19:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 20:13",
+      "name": "UTC",
+      "offset": 0,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 23:59",
+      "name": "UTC",
+      "offset": 0,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 00:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 03:46",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 03:46",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-09 01:46",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 08:59",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1710061199
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 09:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 07:59",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 08:59",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 09:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 07:59",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 08:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 06:50",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 06:13",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 02:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 03:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-25 01:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 08:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 17:46",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2100-01-01 00:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-20 00:36",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a69663200000000000000000000000000000000000000000000000000000000000000000000010000000400004d580000495354000a4953542d353a33300a",
+    "name": "no transitions"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-13 04:53",
+      "name": "IST",
+      "offset": 19800,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-19 00:29",
+      "name": "IST",
+      "offset": 19800,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-19 00:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 01:43",
+      "name": "IST",
+      "offset": 19800,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 05:29",
+      "name": "IST",
+      "offset": 19800,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 05:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 09:16",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 09:16",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-09 07:16",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 14:29",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1710061199
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 14:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 13:29",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 13:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 13:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 14:29",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 14:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 13:29",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 13:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 12:20",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 11:43",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 07:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 08:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-25 06:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 13:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 23:16",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2100-01-01 05:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-20 06:06",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000000000000000a0a",
+    "name": "no zones"
+   },
+   "out": {
+    "error": "malformed time zone information"
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a663200000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "name": "not tzif"
+   },
+   "out": {
+    "error": "malformed time zone information"
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a3c2b303333303e2d333a33300a",
+    "name": "rule <+0330>-3:30"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-13 02:53",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 22:29",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 22:30",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 23:43",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 03:29",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 03:30",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 07:16",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 07:16",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-09 05:16",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 12:29",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": 1710061199
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 12:30",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 11:29",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 11:30",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 11:30",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 12:29",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 12:30",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 11:29",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 11:30",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 10:20",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 09:43",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 05:30",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 06:30",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-25 04:30",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 11:30",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 21:16",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2100-01-01 03:30",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-20 04:06",
+      "name": "+0330",
+      "offset": 12600,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a3c2b31343e2d31340a",
+    "name": "rule <+14>-14"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-13 13:23",
+      "name": "+14",
+      "offset": 50400,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-19 08:59",
+      "name": "+14",
+      "offset": 50400,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-19 09:00",
+      "name": "+14",
+      "offset": 50400,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 10:13",
+      "name": "+14",
+      "offset": 50400,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 13:59",
+      "name": "+14",
+      "offset": 50400,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 14:00",
+      "name": "+14",
+      "offset": 50400,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 17:46",
+      "name": "+14",
+      "offset": 50400,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 17:46",
+      "name": "+14",
+      "offset": 50400,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-09 15:46",
+      "name": "+14",
+      "offset": 50400,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 22:59",
+      "name": "+14",
+      "offset": 50400,
+      "sec": 1710061199
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 23:00",
+      "name": "+14",
+      "offset": 50400,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 21:59",
+      "name": "+14",
+      "offset": 50400,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 22:00",
+      "name": "+14",
+      "offset": 50400,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 22:00",
+      "name": "+14",
+      "offset": 50400,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 22:59",
+      "name": "+14",
+      "offset": 50400,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 23:00",
+      "name": "+14",
+      "offset": 50400,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 21:59",
+      "name": "+14",
+      "offset": 50400,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 22:00",
+      "name": "+14",
+      "offset": 50400,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 20:50",
+      "name": "+14",
+      "offset": 50400,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 20:13",
+      "name": "+14",
+      "offset": 50400,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 16:00",
+      "name": "+14",
+      "offset": 50400,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 17:00",
+      "name": "+14",
+      "offset": 50400,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-25 15:00",
+      "name": "+14",
+      "offset": 50400,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 22:00",
+      "name": "+14",
+      "offset": 50400,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-18 07:46",
+      "name": "+14",
+      "offset": 50400,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2100-01-01 14:00",
+      "name": "+14",
+      "offset": 50400,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-20 14:36",
+      "name": "+14",
+      "offset": 50400,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a3c2d30333e333c2d30323e2c4d332e352e302f2d322c4d31302e352e302f2d310a",
+    "name": "rule <-03>3<-02>,M3.5.0/-2,M10.5.0/-1"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 20:23",
+      "name": "-03",
+      "offset": -10800,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 15:59",
+      "name": "-03",
+      "offset": -10800,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 16:00",
+      "name": "-03",
+      "offset": -10800,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 17:13",
+      "name": "-03",
+      "offset": -10800,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 20:59",
+      "name": "-03",
+      "offset": -10800,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 21:00",
+      "name": "-03",
+      "offset": -10800,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 00:46",
+      "name": "-03",
+      "offset": -10800,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 00:46",
+      "name": "-03",
+      "offset": -10800,
+      "sec": 100000
+     },
+     {
+      "dst": true,
+      "local": "2001-09-08 23:46",
+      "name": "-02",
+      "offset": -7200,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 05:59",
+      "name": "-03",
+      "offset": -10800,
+      "sec": 1710061199
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 06:00",
+      "name": "-03",
+      "offset": -10800,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 04:59",
+      "name": "-03",
+      "offset": -10800,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 05:00",
+      "name": "-03",
+      "offset": -10800,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 05:00",
+      "name": "-03",
+      "offset": -10800,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 05:59",
+      "name": "-03",
+      "offset": -10800,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 06:00",
+      "name": "-03",
+      "offset": -10800,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 04:59",
+      "name": "-03",
+      "offset": -10800,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 05:00",
+      "name": "-03",
+      "offset": -10800,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 03:50",
+      "name": "-03",
+      "offset": -10800,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 03:13",
+      "name": "-03",
+      "offset": -10800,
+      "sec": 1772000000
+     },
+     {
+      "dst": true,
+      "local": "2026-03-29 00:00",
+      "name": "-02",
+      "offset": -7200,
+      "sec": 1774749600
+     },
+     {
+      "dst": true,
+      "local": "2026-03-29 01:00",
+      "name": "-02",
+      "offset": -7200,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-24 22:00",
+      "name": "-03",
+      "offset": -10800,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 05:00",
+      "name": "-03",
+      "offset": -10800,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 14:46",
+      "name": "-03",
+      "offset": -10800,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2099-12-31 21:00",
+      "name": "-03",
+      "offset": -10800,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-19 21:36",
+      "name": "-03",
+      "offset": -10800,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a3c6162630a",
+    "name": "rule <abc"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 23:23",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 18:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 19:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 20:13",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 23:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 00:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 03:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 03:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-09 01:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 08:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1710061199
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 09:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 07:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 08:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 09:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 07:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 06:50",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 06:13",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 02:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 03:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-25 01:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 17:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2100-01-01 00:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-20 00:36",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a4141412d3136370a",
+    "name": "rule AAA-167"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-19 22:23",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-25 17:59",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-25 18:00",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1970-01-06 19:13",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1970-01-07 22:59",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1970-01-07 23:00",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-09 02:46",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-09 02:46",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-16 00:46",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-17 07:59",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": 1710061199
+     },
+     {
+      "dst": false,
+      "local": "2024-03-17 08:00",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-10 06:59",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-10 07:00",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-10 07:00",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-16 07:59",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-16 08:00",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-10 06:59",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-10 07:00",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-18 05:50",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-03-04 05:13",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-04-05 01:00",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-04-05 02:00",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-11-01 00:00",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-22 07:00",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-24 16:46",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2100-01-07 23:00",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-26 23:36",
+      "name": "AAA",
+      "offset": 601200,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a4141412d3136380a",
+    "name": "rule AAA-168"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-19 23:23",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-25 18:59",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-25 19:00",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1970-01-06 20:13",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1970-01-07 23:59",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1970-01-08 00:00",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-09 03:46",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-09 03:46",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-16 01:46",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-17 08:59",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": 1710061199
+     },
+     {
+      "dst": false,
+      "local": "2024-03-17 09:00",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-10 07:59",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-10 08:00",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-10 08:00",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-16 08:59",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-16 09:00",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-10 07:59",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-10 08:00",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-18 06:50",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-03-04 06:13",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-04-05 02:00",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-04-05 03:00",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-11-01 01:00",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-22 08:00",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-24 17:46",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2100-01-08 00:00",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-27 00:36",
+      "name": "AAA",
+      "offset": 604800,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a414141334242422c35392c3330302f313a33303a31350a",
+    "name": "rule AAA3BBB,59,300/1:30:15"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 20:23",
+      "name": "AAA",
+      "offset": -10800,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 15:59",
+      "name": "AAA",
+      "offset": -10800,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 16:00",
+      "name": "AAA",
+      "offset": -10800,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 17:13",
+      "name": "AAA",
+      "offset": -10800,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 20:59",
+      "name": "AAA",
+      "offset": -10800,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 21:00",
+      "name": "AAA",
+      "offset": -10800,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 00:46",
+      "name": "AAA",
+      "offset": -10800,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 00:46",
+      "name": "AAA",
+      "offset": -10800,
+      "sec": 100000
+     },
+     {
+      "dst": true,
+      "local": "2001-09-08 23:46",
+      "name": "BBB",
+      "offset": -7200,
+      "sec": 1000000000
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 06:59",
+      "name": "BBB",
+      "offset": -7200,
+      "sec": 1710061199
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 07:00",
+      "name": "BBB",
+      "offset": -7200,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 04:59",
+      "name": "AAA",
+      "offset": -10800,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 05:00",
+      "name": "AAA",
+      "offset": -10800,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 05:00",
+      "name": "AAA",
+      "offset": -10800,
+      "sec": 1730620801
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 06:59",
+      "name": "BBB",
+      "offset": -7200,
+      "sec": 1741510799
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 07:00",
+      "name": "BBB",
+      "offset": -7200,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 04:59",
+      "name": "AAA",
+      "offset": -10800,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 05:00",
+      "name": "AAA",
+      "offset": -10800,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 03:50",
+      "name": "AAA",
+      "offset": -10800,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 03:13",
+      "name": "AAA",
+      "offset": -10800,
+      "sec": 1772000000
+     },
+     {
+      "dst": true,
+      "local": "2026-03-29 00:00",
+      "name": "BBB",
+      "offset": -7200,
+      "sec": 1774749600
+     },
+     {
+      "dst": true,
+      "local": "2026-03-29 01:00",
+      "name": "BBB",
+      "offset": -7200,
+      "sec": 1774753200
+     },
+     {
+      "dst": true,
+      "local": "2026-10-24 23:00",
+      "name": "BBB",
+      "offset": -7200,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 05:00",
+      "name": "AAA",
+      "offset": -10800,
+      "sec": 1800000000
+     },
+     {
+      "dst": true,
+      "local": "2030-03-17 15:46",
+      "name": "BBB",
+      "offset": -7200,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2099-12-31 21:00",
+      "name": "AAA",
+      "offset": -10800,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-19 21:36",
+      "name": "AAA",
+      "offset": -10800,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a414553542d3130414544542c4d31302e312e302c4d342e312e302f330a",
+    "name": "rule AEST-10AEDT,M10.1.0,M4.1.0/3"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": true,
+      "local": "-32873-11-13 10:23",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": -1099511627776
+     },
+     {
+      "dst": true,
+      "local": "1883-11-19 05:59",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": -2717643601
+     },
+     {
+      "dst": true,
+      "local": "1883-11-19 06:00",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": -2717643600
+     },
+     {
+      "dst": true,
+      "local": "1969-12-31 07:13",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": -100000
+     },
+     {
+      "dst": true,
+      "local": "1970-01-01 10:59",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": -1
+     },
+     {
+      "dst": true,
+      "local": "1970-01-01 11:00",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": 0
+     },
+     {
+      "dst": true,
+      "local": "1970-01-02 14:46",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": 99999
+     },
+     {
+      "dst": true,
+      "local": "1970-01-02 14:46",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-09 11:46",
+      "name": "AEST",
+      "offset": 36000,
+      "sec": 1000000000
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 19:59",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": 1710061199
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 20:00",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": 1710061200
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 18:59",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": 1730620799
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 19:00",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": 1730620800
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 19:00",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": 1730620801
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 19:59",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": 1741510799
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 20:00",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": 1741510800
+     },
+     {
+      "dst": true,
+      "local": "2025-11-03 18:59",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": 1762156799
+     },
+     {
+      "dst": true,
+      "local": "2025-11-03 19:00",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": 1762156800
+     },
+     {
+      "dst": true,
+      "local": "2025-11-11 17:50",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": 1762843815
+     },
+     {
+      "dst": true,
+      "local": "2026-02-25 17:13",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": 1772000000
+     },
+     {
+      "dst": true,
+      "local": "2026-03-29 13:00",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": 1774749600
+     },
+     {
+      "dst": true,
+      "local": "2026-03-29 14:00",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": 1774753200
+     },
+     {
+      "dst": true,
+      "local": "2026-10-25 12:00",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": 1792890000
+     },
+     {
+      "dst": true,
+      "local": "2027-01-15 19:00",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": 1800000000
+     },
+     {
+      "dst": true,
+      "local": "2030-03-18 04:46",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": 1900000000
+     },
+     {
+      "dst": true,
+      "local": "2100-01-01 11:00",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": 4102444800
+     },
+     {
+      "dst": true,
+      "local": "36812-02-20 11:36",
+      "name": "AEDT",
+      "offset": 39600,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a4345542d31434553542c4d332e352e302c4d31302e352e302f330a",
+    "name": "rule CET-1CEST,M3.5.0,M10.5.0/3"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-13 00:23",
+      "name": "CET",
+      "offset": 3600,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 19:59",
+      "name": "CET",
+      "offset": 3600,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 20:00",
+      "name": "CET",
+      "offset": 3600,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 21:13",
+      "name": "CET",
+      "offset": 3600,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 00:59",
+      "name": "CET",
+      "offset": 3600,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 01:00",
+      "name": "CET",
+      "offset": 3600,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 04:46",
+      "name": "CET",
+      "offset": 3600,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 04:46",
+      "name": "CET",
+      "offset": 3600,
+      "sec": 100000
+     },
+     {
+      "dst": true,
+      "local": "2001-09-09 03:46",
+      "name": "CEST",
+      "offset": 7200,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 09:59",
+      "name": "CET",
+      "offset": 3600,
+      "sec": 1710061199
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 10:00",
+      "name": "CET",
+      "offset": 3600,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:59",
+      "name": "CET",
+      "offset": 3600,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 09:00",
+      "name": "CET",
+      "offset": 3600,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 09:00",
+      "name": "CET",
+      "offset": 3600,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 09:59",
+      "name": "CET",
+      "offset": 3600,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 10:00",
+      "name": "CET",
+      "offset": 3600,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 08:59",
+      "name": "CET",
+      "offset": 3600,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 09:00",
+      "name": "CET",
+      "offset": 3600,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 07:50",
+      "name": "CET",
+      "offset": 3600,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 07:13",
+      "name": "CET",
+      "offset": 3600,
+      "sec": 1772000000
+     },
+     {
+      "dst": true,
+      "local": "2026-03-29 04:00",
+      "name": "CEST",
+      "offset": 7200,
+      "sec": 1774749600
+     },
+     {
+      "dst": true,
+      "local": "2026-03-29 05:00",
+      "name": "CEST",
+      "offset": 7200,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-25 02:00",
+      "name": "CET",
+      "offset": 3600,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 09:00",
+      "name": "CET",
+      "offset": 3600,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 18:46",
+      "name": "CET",
+      "offset": 3600,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2100-01-01 01:00",
+      "name": "CET",
+      "offset": 3600,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-20 01:36",
+      "name": "CET",
+      "offset": 3600,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a45350a",
+    "name": "rule E5"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 23:23",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 18:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 19:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 20:13",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 23:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 00:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 03:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 03:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-09 01:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 08:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1710061199
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 09:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 07:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 08:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 09:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 07:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 06:50",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 06:13",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 02:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 03:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-25 01:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 17:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2100-01-01 00:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-20 00:36",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a4553540a",
+    "name": "rule EST"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 23:23",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 18:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 19:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 20:13",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 23:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 00:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 03:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 03:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-09 01:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 08:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1710061199
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 09:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 07:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 08:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 09:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 07:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 06:50",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 06:13",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 02:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 03:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-25 01:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 17:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2100-01-01 00:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-20 00:36",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a4553542b354544542d342c4d332e322e302c4d31312e312e300a",
+    "name": "rule EST+5EDT-4,M3.2.0,M11.1.0"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 18:23",
+      "name": "EST",
+      "offset": -18000,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 13:59",
+      "name": "EST",
+      "offset": -18000,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 14:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 15:13",
+      "name": "EST",
+      "offset": -18000,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 18:59",
+      "name": "EST",
+      "offset": -18000,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 19:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 22:46",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 22:46",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 100000
+     },
+     {
+      "dst": true,
+      "local": "2001-09-09 05:46",
+      "name": "EDT",
+      "offset": 14400,
+      "sec": 1000000000
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 12:59",
+      "name": "EDT",
+      "offset": 14400,
+      "sec": 1710061199
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 13:00",
+      "name": "EDT",
+      "offset": 14400,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 02:59",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 03:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 03:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1730620801
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 12:59",
+      "name": "EDT",
+      "offset": 14400,
+      "sec": 1741510799
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 13:00",
+      "name": "EDT",
+      "offset": 14400,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 02:59",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 03:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 01:50",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 01:13",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1772000000
+     },
+     {
+      "dst": true,
+      "local": "2026-03-29 06:00",
+      "name": "EDT",
+      "offset": 14400,
+      "sec": 1774749600
+     },
+     {
+      "dst": true,
+      "local": "2026-03-29 07:00",
+      "name": "EDT",
+      "offset": 14400,
+      "sec": 1774753200
+     },
+     {
+      "dst": true,
+      "local": "2026-10-25 05:00",
+      "name": "EDT",
+      "offset": 14400,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 03:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1800000000
+     },
+     {
+      "dst": true,
+      "local": "2030-03-17 21:46",
+      "name": "EDT",
+      "offset": 14400,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2099-12-31 19:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-19 19:36",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a455354354544540a",
+    "name": "rule EST5EDT"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 18:23",
+      "name": "EST",
+      "offset": -18000,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 13:59",
+      "name": "EST",
+      "offset": -18000,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 14:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 15:13",
+      "name": "EST",
+      "offset": -18000,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 18:59",
+      "name": "EST",
+      "offset": -18000,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 19:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 22:46",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 22:46",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 100000
+     },
+     {
+      "dst": true,
+      "local": "2001-09-08 21:46",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1000000000
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 04:59",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1710061199
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 05:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 02:59",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 03:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 03:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1730620801
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 04:59",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1741510799
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 05:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 02:59",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 03:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 01:50",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 01:13",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1772000000
+     },
+     {
+      "dst": true,
+      "local": "2026-03-28 22:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1774749600
+     },
+     {
+      "dst": true,
+      "local": "2026-03-28 23:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1774753200
+     },
+     {
+      "dst": true,
+      "local": "2026-10-24 21:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 03:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1800000000
+     },
+     {
+      "dst": true,
+      "local": "2030-03-17 13:46",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2099-12-31 19:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-19 19:36",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a455354354544542c302c3336350a",
+    "name": "rule EST5EDT,0,365"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": true,
+      "local": "-32873-11-12 19:23",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": -1099511627776
+     },
+     {
+      "dst": true,
+      "local": "1883-11-18 14:59",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": -2717643601
+     },
+     {
+      "dst": true,
+      "local": "1883-11-18 15:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": -2717643600
+     },
+     {
+      "dst": true,
+      "local": "1969-12-30 16:13",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": -100000
+     },
+     {
+      "dst": true,
+      "local": "1969-12-31 19:59",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 19:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 0
+     },
+     {
+      "dst": true,
+      "local": "1970-01-01 23:46",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 99999
+     },
+     {
+      "dst": true,
+      "local": "1970-01-01 23:46",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 100000
+     },
+     {
+      "dst": true,
+      "local": "2001-09-08 21:46",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1000000000
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 04:59",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1710061199
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 05:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1710061200
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 03:59",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1730620799
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 04:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1730620800
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 04:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1730620801
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 04:59",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1741510799
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 05:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1741510800
+     },
+     {
+      "dst": true,
+      "local": "2025-11-03 03:59",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1762156799
+     },
+     {
+      "dst": true,
+      "local": "2025-11-03 04:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1762156800
+     },
+     {
+      "dst": true,
+      "local": "2025-11-11 02:50",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1762843815
+     },
+     {
+      "dst": true,
+      "local": "2026-02-25 02:13",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1772000000
+     },
+     {
+      "dst": true,
+      "local": "2026-03-28 22:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1774749600
+     },
+     {
+      "dst": true,
+      "local": "2026-03-28 23:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1774753200
+     },
+     {
+      "dst": true,
+      "local": "2026-10-24 21:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1792890000
+     },
+     {
+      "dst": true,
+      "local": "2027-01-15 04:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1800000000
+     },
+     {
+      "dst": true,
+      "local": "2030-03-17 13:46",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2099-12-31 19:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 4102444800
+     },
+     {
+      "dst": true,
+      "local": "36812-02-19 20:36",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a455354354544542c4a302c4a3336350a",
+    "name": "rule EST5EDT,J0,J365"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 23:23",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 18:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 19:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 20:13",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 23:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 00:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 03:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 03:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-09 01:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 08:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1710061199
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 09:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 07:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 08:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 09:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 07:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 06:50",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 06:13",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 02:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 03:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-25 01:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 17:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2100-01-01 00:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-20 00:36",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a455354354544542c4d31332e312e302c4d31312e312e300a",
+    "name": "rule EST5EDT,M13.1.0,M11.1.0"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 23:23",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 18:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 19:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 20:13",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 23:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 00:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 03:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 03:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-09 01:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 08:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1710061199
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 09:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 07:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 08:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 09:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 07:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 06:50",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 06:13",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 02:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 03:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-25 01:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 17:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2100-01-01 00:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-20 00:36",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a455354354544542c4d332e322e300a",
+    "name": "rule EST5EDT,M3.2.0"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 23:23",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 18:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 19:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 20:13",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 23:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 00:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 03:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 03:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-09 01:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 08:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1710061199
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 09:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 07:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 08:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 09:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 07:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 06:50",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 06:13",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 02:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 03:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-25 01:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 17:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2100-01-01 00:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-20 00:36",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a455354354544542c4d332e322e302c4d31312e312e300a",
+    "name": "rule EST5EDT,M3.2.0,M11.1.0"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 18:23",
+      "name": "EST",
+      "offset": -18000,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 13:59",
+      "name": "EST",
+      "offset": -18000,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 14:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 15:13",
+      "name": "EST",
+      "offset": -18000,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 18:59",
+      "name": "EST",
+      "offset": -18000,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 19:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 22:46",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 22:46",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 100000
+     },
+     {
+      "dst": true,
+      "local": "2001-09-08 21:46",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1000000000
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 04:59",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1710061199
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 05:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 02:59",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 03:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 03:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1730620801
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 04:59",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1741510799
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 05:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 02:59",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 03:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 01:50",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 01:13",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1772000000
+     },
+     {
+      "dst": true,
+      "local": "2026-03-28 22:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1774749600
+     },
+     {
+      "dst": true,
+      "local": "2026-03-28 23:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1774753200
+     },
+     {
+      "dst": true,
+      "local": "2026-10-24 21:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 03:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1800000000
+     },
+     {
+      "dst": true,
+      "local": "2030-03-17 13:46",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2099-12-31 19:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-19 19:36",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a455354354544542c4d332e322e372c4d31312e312e300a",
+    "name": "rule EST5EDT,M3.2.7,M11.1.0"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 23:23",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 18:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 19:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 20:13",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 23:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 00:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 03:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 03:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-09 01:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 08:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1710061199
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 09:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 07:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 08:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 09:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 07:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 06:50",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 06:13",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 02:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 03:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-25 01:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 17:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2100-01-01 00:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-20 00:36",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a455354354544542c4d332e352e302c4d31312e352e300a",
+    "name": "rule EST5EDT,M3.5.0,M11.5.0"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": true,
+      "local": "-32873-11-12 19:23",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": -1099511627776
+     },
+     {
+      "dst": true,
+      "local": "1883-11-18 14:59",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": -2717643601
+     },
+     {
+      "dst": true,
+      "local": "1883-11-18 15:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 15:13",
+      "name": "EST",
+      "offset": -18000,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 18:59",
+      "name": "EST",
+      "offset": -18000,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 19:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 22:46",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 22:46",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 100000
+     },
+     {
+      "dst": true,
+      "local": "2001-09-08 21:46",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 03:59",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1710061199
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 04:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1710061200
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 03:59",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1730620799
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 04:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1730620800
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 04:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 03:59",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 04:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1741510800
+     },
+     {
+      "dst": true,
+      "local": "2025-11-03 03:59",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1762156799
+     },
+     {
+      "dst": true,
+      "local": "2025-11-03 04:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1762156800
+     },
+     {
+      "dst": true,
+      "local": "2025-11-11 02:50",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 01:13",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-03-28 21:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-03-28 22:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1774753200
+     },
+     {
+      "dst": true,
+      "local": "2026-10-24 21:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 03:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 12:46",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2099-12-31 19:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-19 19:36",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a45535435454454342c4d332e322e302f323a30303a30302c4d31312e312e302f323a30303a30300a",
+    "name": "rule EST5EDT4,M3.2.0/2:00:00,M11.1.0/2:00:00"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 18:23",
+      "name": "EST",
+      "offset": -18000,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 13:59",
+      "name": "EST",
+      "offset": -18000,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 14:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 15:13",
+      "name": "EST",
+      "offset": -18000,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 18:59",
+      "name": "EST",
+      "offset": -18000,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 19:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 22:46",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 22:46",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 100000
+     },
+     {
+      "dst": true,
+      "local": "2001-09-08 21:46",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1000000000
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 04:59",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1710061199
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 05:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 02:59",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 03:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 03:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1730620801
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 04:59",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1741510799
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 05:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 02:59",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 03:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 01:50",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 01:13",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1772000000
+     },
+     {
+      "dst": true,
+      "local": "2026-03-28 22:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1774749600
+     },
+     {
+      "dst": true,
+      "local": "2026-03-28 23:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1774753200
+     },
+     {
+      "dst": true,
+      "local": "2026-10-24 21:00",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 03:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1800000000
+     },
+     {
+      "dst": true,
+      "local": "2030-03-17 13:46",
+      "name": "EDT",
+      "offset": -14400,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2099-12-31 19:00",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-19 19:36",
+      "name": "EST",
+      "offset": -18000,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a455354354544543b4d332e322e302c4d31312e312e300a",
+    "name": "rule EST5EDT;M3.2.0,M11.1.0"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 23:23",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 18:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 19:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 20:13",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 23:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 00:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 03:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 03:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-09 01:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 08:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1710061199
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 09:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 07:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 08:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 09:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 07:59",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 06:50",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 06:13",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 02:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 03:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-25 01:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 08:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 17:46",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2100-01-01 00:00",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-20 00:36",
+      "name": "ZZZ",
+      "offset": 0,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a45535478350a",
+    "name": "rule ESTx5"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 18:23",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 13:59",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 14:00",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 15:13",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 18:59",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 19:00",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 22:46",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 22:46",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-08 20:46",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 03:59",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": 1710061199
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 04:00",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 02:59",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 03:00",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 03:00",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 03:59",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 04:00",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 02:59",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 03:00",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 01:50",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 01:13",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-03-28 21:00",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-03-28 22:00",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-24 20:00",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 03:00",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 12:46",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2099-12-31 19:00",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-19 19:36",
+      "name": "ESTx",
+      "offset": -18000,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a4953542d353a33300a",
+    "name": "rule IST-5:30"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-13 04:53",
+      "name": "IST",
+      "offset": 19800,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-19 00:29",
+      "name": "IST",
+      "offset": 19800,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-19 00:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 01:43",
+      "name": "IST",
+      "offset": 19800,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 05:29",
+      "name": "IST",
+      "offset": 19800,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 05:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 09:16",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 09:16",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-09 07:16",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 14:29",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1710061199
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 14:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 13:29",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 13:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 13:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 14:29",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 14:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 13:29",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 13:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 12:20",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 11:43",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 07:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 08:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-25 06:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 13:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 23:16",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2100-01-01 05:30",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-20 06:06",
+      "name": "IST",
+      "offset": 19800,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a4e5a53542d31324e5a44542c4d392e352e302c4d342e312e302f330a",
+    "name": "rule NZST-12NZDT,M9.5.0,M4.1.0/3"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": true,
+      "local": "-32873-11-13 12:23",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": -1099511627776
+     },
+     {
+      "dst": true,
+      "local": "1883-11-19 07:59",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": -2717643601
+     },
+     {
+      "dst": true,
+      "local": "1883-11-19 08:00",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": -2717643600
+     },
+     {
+      "dst": true,
+      "local": "1969-12-31 09:13",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": -100000
+     },
+     {
+      "dst": true,
+      "local": "1970-01-01 12:59",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": -1
+     },
+     {
+      "dst": true,
+      "local": "1970-01-01 13:00",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": 0
+     },
+     {
+      "dst": true,
+      "local": "1970-01-02 16:46",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": 99999
+     },
+     {
+      "dst": true,
+      "local": "1970-01-02 16:46",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-09 13:46",
+      "name": "NZST",
+      "offset": 43200,
+      "sec": 1000000000
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 21:59",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": 1710061199
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 22:00",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": 1710061200
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 20:59",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": 1730620799
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 21:00",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": 1730620800
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 21:00",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": 1730620801
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 21:59",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": 1741510799
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 22:00",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": 1741510800
+     },
+     {
+      "dst": true,
+      "local": "2025-11-03 20:59",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": 1762156799
+     },
+     {
+      "dst": true,
+      "local": "2025-11-03 21:00",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": 1762156800
+     },
+     {
+      "dst": true,
+      "local": "2025-11-11 19:50",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": 1762843815
+     },
+     {
+      "dst": true,
+      "local": "2026-02-25 19:13",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": 1772000000
+     },
+     {
+      "dst": true,
+      "local": "2026-03-29 15:00",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": 1774749600
+     },
+     {
+      "dst": true,
+      "local": "2026-03-29 16:00",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": 1774753200
+     },
+     {
+      "dst": true,
+      "local": "2026-10-25 14:00",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": 1792890000
+     },
+     {
+      "dst": true,
+      "local": "2027-01-15 21:00",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": 1800000000
+     },
+     {
+      "dst": true,
+      "local": "2030-03-18 06:46",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": 1900000000
+     },
+     {
+      "dst": true,
+      "local": "2100-01-01 13:00",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": 4102444800
+     },
+     {
+      "dst": true,
+      "local": "36812-02-20 13:36",
+      "name": "NZDT",
+      "offset": 46800,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a555443300a",
+    "name": "rule UTC0"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 23:23",
+      "name": "UTC",
+      "offset": 0,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 18:59",
+      "name": "UTC",
+      "offset": 0,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 19:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 20:13",
+      "name": "UTC",
+      "offset": 0,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 23:59",
+      "name": "UTC",
+      "offset": 0,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 00:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 03:46",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 03:46",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-09 01:46",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 08:59",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1710061199
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 09:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 07:59",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 08:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 08:59",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 09:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 07:59",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 08:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 06:50",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 06:13",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 02:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 03:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-25 01:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 08:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 17:46",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2100-01-01 00:00",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-20 00:36",
+      "name": "UTC",
+      "offset": 0,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a574152543457415253542c4a312f302c4a3336352f32350a",
+    "name": "rule WART4WARST,J1/0,J365/25"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": true,
+      "local": "-32873-11-12 20:23",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": -1099511627776
+     },
+     {
+      "dst": true,
+      "local": "1883-11-18 15:59",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": -2717643601
+     },
+     {
+      "dst": true,
+      "local": "1883-11-18 16:00",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": -2717643600
+     },
+     {
+      "dst": true,
+      "local": "1969-12-30 17:13",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": -100000
+     },
+     {
+      "dst": true,
+      "local": "1969-12-31 20:59",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 20:00",
+      "name": "WART",
+      "offset": -14400,
+      "sec": 0
+     },
+     {
+      "dst": true,
+      "local": "1970-01-02 00:46",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": 99999
+     },
+     {
+      "dst": true,
+      "local": "1970-01-02 00:46",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": 100000
+     },
+     {
+      "dst": true,
+      "local": "2001-09-08 22:46",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": 1000000000
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 05:59",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": 1710061199
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 06:00",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": 1710061200
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 04:59",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": 1730620799
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 05:00",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": 1730620800
+     },
+     {
+      "dst": true,
+      "local": "2024-11-03 05:00",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": 1730620801
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 05:59",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": 1741510799
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 06:00",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": 1741510800
+     },
+     {
+      "dst": true,
+      "local": "2025-11-03 04:59",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": 1762156799
+     },
+     {
+      "dst": true,
+      "local": "2025-11-03 05:00",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": 1762156800
+     },
+     {
+      "dst": true,
+      "local": "2025-11-11 03:50",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": 1762843815
+     },
+     {
+      "dst": true,
+      "local": "2026-02-25 03:13",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": 1772000000
+     },
+     {
+      "dst": true,
+      "local": "2026-03-28 23:00",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": 1774749600
+     },
+     {
+      "dst": true,
+      "local": "2026-03-29 00:00",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": 1774753200
+     },
+     {
+      "dst": true,
+      "local": "2026-10-24 22:00",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": 1792890000
+     },
+     {
+      "dst": true,
+      "local": "2027-01-15 05:00",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": 1800000000
+     },
+     {
+      "dst": true,
+      "local": "2030-03-17 14:46",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2099-12-31 20:00",
+      "name": "WART",
+      "offset": -14400,
+      "sec": 4102444800
+     },
+     {
+      "dst": true,
+      "local": "36812-02-19 21:36",
+      "name": "WARST",
+      "offset": -10800,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000a585858335959592c4a36302f322c4a3330300a",
+    "name": "rule XXX3YYY,J60/2,J300"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 20:23",
+      "name": "XXX",
+      "offset": -10800,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 15:59",
+      "name": "XXX",
+      "offset": -10800,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 16:00",
+      "name": "XXX",
+      "offset": -10800,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 17:13",
+      "name": "XXX",
+      "offset": -10800,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 20:59",
+      "name": "XXX",
+      "offset": -10800,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 21:00",
+      "name": "XXX",
+      "offset": -10800,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 00:46",
+      "name": "XXX",
+      "offset": -10800,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 00:46",
+      "name": "XXX",
+      "offset": -10800,
+      "sec": 100000
+     },
+     {
+      "dst": true,
+      "local": "2001-09-08 23:46",
+      "name": "YYY",
+      "offset": -7200,
+      "sec": 1000000000
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 06:59",
+      "name": "YYY",
+      "offset": -7200,
+      "sec": 1710061199
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 07:00",
+      "name": "YYY",
+      "offset": -7200,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 04:59",
+      "name": "XXX",
+      "offset": -10800,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 05:00",
+      "name": "XXX",
+      "offset": -10800,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 05:00",
+      "name": "XXX",
+      "offset": -10800,
+      "sec": 1730620801
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 06:59",
+      "name": "YYY",
+      "offset": -7200,
+      "sec": 1741510799
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 07:00",
+      "name": "YYY",
+      "offset": -7200,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 04:59",
+      "name": "XXX",
+      "offset": -10800,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 05:00",
+      "name": "XXX",
+      "offset": -10800,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 03:50",
+      "name": "XXX",
+      "offset": -10800,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 03:13",
+      "name": "XXX",
+      "offset": -10800,
+      "sec": 1772000000
+     },
+     {
+      "dst": true,
+      "local": "2026-03-29 00:00",
+      "name": "YYY",
+      "offset": -7200,
+      "sec": 1774749600
+     },
+     {
+      "dst": true,
+      "local": "2026-03-29 01:00",
+      "name": "YYY",
+      "offset": -7200,
+      "sec": 1774753200
+     },
+     {
+      "dst": true,
+      "local": "2026-10-24 23:00",
+      "name": "YYY",
+      "offset": -7200,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 05:00",
+      "name": "XXX",
+      "offset": -10800,
+      "sec": 1800000000
+     },
+     {
+      "dst": true,
+      "local": "2030-03-17 15:46",
+      "name": "YYY",
+      "offset": -7200,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2099-12-31 21:00",
+      "name": "XXX",
+      "offset": -10800,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-19 21:36",
+      "name": "XXX",
+      "offset": -10800,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a6966320000000000000000000000000000000000000000000000000000000000000000000001000000040000000000005a5a5a000ac39c6ec3af35c383c3a22c4d332e322e302c4d31312e312e300a",
+    "name": "rule Ünï5Ãâ,M3.2.0,M11.1.0"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 18:23",
+      "name": "Ünï",
+      "offset": -18000,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 13:59",
+      "name": "Ünï",
+      "offset": -18000,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 14:00",
+      "name": "Ünï",
+      "offset": -18000,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 15:13",
+      "name": "Ünï",
+      "offset": -18000,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 18:59",
+      "name": "Ünï",
+      "offset": -18000,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 19:00",
+      "name": "Ünï",
+      "offset": -18000,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 22:46",
+      "name": "Ünï",
+      "offset": -18000,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 22:46",
+      "name": "Ünï",
+      "offset": -18000,
+      "sec": 100000
+     },
+     {
+      "dst": true,
+      "local": "2001-09-08 21:46",
+      "name": "Ãâ",
+      "offset": -14400,
+      "sec": 1000000000
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 04:59",
+      "name": "Ãâ",
+      "offset": -14400,
+      "sec": 1710061199
+     },
+     {
+      "dst": true,
+      "local": "2024-03-10 05:00",
+      "name": "Ãâ",
+      "offset": -14400,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 02:59",
+      "name": "Ünï",
+      "offset": -18000,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 03:00",
+      "name": "Ünï",
+      "offset": -18000,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 03:00",
+      "name": "Ünï",
+      "offset": -18000,
+      "sec": 1730620801
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 04:59",
+      "name": "Ãâ",
+      "offset": -14400,
+      "sec": 1741510799
+     },
+     {
+      "dst": true,
+      "local": "2025-03-09 05:00",
+      "name": "Ãâ",
+      "offset": -14400,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 02:59",
+      "name": "Ünï",
+      "offset": -18000,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 03:00",
+      "name": "Ünï",
+      "offset": -18000,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 01:50",
+      "name": "Ünï",
+      "offset": -18000,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 01:13",
+      "name": "Ünï",
+      "offset": -18000,
+      "sec": 1772000000
+     },
+     {
+      "dst": true,
+      "local": "2026-03-28 22:00",
+      "name": "Ãâ",
+      "offset": -14400,
+      "sec": 1774749600
+     },
+     {
+      "dst": true,
+      "local": "2026-03-28 23:00",
+      "name": "Ãâ",
+      "offset": -14400,
+      "sec": 1774753200
+     },
+     {
+      "dst": true,
+      "local": "2026-10-24 21:00",
+      "name": "Ãâ",
+      "offset": -14400,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 03:00",
+      "name": "Ünï",
+      "offset": -18000,
+      "sec": 1800000000
+     },
+     {
+      "dst": true,
+      "local": "2030-03-17 13:46",
+      "name": "Ãâ",
+      "offset": -14400,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2099-12-31 19:00",
+      "name": "Ünï",
+      "offset": -18000,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-19 19:36",
+      "name": "Ünï",
+      "offset": -18000,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632",
+    "name": "short"
+   },
+   "out": {
+    "error": "malformed time zone information"
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a696632000000000000000000000000000000000000000000000000000000000000010000000200000008000000000000000001fffff1f0000000001c20000441414100424242000a0a",
+    "name": "zone 0 unused"
+   },
+   "out": {
+    "error": "",
+    "zones": [
+     {
+      "dst": false,
+      "local": "-32873-11-12 22:23",
+      "name": "AAA",
+      "offset": -3600,
+      "sec": -1099511627776
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 17:59",
+      "name": "AAA",
+      "offset": -3600,
+      "sec": -2717643601
+     },
+     {
+      "dst": false,
+      "local": "1883-11-18 18:00",
+      "name": "AAA",
+      "offset": -3600,
+      "sec": -2717643600
+     },
+     {
+      "dst": false,
+      "local": "1969-12-30 19:13",
+      "name": "AAA",
+      "offset": -3600,
+      "sec": -100000
+     },
+     {
+      "dst": false,
+      "local": "1969-12-31 22:59",
+      "name": "AAA",
+      "offset": -3600,
+      "sec": -1
+     },
+     {
+      "dst": false,
+      "local": "1970-01-01 02:00",
+      "name": "BBB",
+      "offset": 7200,
+      "sec": 0
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 05:46",
+      "name": "BBB",
+      "offset": 7200,
+      "sec": 99999
+     },
+     {
+      "dst": false,
+      "local": "1970-01-02 05:46",
+      "name": "BBB",
+      "offset": 7200,
+      "sec": 100000
+     },
+     {
+      "dst": false,
+      "local": "2001-09-09 03:46",
+      "name": "BBB",
+      "offset": 7200,
+      "sec": 1000000000
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 10:59",
+      "name": "BBB",
+      "offset": 7200,
+      "sec": 1710061199
+     },
+     {
+      "dst": false,
+      "local": "2024-03-10 11:00",
+      "name": "BBB",
+      "offset": 7200,
+      "sec": 1710061200
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 09:59",
+      "name": "BBB",
+      "offset": 7200,
+      "sec": 1730620799
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 10:00",
+      "name": "BBB",
+      "offset": 7200,
+      "sec": 1730620800
+     },
+     {
+      "dst": false,
+      "local": "2024-11-03 10:00",
+      "name": "BBB",
+      "offset": 7200,
+      "sec": 1730620801
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 10:59",
+      "name": "BBB",
+      "offset": 7200,
+      "sec": 1741510799
+     },
+     {
+      "dst": false,
+      "local": "2025-03-09 11:00",
+      "name": "BBB",
+      "offset": 7200,
+      "sec": 1741510800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 09:59",
+      "name": "BBB",
+      "offset": 7200,
+      "sec": 1762156799
+     },
+     {
+      "dst": false,
+      "local": "2025-11-03 10:00",
+      "name": "BBB",
+      "offset": 7200,
+      "sec": 1762156800
+     },
+     {
+      "dst": false,
+      "local": "2025-11-11 08:50",
+      "name": "BBB",
+      "offset": 7200,
+      "sec": 1762843815
+     },
+     {
+      "dst": false,
+      "local": "2026-02-25 08:13",
+      "name": "BBB",
+      "offset": 7200,
+      "sec": 1772000000
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 04:00",
+      "name": "BBB",
+      "offset": 7200,
+      "sec": 1774749600
+     },
+     {
+      "dst": false,
+      "local": "2026-03-29 05:00",
+      "name": "BBB",
+      "offset": 7200,
+      "sec": 1774753200
+     },
+     {
+      "dst": false,
+      "local": "2026-10-25 03:00",
+      "name": "BBB",
+      "offset": 7200,
+      "sec": 1792890000
+     },
+     {
+      "dst": false,
+      "local": "2027-01-15 10:00",
+      "name": "BBB",
+      "offset": 7200,
+      "sec": 1800000000
+     },
+     {
+      "dst": false,
+      "local": "2030-03-17 19:46",
+      "name": "BBB",
+      "offset": 7200,
+      "sec": 1900000000
+     },
+     {
+      "dst": false,
+      "local": "2100-01-01 02:00",
+      "name": "BBB",
+      "offset": 7200,
+      "sec": 4102444800
+     },
+     {
+      "dst": false,
+      "local": "36812-02-20 02:36",
+      "name": "BBB",
+      "offset": 7200,
+      "sec": 1099511627776
+     }
+    ]
+   }
+  },
+  {
+   "fn": "tzdata",
+   "in": {
+    "data": "545a696632000000000000000000000000000000000000000000000000000000000000000000000000000000545a696632000000000000000000000000000000000000000000000000000000000000010000000100000004000000000000000003000000000000555443000a0a",
+    "name": "zone index"
+   },
+   "out": {
+    "error": "malformed time zone information"
+   }
+  }
+ ],
+ "fixture": "tz"
+}

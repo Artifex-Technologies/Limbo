@@ -7,6 +7,7 @@ pub mod gotext;
 pub mod gotime;
 pub mod osuser;
 pub mod sys;
+pub mod tz;
 
 pub mod events;
 pub mod manifest;

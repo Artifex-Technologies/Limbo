@@ -123,6 +123,18 @@ impl Time {
         format!("{h:02}:{mi:02}")
     }
 
+    /// The same instant shown at `offset` seconds east of UTC (Go's `In` for a zone with that offset).
+    pub fn in_offset(self, offset: i32) -> Time {
+        Time { offset, ..self }
+    }
+
+    /// Go's `Format("2006-01-02 15:04")` in the time's own offset (a year past 9999 or before 0 as Go writes it).
+    pub fn ymd_hm(&self) -> String {
+        let (y, mo, d, h, mi, _) = self.civil();
+        let year = if y < 0 { format!("-{:04}", -y) } else { format!("{y:04}") };
+        format!("{year}-{mo:02}-{d:02} {h:02}:{mi:02}")
+    }
+
     /// Go's `Format(time.RFC3339)`: seconds, no fraction.
     pub fn rfc3339(&self) -> String {
         Time { nanos: 0, ..*self }.rfc3339_nano()
