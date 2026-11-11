@@ -49,6 +49,11 @@ def resp(body=b"", status="200 OK", headers=(), cl=True, proto="HTTP/1.1"):
     if cl:
         h.append(f"Content-Length: {len(body)}")
     h.extend(headers)
+    # Server.serve closes the connection after each answer, so the answer says so. Without it Go's transport could put
+    # the connection back as idle and send its next request on it before it saw the close; that request then met a reset
+    # (CI, 2026-11-11: `q verdict conflict`, Go only, "connection reset by peer"). limbo-rs dials anew for each request.
+    if not any(x.lower().startswith("connection:") for x in headers):
+        h.append("Connection: close")
     return ("\r\n".join(h) + "\r\n\r\n").encode() + body
 
 
@@ -1636,7 +1641,7 @@ class Server:
                 if a == HANGUP:
                     return
                 conn.sendall(a)
-                # one answer per connection: the client opens a new one (Go's transport reuses only what stays open)
+                # one answer per connection (resp() says `Connection: close`): the client opens a new one
                 return
         except OSError:
             return

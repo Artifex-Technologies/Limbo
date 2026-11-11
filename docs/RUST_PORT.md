@@ -347,11 +347,13 @@ Next, in order:
    failures were leftover test heimdallds, fixed in 8531da0). Switched by hand (drop-in) on 2026-11-10: the Rust daemon
    has run since with no restart. Packaging done 2026-11-11 ("Packaging"): the branch `package-rust-daemon` rebased
    onto main and merged, the dispatch's non-UTF-8 panic fixed (`tests/dispatch.rs`), Labyrinth's limbo-git mirrored,
-   a package built from main without root (nothing installed). The CLI differential's first CI run after the merge
-   differed on one case (`wine run folders pruned`): the snapshot descended folders in readdir order, which on ext4
-   follows a hash of the name, and four run folders folded into one `RUNID` path, so a random one won. It now descends
-   sorted and the old run folders keep their names (the 126 wine cases: no difference). Left for me (root): install it
-   on my PC with the steps for a host that switched by hand (`--overwrite /usr/lib/limbo/limbo-go`, the drop-in removed after, one restart
+   a package built from main without root (nothing installed). Two CI runs after the merge each differed on one case
+   of the CLI differential, both the harness's races, not the port: `wine run folders pruned` (the snapshot descended
+   folders in readdir order, which on ext4 follows a hash of the name, and four run folders folded into one `RUNID`
+   path, so a random one won: now sorted, and the old folders keep their names) and `q verdict conflict` (Go's
+   transport sent the POST on the GET's connection before it saw the scripted socket close it, and met a reset: every
+   scripted answer now says `Connection: close`). Left for me (root): install it on my PC with the steps for a host
+   that switched by hand (`--overwrite /usr/lib/limbo/limbo-go`, the drop-in removed after, one restart
    when no validation run is active), then the Rust daemon's figures (`VmRSS`, `Threads`) as in step 4. Found, not
    changed (Go and Rust alike): `RuntimeDirectory=limbo` makes systemd empty /run/limbo at every stop, so a restart
    also removes `passthrough.blocked`, the marker that keeps passthrough off until a reboot after a device failed to
