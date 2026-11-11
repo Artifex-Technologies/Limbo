@@ -279,7 +279,7 @@ impl<'a> Parser<'a> {
                     // stray bytes become U+FFFD one by one, as Go's decoder writes them
                     return Ok(gotext::lossy_owned(out));
                 }
-                c if c < 0x20 => return syn(c, "in string literal"),
+                c if c < 0x20 => return syn(c, "in string"),
                 _ => {
                     self.i += 1; // the backslash
                     let e = self.peek()?;
@@ -393,14 +393,18 @@ pub fn key_matches(key: &str, field: &str) -> bool {
 }
 
 /// The decoder's state while reading one document into typed targets: whether unknown fields are refused, the first error
-/// (Go keeps reading after a type error and reports the first), and the error context (the struct being read and the
-/// path of field names from the top, as Go's errorContext).
+/// (Go keeps reading after a type error and reports the first), and the error context as Go 1.27 writes it: the name of
+/// the document's own struct type ("" when the document is a slice, a map or an anonymous struct), then the path from the
+/// top as the document spells it (member names as written, array indexes), "Go struct field" left out when the path ends
+/// at an array element.
 #[derive(Default)]
 pub struct Ctx {
     pub strict: bool,
     first: Option<Error>,
     struct_name: &'static str,
+    named: bool,
     stack: Vec<String>,
+    last_index: Vec<bool>,
 }
 
 impl Ctx {
@@ -418,6 +422,8 @@ impl Ctx {
     pub fn type_err(&mut self, what: &str, ty: &str) {
         let msg = if self.struct_name.is_empty() && self.stack.is_empty() {
             format!("json: cannot unmarshal {what} into Go value of type {ty}")
+        } else if self.last_index.last() == Some(&true) {
+            format!("json: cannot unmarshal {what} into {}.{} of type {ty}", self.struct_name, self.stack.join("."))
         } else {
             format!("json: cannot unmarshal {what} into Go struct field {}.{} of type {ty}", self.struct_name, self.stack.join("."))
         };
@@ -434,6 +440,17 @@ impl Ctx {
             Value::Object(_) => "object",
         };
         self.type_err(what, ty);
+    }
+
+    /// Enters a member (`index` false) or an array element of the document, for the error path.
+    pub fn push(&mut self, name: String, index: bool) {
+        self.stack.push(name);
+        self.last_index.push(index);
+    }
+
+    pub fn pop(&mut self) {
+        self.stack.pop();
+        self.last_index.pop();
     }
 
     pub fn finish(self) -> Result<(), Error> {
@@ -456,16 +473,17 @@ impl Ctx {
             Value::Object(m) => m,
             other => return self.mismatch(other, ty),
         };
-        let (saved_name, saved_len) = (self.struct_name, self.stack.len());
+        if !self.named && self.stack.is_empty() {
+            self.named = true;
+            self.struct_name = go_name;
+        }
         for (k, val) in members {
             let idx = fields.iter().position(|f| f == k).or_else(|| fields.iter().position(|f| key_matches(k, f)));
             match idx {
                 Some(i) => {
-                    self.struct_name = go_name;
-                    self.stack.push(fields[i].to_string());
+                    self.push(k.clone(), false);
                     each(i, val, self);
-                    self.stack.truncate(saved_len);
-                    self.struct_name = saved_name;
+                    self.pop();
                 }
                 None if self.strict => self.save(Error(format!("json: unknown field {}", gotext::quote(k)))),
                 None => {}
@@ -529,9 +547,11 @@ impl<T: FromGo + Default> FromGo for Vec<T> {
             Value::Array(items) => {
                 // Go reuses the slice: elements are read into it, its length becomes the array's
                 let mut out = Vec::with_capacity(items.len());
-                for it in items {
+                for (i, it) in items.iter().enumerate() {
                     let mut x = T::default();
+                    cx.push(i.to_string(), true);
                     x.read(it, cx, elem);
+                    cx.pop();
                     out.push(x);
                 }
                 *self = out;
@@ -552,9 +572,9 @@ impl<T: FromGo + Default> FromGo for std::collections::BTreeMap<String, T> {
                     let before = cx.first.is_some();
                     let mut x = T::default();
                     // Go (1.27) names a map element by its key in the field path ("openReq.evidence.a")
-                    cx.stack.push(k.clone());
+                    cx.push(k.clone(), false);
                     x.read(it, cx, elem);
-                    cx.stack.pop();
+                    cx.pop();
                     if before || cx.first.is_none() {
                         self.insert(k.clone(), x);
                     }
@@ -584,9 +604,9 @@ impl FromGo for crate::gotime::Time {
     fn read(&mut self, v: &Value, cx: &mut Ctx, ty: &str) {
         match v {
             Value::Null => {}
-            Value::String(s) => match crate::gotime::Time::parse_rfc3339(s) {
-                Some(t) => *self = t,
-                None => cx.save(Error(format!("parsing time {} as \"2006-01-02T15:04:05Z07:00\": cannot parse", gotext::quote(s)))),
+            Value::String(s) => match crate::gotime::parse_go_rfc3339(s) {
+                Ok(t) => *self = t,
+                Err(e) => cx.save(Error(e)),
             },
             other => cx.mismatch(other, ty),
         }
@@ -937,7 +957,7 @@ mod tests {
             (b"[1 2]", "invalid character '2' after array element", "same"),
             (b"{\"a\" 1}", "invalid character '1' after object key", "same"),
             (b"{\"a\":1 \"b\"}", "invalid character '\"' after object key:value pair", "same"),
-            (b"\"\x01\"", "invalid character '\\x01' in string literal", "same"),
+            (b"\"\x01\"", "invalid character '\\x01' in string", "same"),
             (b"\"\\x\"", "invalid character 'x' in string escape code", "same"),
             (b"\"\\u12g4\"", "invalid character 'g' in \\u hexadecimal character escape", "same"),
             (b"tru", "unexpected end of JSON input", "unexpected EOF"),

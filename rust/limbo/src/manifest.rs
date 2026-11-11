@@ -350,7 +350,11 @@ impl Allow {
 
 /// Reads, defaults and validates a manifest file.
 pub fn load(path: &str) -> Result<Manifest, String> {
-    let b = std::fs::read(path).map_err(|e| crate::sys::go_path_error("open", path, &e))?;
+    // os.ReadFile: "open P: ..." when the file does not open, "read P: ..." when it does not read (a folder)
+    use std::io::Read;
+    let mut f = std::fs::File::open(path).map_err(|e| crate::sys::go_path_error("open", path, &e))?;
+    let mut b = vec![];
+    f.read_to_end(&mut b).map_err(|e| crate::sys::go_path_error("read", path, &e))?;
     parse(&b)
 }
 

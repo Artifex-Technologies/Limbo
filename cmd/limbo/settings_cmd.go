@@ -514,7 +514,10 @@ func exchangeCmd(args []string) error {
 // existing file or through a link. Under sudo the file is given to the person who ran sudo.
 func (c *cli) take(guest, rel, dest string) error {
 	b, _ := json.Marshal(map[string]string{"path": rel})
-	req, _ := http.NewRequest("POST", "http://limbo/v1/exchange/"+guest+"/take", bytes.NewReader(b))
+	req, err := http.NewRequest("POST", "http://limbo/v1/exchange/"+guest+"/take", bytes.NewReader(b))
+	if err != nil {
+		return err // a guest name the URL cannot carry ("%zz"); this was a nil request and a panic
+	}
 	resp, err := unixClient(c.sock).Do(req)
 	if err != nil {
 		return err
