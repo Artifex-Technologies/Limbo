@@ -16,9 +16,11 @@ and live guests since 2026-10-14 (latest: 66/66 and 24/24 on 2026-11-05; the
 Coordination Log has the details). The Wine backend (`limbo wine`, `internal/wine`, §13) since 2026-11-08: plain
 `go test ./...` runs it for real (bwrap + Wine's own `cmd`/`cscript`, headless, about 15 s); `-short` skips that.
 
-**The Rust port of `limbo serve`** (since 2026-11-10, `rust/`, docs/RUST_PORT.md): `limbo-rs serve` is the daemon,
-every other command is handed to the Go binary. Equal to Go on 10,738 fixture comparisons (`testdata/parity`, written by
-each package's `parity_test.go`; `LIMBO_PARITY_UPDATE=1 go test ./internal/... -run Parity` after a deliberate change)
+**The Rust port of `limbo serve`** (since 2026-11-10, `rust/`, docs/RUST_PORT.md): `limbo-rs serve` is the daemon;
+`quarantine`, `settings`, `instance`, `license` and `exchange` run in Rust too (2026-11-11, `rust/parity/cli-differential.py`
+compares them with Go); every other command is handed to the Go binary. Equal to Go on 18,187 fixture comparisons
+(`testdata/parity`, written by
+each package's `parity_test.go`; `LIMBO_PARITY_UPDATE=1 go test ./internal/... ./cmd/limbo -run Parity` after a deliberate change)
 and in a differential run of both daemons (`rust/parity/daemon-differential.py`). A change to a serve package now
 needs its fixture regenerated and the Rust side kept equal (`cd rust && scripts/nicecargo.sh test --offline`). Not
 switched yet: the owner's root steps are in docs/RUST_PORT.md.

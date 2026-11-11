@@ -5,7 +5,9 @@ I want as much of the ecosystem as possible in Rust, for lightness and smoothnes
 Go daemon measured 18.8 MB RSS idle on my PC; the target was about 3-5 MB.
 
 The CLI (`up`, `down`, `launch`, `seed`, `export`, `capture`, `wine`, `passthrough`, `image`, `doctor`, `setup`, ...)
-stays in Go for now. `limbo-rs serve` is the daemon; **every other command is handed, unchanged, to the Go binary**
+stays in Go for now, except the five socket-client commands (`quarantine`, `settings`, `instance`, `license`,
+`exchange`), which limbo-rs runs itself since 2026-11-11 (when their arguments and the variables they read are UTF-8).
+`limbo-rs serve` is the daemon; **every other command is handed, unchanged, to the Go binary**
 (`$LIMBO_GO_BINARY`, else `limbo-go` beside `limbo-rs`, else `/usr/lib/limbo/limbo-go`, else `/usr/bin/limbo`). The
 state files are the contract between the two and are the Go daemon's, in the same formats.
 
@@ -18,7 +20,7 @@ state files are the contract between the two and are the Go daemon's, in the sam
 | 3 | the differential run of both daemons on the same socket traffic (`rust/parity/daemon-differential.py`) | **done**: no difference |
 | 4 | the real-guest scripts against the Rust daemon (`LIMBO_RS=... scripts/integration-*.sh`) | **prepared, needs root**: commands below |
 | 5 | the rehearsal on a copy of this computer's real state (`--from-host`), then the switch | **prepared, needs root**: "The switch" |
-| 6 | the CLI commands, one by one | open (later phases) |
+| 6 | the CLI commands, one by one | **in progress**: the five socket-client commands done (2026-11-11, `cliclient.json` and the CLI differential run); the rest open |
 
 ## Layout
 
@@ -69,7 +71,7 @@ behaviour differs from Go's, the port carries Go's:
 ## Proof
 
 - **The Go tests, carried over as fixtures.** Each package's `parity_test.go` records what the Go code answers;
-  `LIMBO_PARITY_UPDATE=1 go test ./internal/... -run Parity` writes `testdata/parity/*.json`, and without the variable
+  `LIMBO_PARITY_UPDATE=1 go test ./internal/... ./cmd/limbo -run Parity` writes `testdata/parity/*.json`, and without the variable
   the Go test fails when a fixture is out of date. The Rust tests run the same files:
 
   | Fixture | What | Comparisons |
@@ -81,8 +83,9 @@ behaviour differs from Go's, the port carries Go's:
   | `api.json` | 14 scenarios, 172 requests on the four sockets with the Go handlers' own fakes: route tables, the mux, holds, verdicts, a failing audit log, runs and their codes, decoder errors, the password switch | 736 |
   | `hostpolicy.json` | 181 fake hosts (each a sysfs tree, os-release, host policy, approval file, reboot marker, open files, drivers; made a real folder by the Rust test): every case of the hostpolicy tests, then 120 generated hosts; Check, Ready, Standing, HostID, Before/After with every refusal's kind and text | 2,484 |
   | `cli.json` | the pieces of the socket-client commands' output (the CLI port, step 6): Go's flag parsing with its messages and usage on two flag sets and 39 argument lists, text/tabwriter (67 texts), json.Indent, a RawMessage's compaction and member lookup (21 documents), `%v` of floats, RFC3339, the CLI's sizes | 916 |
+  | `cliclient.json` | the CLI's HTTP client (`cmd/limbo/parity_client_test.go`): 317 request URLs `"http://limbo"+path` as http.NewRequest reads them (error, request target, the URL as an error writes it), 928 Locations resolved against them (userinfo, IPv6 literals, ports, dot segments, opaque and scheme-only references), 68 responses as http.ReadResponse reads them (status lines, MIME headers and continuations, Content-Length, chunked bodies and their errors, trailers, 1xx), 35 times as Go 1.27's encoding/json reads them | 7,449 |
 
-  **All 10,738 comparisons equal.** Mapping to the Go test functions of serve's packages: the manifest, virt, policy,
+  **All 18,187 comparisons equal.** Mapping to the Go test functions of serve's packages: the manifest, virt, policy,
   provision and hostfw tests' inputs are all in `manifests.json`; the flows and quarantine tests' scenarios are in theirs
   plus generated ones; the engine tests' scenarios in `engine.json`; `TestRouteTablesPerPrincipal`, the open, verdict,
   close, oversized-body, agent-error, profiles, sample-run and Settings-switch tests in `api.json`. The runs, instances,
@@ -153,6 +156,17 @@ no error); a command's end was noticed only every 25 ms (now a pidfd in poll(2))
 - One request per connection (`Connection: close`); Go keeps connections open. Limbo's clients (the Go CLI, Heimdall,
   Sarina's Go client, the Settings page) open one per request. A chunked body is read (Go reads it too).
 - Over 128 connections at once wait for a slot (Go has no bound).
+- The CLI's client (cli/client.rs) sends no `User-Agent` and no `Accept-Encoding: gzip` (Go's transport adds both; no
+  Limbo daemon reads them, and the port could not undo a gzip answer). It opens a connection per request; Go reuses an
+  open one. A Location to `https://` is refused as an unsupported scheme (Go would try TLS over the unix socket, which no
+  daemon speaks). A socket read error other than the end or the deadline reads `read: <errno>` (Go names the addresses;
+  not reproduced). Bytes after a complete answer are dropped silently (Go may log "Unsolicited response received on idle
+  HTTP channel", time-stamped, when its read loop sees them first). An answer's status line that is not UTF-8 reaches
+  "server returned ..." with U+FFFD. An argument or one of the variables the five commands read (SUDO_USER, USER,
+  PKEXEC_UID, SUDO_UID, SUDO_GID) that is not UTF-8 hands the command to the Go limbo. The 60 s client timeout is in
+  the port with Go's texts but not exercised by the differential run (it would take a minute per case).
+- JSON error paths now follow Go 1.27 everywhere (the document's own struct name, the path as the document spells it,
+  array indexes); the image-proofs.json entry above was written before that and was not checked again.
 
 ## The switch: why not a week of shadow mode
 
@@ -245,7 +259,7 @@ cd rust
 scripts/nicecargo.sh test --offline          # every fixture, the properties, the fuzz bodies
 scripts/nicecargo.sh clippy --all-targets
 cd .. && go test ./internal/... -run Parity  # the fixtures are current with the Go code
-LIMBO_PARITY_UPDATE=1 go test ./internal/... -run Parity   # after a deliberate change: rewrite them, review the diff
+LIMBO_PARITY_UPDATE=1 go test ./internal/... ./cmd/limbo -run Parity # after a deliberate change: rewrite them, review the diff
 ```
 
 ## Resume here
@@ -267,20 +281,18 @@ Next, in order:
    remedy), the finished Result with id and times normalised (`r00000001`...), the command lines per run, the events
    (kind, guest, detail) and the files left under state/. Scenarios needing a caller's context (boot timeout through
    ctx, cancel) stay with the differential run: the Rust `Manager::start` takes none.
-3. The socket-client CLI commands, in `rust/limbo/src/cli/` (not dispatched yet: main.rs still hands every command
-   but serve to Go). Done (2026-11-11): `flags.rs` (Go's flag package with ContinueOnError and parseInterspersed),
-   `tabw.rs` (text/tabwriter as the CLI sets it up; no 0xff escape handling, cells are decoded JSON), `text.rs`
-   (json.Indent, RawMessage compaction and lookup, `%v` of floats, RFC3339, size), all equal to Go in `cli.json`.
-   The Go CLI now prints evidence in key order and asks settings show's three routes in a fixed order (both were map
-   order, different from run to run). Next: `client.rs` (HTTP over the unix socket as Go's client: the URL parse and
-   escaping of `"http://limbo"+path`, Go's `url.Error` texts (`Get "http://limbo/v1/x": dial unix S: connect: ...`),
-   redirects (307/308 keep method and body, 301-303 become GET, 10 at most), the server's own status line in "server
-   returned ..."); then the five commands from cmd/limbo/quarantine_cmd.go and settings_cmd.go (whoAmI from SUDO_USER/
-   USER, defaultSocket by euid, instance add through manifest::load and Manifest::json, exchange take with O_EXCL|
-   O_NOFOLLOW, 0644, the sha256 check and the SUDO_UID/PKEXEC_UID chown); then `rust/parity/cli-differential.py`: a
-   fake socket server that records each request and answers from a script, both binaries with the same arguments,
-   environment and stdin, compared on stdout, stderr, exit status and the requests; then dispatch in main.rs, the
-   package branch rebased and merged.
+3. Done 2026-11-11: the socket-client commands in Rust, dispatched by limbo-rs. `flags.rs`, `tabw.rs`, `text.rs`
+   (`cli.json`); `url.rs` and `client.rs` (net/url and net/http's client as the CLI uses them: URL parsing and escaping,
+   the request as the transport writes it, http.ReadResponse, redirects, Go's error texts; `cliclient.json`, 7,449
+   comparisons) in 18e850e; `commands.rs` (quarantine, settings, instance, license, exchange, line for line) in 18e850e;
+   `rust/parity/cli-differential.py` (a scripted socket recording each request, both binaries on the same arguments,
+   environment, stdin, folder and answers: 247 cases, 1,235 comparisons of stdout, stderr, exit status, requests and
+   files, no difference; in CI) and the dispatch in main.rs in a37bb36. Found on the way and fixed: Go 1.27's
+   encoding/json reads times with time.Parse (comma fractions, a one-digit hour and offsets up to 24:60 are accepted;
+   the port had refused them) and names error paths differently (gojson's Ctx now follows it; the daemon differential
+   still shows no difference); Go's `exchange take` panicked on a guest name the URL cannot carry (`%zz`), now an
+   error. rustix 1.1.6 (RUSTSEC-2026-0486) in 20022c7. Not done here: the package branch `package-rust-daemon`
+   (rebase and merge it when the daemon is switched; it is not merged, and nothing is installed).
 4. The other CLI commands (up, down, launch, seed, export, capture, wine, passthrough, image, doctor, setup, ...), one by one.
    The integration scripts call `limbo quarantine` through limbo-rs, so a ported command is exercised by the owner's
    next run of them.
