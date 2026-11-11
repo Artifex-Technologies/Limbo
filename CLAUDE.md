@@ -19,7 +19,7 @@ Coordination Log has the details). The Wine backend (`limbo wine`, `internal/win
 **The Rust port of `limbo serve`** (since 2026-11-10, `rust/`, docs/RUST_PORT.md): `limbo-rs serve` is the daemon;
 `quarantine`, `settings`, `instance`, `license`, `exchange`, `version`, `validate`, `plan`, `address`, `seed`, `report`,
 `analyze`, `image`, `doctor`, `setup`, `up`, `down`, `launch`, `export`, `screenshot`, `passthrough` and `wine` run in Rust too (2026-11-11, `rust/parity/cli-differential.py` compares them
-with Go); every other command is handed to the Go binary. Equal to Go on 31,919 fixture comparisons
+with Go); every other command is handed to the Go binary. Equal to Go on 34,676 fixture comparisons
 (`testdata/parity`, written by
 each package's `parity_test.go`; `LIMBO_PARITY_UPDATE=1 go test ./internal/... ./cmd/limbo -run Parity` after a deliberate change)
 and in a differential run of both daemons (`rust/parity/daemon-differential.py`). A change to a serve package now
@@ -185,6 +185,23 @@ From Heimdall's CLAUDE.md Coordination Log.
   repository; it waits for that image's recipe.
 
 ## Coordination Log (newest first)
+
+### 2026-11-11 (3) — A restart no longer lifts the passthrough block
+- `RuntimeDirectory=limbo` makes systemd empty /run/limbo at every stop, and the reboot-needed marker
+  (`passthrough.blocked`, written when a passed-through device does not come back) lived only there: any restart of the
+  daemon, a package upgrade included, re-enabled passthrough without the reboot. Go and Rust alike.
+- Now the marker that counts is `<state>/passthrough.blocked` with the boot it was written in (`boot_id <uuid>` from
+  /proc/sys/kernel/random/boot_id); it counts unless that id and this boot's are both well-formed and differ. Damaged,
+  unreadable, `unknown`, or a boot id this host cannot read: it counts until `limbo passthrough clear`. The run-folder
+  marker is still written and honoured; `clear` removes both. The unit is unchanged (why not
+  `RuntimeDirectoryPreserve=`: docs/RUST_PORT.md "The reboot-needed marker and restarts").
+- Proof: `hostpolicy.json` 5,241 comparisons (restart, reboot, clear between questions), the CLI differential (state
+  markers, a bound boot id), the daemon differential's new passthrough phase (refused after two restarts, allowed after a
+  new boot id; the build before the fix fails it). The package needs a rebuild; on my PC, before the restart that
+  installs it: no `/run/limbo/passthrough.blocked` (else reboot).
+- **For Heimdall, Sarina, Yggdrasil, Labyrinth_OS:** nothing changes (same codes, events, sockets; the limbo-git recipes
+  are unchanged).
+— Signed: Limbo / Claude Opus 5.5
 
 ### 2026-11-11 (2) — The package ships limbo-rs as /usr/bin/limbo
 - Branch `package-rust-daemon` rebased onto main and merged: `packaging/arch/PKGBUILD` builds both, `/usr/bin/limbo` is

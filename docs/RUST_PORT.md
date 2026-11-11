@@ -88,14 +88,14 @@ behaviour differs from Go's, the port carries Go's:
   | `quarantine.json` | clean() and 25 generated store sequences (records, errors, holding, the list, the files on disk) | 3,140 |
   | `engine.json` | 184 scenarios: up for eight manifests with each step failing in turn, down, holds, release, defined, held and condemned guests, wrong images, subnets taken; every command line and stdin, event, error and file | 1,598 |
   | `api.json` | 14 scenarios, 172 requests on the four sockets with the Go handlers' own fakes: route tables, the mux, holds, verdicts, a failing audit log, runs and their codes, decoder errors, the password switch | 736 |
-  | `hostpolicy.json` | 181 fake hosts (each a sysfs tree, os-release, host policy, approval file, reboot marker, open files, drivers; made a real folder by the Rust test): every case of the hostpolicy tests, then 120 generated hosts; Check, Ready, Standing, HostID, Before/After with every refusal's kind and text | 2,484 |
+  | `hostpolicy.json` | 216 fake hosts (each a sysfs tree, os-release, host policy, boot id, approval file, reboot markers, open files, drivers; made a real folder by the Rust test): every case of the hostpolicy tests, then 120 generated hosts; Check, Ready, Standing, HostID, Before/After with every refusal's kind and text; the daemon restarted (the run folder emptied), the host rebooted (a new boot id) and Clear between questions, both markers' bytes after every step; 21 hand-written and damaged markers, 7 boot ids | 5,241 |
   | `cli.json` | the pieces of the socket-client commands' output (the CLI port, step 6): Go's flag parsing with its messages and usage on two flag sets and 39 argument lists, text/tabwriter (67 texts), json.Indent, a RawMessage's compaction and member lookup (21 documents), `%v` of floats, RFC3339, the CLI's sizes; `limbo report --since` (parseSince) from a fixed time on 3,056 inputs | 7,028 |
   | `tz.json` | Go's local time zone as `limbo image list` shows times (`cmd/limbo/parity_tz_test.go`): 47 TZif files made up for it (versions 1-3, transitions, first-zone rules, broken files, and 29 POSIX TZ footers: rules J, n and M, offsets and times out of the usual range, malformed ones) read by LoadLocationFromTZData, 27 times looked up in each | 4,367 |
   | `cliclient.json` | the CLI's HTTP client (`cmd/limbo/parity_client_test.go`): 317 request URLs `"http://limbo"+path` as http.NewRequest reads them (error, request target, the URL as an error writes it), 928 Locations resolved against them (userinfo, IPv6 literals, ports, dot segments, opaque and scheme-only references), 68 responses as http.ReadResponse reads them (status lines, MIME headers and continuations, Content-Length, chunked bodies and their errors, trailers, 1xx), 35 times as Go 1.27's encoding/json reads them | 7,449 |
 
   | `wine.json` | the Wine backend's parts that do not touch the host (`internal/wine/parity_test.go`): 1,026 share checks (two sets of Limbo's folders, three homes, sources that differ from the path), 606 Merges of a profile and the command line against a folder tree made for the test (symlinks absolute, relative, chained, looping and dangling, a named pipe, a file where a folder is expected), 316 sandboxes for hand-written and 70 generated hosts (with SetChdir, WithEnv and the whole command), 308 trace splits (Go's 64 KiB chunks, limits at and around their edges), 216 X authority filters (crafted, damaged, generated), 210 dry runs against the tree, 56 profiles and 20 profile files (modes, sizes, links), names, folders, ShimPrefix, the run record, the prefix record and prefixArch's scanner limits, the lock's message, ensureDir, the pruning of run folders | 3,031 |
 
-  **All 31,919 comparisons equal.** Mapping to the Go test functions of serve's packages: the manifest, virt, policy,
+  **All 34,676 comparisons equal.** Mapping to the Go test functions of serve's packages: the manifest, virt, policy,
   provision and hostfw tests' inputs are all in `manifests.json`; the flows and quarantine tests' scenarios are in theirs
   plus generated ones; the engine tests' scenarios in `engine.json`; `TestRouteTablesPerPrincipal`, the open, verdict,
   close, oversized-body, agent-error, profiles, sample-run and Settings-switch tests in `api.json`. The runs, instances,
@@ -114,6 +114,10 @@ behaviour differs from Go's, the port carries Go's:
   events of events.jsonl, the 641 host commands with their input, the 16 state files with their modes and the startup
   messages, once times,
   ids, pids and the scratch folder are normalised. Sockets made with the same modes, removed at exit, exit status 0.
+  Then the passthrough phase (2026-11-11, "The reboot-needed marker and restarts" below): a made-up host bound over the
+  real one inside the namespace, a run whose device stays on vfio-pci, two restarts with the run folder emptied, a new
+  boot id; besides agreeing, both daemons must refuse with `reboot_required` after each restart and allow after the
+  reboot (the script checks it; the build before the fix fails it, Go and Rust alike).
 - **Properties** (`tests/properties.rs`): the Kani harnesses' claims exhaustively (control.sock and agent.sock have no
   route outside their restrict-only sets for every one of the 32 combinations of services; user.sock never has a
   verdict, close, down, settings, instance-registry or license-key route); any path and method on control.sock or
@@ -278,7 +282,7 @@ From 2026-11-10 my PC ran the Rust daemon through the drop-in of step 4 above. S
   sudo systemctl daemon-reload
   systemctl show -p ExecStart --value limbo.service      # /usr/bin/limbo serve ...
   sudo ls -A /var/lib/limbo/state/runs                     # empty: no validation run for the restart to destroy
-  test -e /run/limbo/passthrough.blocked && echo "reboot instead: a restart empties /run/limbo and this marker with it"
+  test -e /run/limbo/passthrough.blocked && echo "reboot instead: the old build's marker is only here, and a restart empties /run/limbo"
   sudo systemctl restart limbo.service                     # not during a validation run (the startup reap)
   sudo rm /usr/lib/limbo/limbo-rs                          # the hand-installed daemon, named nowhere now
   limbo rs-version; limbo version; limbo doctor; systemctl is-active limbo.service
@@ -296,6 +300,55 @@ From 2026-11-10 my PC ran the Rust daemon through the drop-in of step 4 above. S
 
   Back to the previous package entirely: `sudo pacman -U` of the old file (pacman's cache), which makes `/usr/bin/limbo`
   the Go build again and removes `/usr/lib/limbo/limbo-go`; then `restart`.
+
+## The reboot-needed marker and restarts (2026-11-11)
+
+**The gap.** After a run, Limbo checks every passed-through PCI device is back under the host driver it had. If one is
+not, a marker blocks every later passthrough start until the host reboots (a card that did not come back must not be
+handed out again). The marker lived only in `/run/limbo`, a tmpfs, so that a reboot removes it. But `limbo.service` has
+`RuntimeDirectory=limbo`, and systemd empties that folder at **every stop** of the service: any restart of the daemon
+(a package upgrade, `systemctl restart`, Restart=on-failure) lifted the block without the reboot. Go and Rust alike.
+
+**What I chose.** The marker that counts is now in the state folder, `/var/lib/limbo/state/passthrough.blocked`
+(persistent, root-only, 0600), and names the boot it was written in:
+
+```
+boot_id 6f1c0a52-3c1e-4b8e-9d0a-2b7f4e5c8a11
+device 0000:03:00.0 is bound to "vfio-pci" after teardown
+```
+
+The id is the kernel's `/proc/sys/kernel/random/boot_id`, a random UUID made at every boot. The marker **counts unless
+it is proven to be from an earlier boot**: its id and this boot's are both well-formed (lower-case 8-4-4-4-12 hex) and
+differ. Everything else counts: a marker that cannot be read, is damaged or empty, the old one-line form, `boot_id
+unknown` (written when the boot id could not be read), a boot id this host cannot read. Only `sudo limbo passthrough
+clear` (after recovering the device by hand) or a provable reboot ends it. A marker from an earlier boot stays on disk,
+inert, until the next one overwrites it or `clear` removes it. The run folder's marker is still written (it covers a
+state folder that cannot be written, until the service stops) and still counts while there; `clear` removes both.
+`limbo up` (no daemon, `--state-dir`) and `limbo passthrough` read the same state folder's marker.
+
+**Why not `RuntimeDirectoryPreserve=restart`** (the other option): it keeps /run/limbo across `systemctl restart` and
+Restart=on-failure only; a `stop` then `start`, or a unit edited between them, still empties it. `=yes` would keep the
+folder until the reboot, but the block would then rest on one line of one unit: a drop-in, another unit, or a `limbo
+serve` started by hand (the integration scripts do) would not have it, and anything that empties /run/limbo would lift
+the block. The boot id is the code's own proof that a reboot happened, whoever started the daemon, whatever the unit
+says. Security over convenience: what cannot prove a reboot keeps passthrough off. **The unit is unchanged**, so the
+Labyrinth `limbo-git` recipes need nothing. Stale sockets were never the problem: both daemons remove a socket file
+left at a socket's path before binding (and refuse anything that is not a socket), as before.
+
+**Tests.** `hostpolicy.json` (Go writes it, Rust compares): restart, reboot and clear between questions, both markers'
+bytes after each step; marker set, restart, still blocked; new boot id, ended; a new failure after the reboot names the
+new boot; 21 damaged or hand-written markers, 7 boot ids (empty, upper case, short, doubled, padded with Unicode spaces
+Go's TrimSpace removes); a restart, reboot or clear inserted into a third of the generated hosts. A Rust mutation that
+lets a restart lift the block fails 48 of the 5,241 comparisons. Go unit tests:
+`TestBlockOutlastsRestartEndsWithReboot`, `TestDamagedMarkerCountsUntilCleared`. The CLI differential: `limbo
+passthrough status`, `approve` and `clear` with state markers of this boot, an earlier boot, damaged ones and an empty
+or damaged boot id (a made-up boot id bound over /proc/sys/kernel/random/boot_id in the namespace), both markers, a
+state marker that is a full folder (the whole run: 1,000 cases, 5,000 comparisons, no difference). The daemon
+differential: the passthrough phase (above), no difference.
+
+**On my PC.** The running daemon (built before this) keeps its marker only in /run/limbo, which the restart that
+installs this build empties: before that restart, `test -e /run/limbo/passthrough.blocked` must be false (if it is
+there: reboot instead of restarting). From this build on, restarts keep the block.
 
 ## The owner's first run (2026-11-10, release build of bea73d9): every failure was the scripts' or this computer's
 
@@ -354,10 +407,10 @@ Next, in order:
    transport sent the POST on the GET's connection before it saw the scripted socket close it, and met a reset: every
    scripted answer now says `Connection: close`). Left for me (root): install it on my PC with the steps for a host
    that switched by hand (`--overwrite /usr/lib/limbo/limbo-go`, the drop-in removed after, one restart
-   when no validation run is active), then the Rust daemon's figures (`VmRSS`, `Threads`) as in step 4. Found, not
-   changed (Go and Rust alike): `RuntimeDirectory=limbo` makes systemd empty /run/limbo at every stop, so a restart
-   also removes `passthrough.blocked`, the marker that keeps passthrough off until a reboot after a device failed to
-   return; `RuntimeDirectoryPreserve=restart` in limbo.service, or the marker elsewhere, is my decision to make.
+   when no validation run is active), then the Rust daemon's figures (`VmRSS`, `Threads`) as in step 4. Fixed the same
+   day (Go and Rust alike): a restart of the daemon no longer lifts the passthrough block, because `RuntimeDirectory=limbo`
+   empties /run/limbo at every stop; the marker that counts is in the state folder and names its boot ("The
+   reboot-needed marker and restarts"). The package needs a rebuild for it; the unit is unchanged.
 2. (hostpolicy done: `hostpolicy.json`.) Carry over the runs tests that use a fake clock and executor (`internal/runs/*_test.go`) as fixtures; today the differential run covers runs end to end, not each branch.
    Plan: `internal/runs/parity_test.go` with a runner that fails by line prefix as `engine/parity_test.go` words it
    (`<line>: exit status 1: <stderr>`; the Rust side builds `CmdErr` with the same text, `not_found` for

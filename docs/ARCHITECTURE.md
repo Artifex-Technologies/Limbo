@@ -144,10 +144,20 @@ real GPU.
   only told `hardware_busy`.
 - **The reset problem.** Before a run Limbo records each device's host driver; after
   teardown it checks the device is back under it. If not (libvirt could not hand it
-  back, or the card did not reset), it emits `hardware.stuck` and writes a marker in
-  `/run/limbo`, a tmpfs, so every later passthrough run gets `reboot_required` until
-  the host reboots (`limbo passthrough clear` if you recovered it by hand). This only
-  catches a failed rebind; a card that rebinds but is wedged internally is not detected.
+  back, or the card did not reset), it emits `hardware.stuck` and writes a marker, so
+  every later passthrough run gets `reboot_required` until the host reboots (`limbo
+  passthrough clear` if you recovered it by hand). The marker that counts is
+  `<state>/passthrough.blocked` and names the boot it was written in (the kernel's
+  `/proc/sys/kernel/random/boot_id`); it counts unless both that id and this boot's are
+  well-formed and differ, so a restart of the daemon keeps the block and only a reboot,
+  or `clear`, ends it. Anything that does not prove the reboot (a damaged marker, an
+  unreadable boot id) keeps it. Until 2026-11-11 the marker was only in `/run/limbo`,
+  which systemd empties at every stop of `limbo.service` (`RuntimeDirectory=`): a
+  restart, a package upgrade included, lifted the block without the reboot. A second
+  marker is still written there (for a state folder that cannot be written). Why this
+  and not `RuntimeDirectoryPreserve=`: docs/RUST_PORT.md "The reboot-needed marker and
+  restarts". This only catches a failed rebind; a card that rebinds but is wedged
+  internally is not detected.
 - **Audit.** `guest.define` gains `pci`; refusals are `gate.blocked` with the reason;
   new events `passthrough.approve`, `passthrough.revoke`, `hardware.stuck`.
 - **Not done / unverified.** No real device has been passed through, and none of the
