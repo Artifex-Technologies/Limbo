@@ -17,11 +17,10 @@ const USAGE: &str = "usage: limbo <validate|plan|seed|up|launch|down|address|exp
 
 /// The commands main.go's `run` handles before its manifest flag set, and those it handles after it that are still
 /// the Go binary's.
-const OWN_SWITCH: [&str; 11] =
-    ["serve", "quarantine", "doctor", "setup", "passthrough", "settings", "instance", "license", "exchange", "net", "wine"];
+const OWN_SWITCH: [&str; 9] = ["serve", "quarantine", "passthrough", "settings", "instance", "license", "exchange", "net", "wine"];
 const STILL_GO: [&str; 6] = ["up", "down", "launch", "capture", "export", "screenshot"];
 
-/// `limbo` with no command, `version`, `validate`, `plan`, `seed`, `address`, `report`, `analyze`, `image` and any command Go does not know; None
+/// `limbo` with no command, `version`, `validate`, `plan`, `seed`, `address`, `report`, `analyze`, `image`, `doctor`, `setup` and any command Go does not know; None
 /// for the rest.
 pub fn run(cmd: Option<&str>, args: &[String], io: &mut Io) -> Option<Result<(), Fail>> {
     let Some(cmd) = cmd else { return Some(Err(Fail::Msg(USAGE.into()))) };
@@ -37,6 +36,12 @@ pub fn run(cmd: Option<&str>, args: &[String], io: &mut Io) -> Option<Result<(),
     }
     if cmd == "image" {
         return Some(super::image::run(args, io));
+    }
+    if cmd == "doctor" {
+        return Some(super::setup::doctor_cmd(args, io));
+    }
+    if cmd == "setup" {
+        return Some(super::setup::setup_cmd(args, io));
     }
     if OWN_SWITCH.contains(&cmd) || STILL_GO.contains(&cmd) {
         return None;

@@ -792,6 +792,11 @@ impl Manager {
         gojson::list(&items)
     }
 
+    /// The uncapped list, for `limbo doctor` (Go's SkippedAll).
+    pub fn skipped_all(&self) -> Vec<Skipped> {
+        self.scan().1
+    }
+
     pub fn skipped(&self) -> Vec<Skipped> {
         let mut sk = self.scan().1;
         if sk.len() > MAX_SKIPPED {

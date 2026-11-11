@@ -11,6 +11,7 @@ pub mod goexec;
 pub mod image;
 pub mod local;
 pub mod seed;
+pub mod setup;
 pub mod tabw;
 pub mod text;
 pub mod url;

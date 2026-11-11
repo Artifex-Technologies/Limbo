@@ -3,7 +3,8 @@
 | exchange) on the same scripted socket, and the manifest commands (version, validate, plan, address, an unknown
 command; local_cases) on the same files, limbo report on the same log and records, and limbo analyze (an inbox
 here, the scripted socket; analyze_cases), limbo image (records here, the trusted ones under `unshare -r`;
-image_cases).
+image_cases), limbo doctor and setup (fake programs only, in a user and mount namespace with Limbo's folders replaced;
+setup_cases).
 
 A fake server listens on a unix socket in a scratch folder, records every request it gets (method, target, Host,
 Content-Length, Referer, Transfer-Encoding, the other header names, the body) and answers each with the next raw
@@ -877,6 +878,108 @@ def image_cases():
     return cs
 
 
+# The mount namespace doctor and setup run in: Limbo's folders and the sysusers folder replaced by the case's own (an
+# empty /etc/limbo here when the host has one), so neither binary reads this computer's profiles or images.
+NSRUN = r"""#!/bin/sh
+if [ -d /etc/limbo ]; then /usr/bin/mount --bind "$NS_ETC" /etc/limbo || exit 97; fi
+if [ -d /var/lib/limbo ]; then /usr/bin/mount --bind "$NS_VAR" /var/lib/limbo || exit 97; fi
+/usr/bin/mount --bind "$NS_SYSUSERS" /usr/lib/sysusers.d || exit 97
+exec "$@"
+"""
+
+
+def fake(name, body=""):
+    """A fake program: logs its arguments to calls.log, fails with FAKE_FAIL_<name> as its exit status, and prints
+    what FAKE_SAY_<name> says (stdout) and FAKE_ERR_<name> (stderr)."""
+    var = name.replace("-", "_")
+    return (f"#!/bin/sh\necho \"{name} $*\" >> \"$FAKE_LOG\"\n"
+            f"[ -n \"$FAKE_SAY_{var}\" ] && echo \"$FAKE_SAY_{var}\"\n"
+            f"[ -n \"$FAKE_ERR_{var}\" ] && echo \"$FAKE_ERR_{var}\" >&2\n" + body +
+            f"exit ${{FAKE_FAIL_{var}:-0}}\n")
+
+
+GETENT = fake("getent", 'for g in $FAKE_GROUPS; do [ "$g" = "$2" ] && exit 0; done\nexit 2\n')
+
+
+def profile(name, image, sha=None, **over):
+    m = {"name": name[:12], "os": "linux", "image": {"path": "{W}/img/" + image, "sha256": sha or hashlib.sha256(b"image\n").hexdigest()},
+         "disposable": True, "access": {"user": "analyst"}, "app": {"name": "v", "exec": "true"},
+         "provision": {"ssh_public_key": "ssh-ed25519 AAAAkey v@host"}}
+    m.update(over)
+    return json.dumps({"manifest": m, "ssh_identity": "/k", "max_seconds": 60})
+
+
+def setup_cases():
+    """limbo doctor and limbo setup, with fake programs only, as uid 0 in a user and mount namespace of their own."""
+    cs = []
+    deps = ["virsh", "qemu-img", "qemu-system-x86_64", "dnsmasq", "nft", "ssh", "xorriso"]
+    admin = ["pacman", "systemctl", "systemd-sysusers", "groupadd"]
+    full = {f"bin/{d}*": fake(d) for d in deps + admin}
+    full["bin/getent*"] = GETENT
+    some = {f"bin/{d}*": fake(d) for d in ["virsh", "nft", "ssh"] + admin}
+    some["bin/getent*"] = GETENT
+    base = {"nsrun": NSRUN, "etc/": "", "var/": "", "sysusers/": "", "img/image.qcow2": "image\n", "img/other.qcow2": "other\n"}
+    profiles = {
+        "etc/validation/good.json": profile("good", "image.qcow2"),
+        "etc/validation/wrong-sum.json": profile("wrong-sum", "other.qcow2"),
+        "etc/validation/no-image.json": profile("no-image", "gone.qcow2"),
+        "etc/validation/not-disp.json": profile("not-disp", "image.qcow2", disposable=False),
+        "etc/validation/windows.json": profile("windows", "image.qcow2", os="windows"),
+        "etc/validation/usb.json": profile("usb", "image.qcow2", devices={"usb": ["1234:abcd"]}),
+        "etc/validation/broken.json": "{",
+        "etc/validation/Bad_Name.json": profile("bad", "image.qcow2"),
+        "etc/validation/a-very-long-profile-name.json": profile("long", "other.qcow2"),
+        "etc/validation/notes.txt": "x",
+        "etc/validation/sub.json/": "",
+    }
+    groups = "limbo-heimdall limbo-agent limbo-users"
+
+    def D(name, cmd, args, files, env=None, stdin=b"", ns=True):
+        e = {"PATH": "{W}/bin", "FAKE_LOG": "{W}/calls.log", "NS_ETC": "{W}/etc", "NS_VAR": "{W}/var",
+             "NS_SYSUSERS": "{W}/sysusers", "FAKE_GROUPS": groups}
+        e.update(env or {})
+        cs.append({"name": name, "cmd": cmd, "args": list(args), "answers": [], "env": e, "stdin": stdin,
+                   "files": dict(base, **files), "nsrun": ns})
+
+    D("doctor all present", "doctor", [], full)
+    D("doctor some missing", "doctor", [], some)
+    D("doctor nothing", "doctor", [], {"bin/": ""})
+    D("doctor no groups", "doctor", [], full, {"FAKE_GROUPS": "limbo-agent limbo-users"})
+    D("doctor no getent", "doctor", [], {k: v for k, v in full.items() if "getent" not in k})
+    D("doctor profiles", "doctor", [], dict(full, **profiles))
+    D("doctor profiles some missing", "doctor", [], dict(some, **profiles))
+    D("doctor wine on path", "doctor", [], dict(full, **{"bin/wine*": fake("wine")}))
+    D("doctor wine shim link", "doctor", [], dict(full, **{"bin/wine@": "/usr/lib/limbo/bin/wine"}))
+    D("doctor wine relative path", "doctor", [], dict(full, **{"bin/wine*": fake("wine")}), {"PATH": "{W}/bin:bin"})
+    D("doctor args", "doctor", ["extra", "words"], full)
+    D("doctor bad flag", "doctor", ["--bogus"], full)
+    D("doctor help", "doctor", ["-h"], full)
+    D("doctor path dir entries", "doctor", [], dict(full, **{"bin2/virsh/": ""}), {"PATH": "{W}/bin2:{W}/empty::{W}/bin"})
+    D("setup not root", "setup", ["--yes"], full, ns=False)
+    D("setup bad flag", "setup", ["--bogus"], full, ns=False)
+    D("setup cancelled", "setup", [], full, stdin=b"no\n")
+    D("setup cancelled empty", "setup", [], full, stdin=b"")
+    D("setup confirmed", "setup", [], full, stdin=b"  Yes please\nmore\n")
+    D("setup confirmed upper", "setup", [], full, stdin=b"Y")
+    D("setup yes", "setup", ["--yes"], full)
+    D("setup yes service", "setup", ["--yes", "--enable-service"], full)
+    D("setup install", "setup", ["--yes"], some, {"FAKE_SAY_pacman": "installing"})
+    D("setup install upgrade", "setup", ["-yes", "-upgrade=true", "-enable-service"], some)
+    D("setup install no pacman", "setup", ["--yes"], {k: v for k, v in some.items() if "pacman" not in k})
+    D("setup pacman fails", "setup", ["--yes"], some, {"FAKE_FAIL_pacman": "1", "FAKE_ERR_pacman": "error: target not found: x"})
+    D("setup pacman fails then doctor", "setup", ["--yes"], some, {"FAKE_FAIL_pacman": "130"})
+    D("setup groups made", "setup", ["--yes"], full, {"FAKE_GROUPS": "limbo-agent"})
+    D("setup groupadd fails", "setup", ["--yes"], full, {"FAKE_GROUPS": "", "FAKE_FAIL_groupadd": "9"})
+    D("setup no groupadd", "setup", ["--yes"], {k: v for k, v in full.items() if "groupadd" not in k}, {"FAKE_GROUPS": ""})
+    D("setup sysusers", "setup", ["--yes"], dict(full, **{"sysusers/limbo.conf": "g limbo-agent -\n"}))
+    D("setup sysusers fails", "setup", ["--yes"], dict(full, **{"sysusers/limbo.conf": "x"}), {"FAKE_FAIL_systemd_sysusers": "1"})
+    D("setup systemctl fails", "setup", ["--yes"], full, {"FAKE_FAIL_systemctl": "4"})
+    D("setup no systemctl", "setup", ["--yes", "--enable-service"], {k: v for k, v in full.items() if "systemctl" not in k})
+    D("setup finished with problems", "setup", ["--yes"], dict(full, **profiles), {"FAKE_GROUPS": ""})
+    D("setup reads stdin child", "setup", ["--yes"], full, stdin=b"for the child\n")
+    return cs
+
+
 class Server:
     """The scripted socket: records requests, answers from the case's list in order."""
 
@@ -1015,6 +1118,9 @@ def run_one(binary, case, base):
     env.update({k: v.replace("{W}", work) if isinstance(v, str) else v for k, v in case["env"].items()})
     env = {k: v for k, v in env.items() if v is not None}
     argv = [binary] + ([case["cmd"]] if case["cmd"] is not None else []) + args
+    if case.get("nsrun"):
+        # uid 0 in a user and mount namespace, Limbo's folders replaced by the case's (nsrun; never real root)
+        argv = [shutil.which("unshare") or "/usr/bin/unshare", "-rm", "/bin/sh", os.path.join(work, "nsrun")] + argv
     if case.get("userns"):
         # uid 0 in a user namespace: the files made here are root's there (no real root)
         argv = [shutil.which("unshare") or "/usr/bin/unshare", "-r"] + argv
@@ -1052,7 +1158,7 @@ def main():
     if len(os.path.join(base, "s")) >= 100:
         sys.exit(f"{base}: too long for a socket path")
     os.umask(0o022)
-    cs = [c for c in cases() + local_cases() + analyze_cases() + image_cases() if a.only in c["name"]]
+    cs = [c for c in cases() + local_cases() + analyze_cases() + image_cases() + setup_cases() if a.only in c["name"]]
     bad = 0
     comparisons = 0
     for c in cs:

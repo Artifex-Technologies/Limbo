@@ -6,9 +6,9 @@ Go daemon measured 18.8 MB RSS idle on my PC; the target was about 3-5 MB.
 
 The CLI is being ported command by command. limbo-rs runs these itself (when their arguments and the variables they
 read are UTF-8): the five socket-client commands (`quarantine`, `settings`, `instance`, `license`, `exchange`) and,
-since 2026-11-11, `version`, `validate`, `plan`, `address`, `seed`, `report`, `analyze`, `image`, an unknown command
-and no command at all. Still in Go: `up`, `down`, `launch`, `export`, `screenshot`, `capture`, `wine`, `passthrough`,
-`doctor`, `setup`, `net`.
+since 2026-11-11, `version`, `validate`, `plan`, `address`, `seed`, `report`, `analyze`, `image`, `doctor`, `setup`,
+an unknown command and no command at all. Still in Go: `up`, `down`, `launch`, `export`, `screenshot`, `capture`,
+`wine`, `passthrough`, `net`.
 `limbo-rs serve` is the daemon; **every other command is handed, unchanged, to the Go binary**
 (`$LIMBO_GO_BINARY`, else `limbo-go` beside `limbo-rs`, else `/usr/lib/limbo/limbo-go`, else `/usr/bin/limbo`). The
 state files are the contract between the two and are the Go daemon's, in the same formats.
@@ -22,7 +22,7 @@ state files are the contract between the two and are the Go daemon's, in the sam
 | 3 | the differential run of both daemons on the same socket traffic (`rust/parity/daemon-differential.py`) | **done**: no difference |
 | 4 | the real-guest scripts against the Rust daemon (`LIMBO_RS=... scripts/integration-*.sh`) | **prepared, needs root**: commands below |
 | 5 | the rehearsal on a copy of this computer's real state (`--from-host`), then the switch | **prepared, needs root**: "The switch" |
-| 6 | the CLI commands, one by one | **in progress**: the five socket-client commands, then version, validate, plan, address, seed, report, analyze and image (2026-11-11, `cli.json`, `cliclient.json`, `manifests.json`, `tz.json` and the CLI differential run); the rest open ("Resume here") |
+| 6 | the CLI commands, one by one | **in progress**: the five socket-client commands, then version, validate, plan, address, seed, report, analyze, image, doctor and setup (2026-11-11, `cli.json`, `cliclient.json`, `manifests.json`, `tz.json` and the CLI differential run); the rest open ("Resume here") |
 
 ## Layout
 
@@ -174,6 +174,9 @@ no error); a command's end was noticed only every 25 ms (now a pidfd in poll(2))
   U+FFFD (Go prints the bytes). `limbo report` and `limbo analyze`: the time now (the report's "Generated", a --since
   duration, analyze's deadline) is the one input the differential run cannot hold equal; the report's lines that show
   it are normalised there, and `parseSince` is pinned from a fixed time by `cli.json`.
+- `limbo setup`'s question reads stdin through a buffer, as Go's does, but Go's holds 4,096 bytes and the port's
+  8,192: with more than 4 KB waiting on stdin, the programs setup runs afterwards (pacman, systemctl) find less of it
+  left in the port. Nobody pipes that much into setup.
 - JSON error paths now follow Go 1.27 everywhere (the document's own struct name, the path as the document spells it,
   array indexes); the image-proofs.json entry above was written before that and was not checked again.
 
@@ -308,18 +311,21 @@ Next, in order:
    `cli/goexec.rs` for os/exec with Go's error texts, the Windows answer file in `provision.rs` pinned by
    `manifests.json`, fake ssh-keygen and xorriso in the differential; afb8a94); `image list | verify`
    (`cli/image.rs`; `image::Proofs::list` and `verify_all`; Go's ignore reasons in `load_why`; `tz.rs`, Go's local
-   time zone from $TZ or /etc/localtime with its TZif reader and POSIX TZ rules, pinned by `tz.json`; the commit with
-   this note). The CLI differential run: 625 cases, 3,125 comparisons, no difference (about 5 minutes: analyze polls
-   every 3 s). The image cases that need root's files run under `unshare -r` (uid 0 in a user namespace, so the files
-   made for the case are root's there; never real root), with `--state-dir` in the work folder and `--i-know`; a case's
-   `prep` writes the record file with each image's real device, inode, size and times; 16 values of $TZ. limbo-rs gets
+   time zone from $TZ or /etc/localtime with its TZif reader and POSIX TZ rules, pinned by `tz.json`;
+   1802bd7); `doctor` and `setup` (`cli/setup.rs`, internal/deps; the commit with this note). The CLI differential
+   run: 661 cases, 3,305 comparisons, no difference (about 5 minutes: analyze polls every 3 s). The image cases that
+   need root's files run under `unshare -r` (uid 0 in a user namespace, so the files made for the case are root's
+   there; never real root), with `--state-dir` in the work folder and `--i-know`; a case's `prep` writes the record
+   file with each image's real device, inode, size and times; 16 values of $TZ. doctor and setup run under
+   `unshare -rm` with /etc/limbo, /var/lib/limbo and /usr/lib/sysusers.d bind-mounted from the case's own folders
+   (`nsrun`), and PATH holding only fake programs (pacman, systemctl, systemd-sysusers, groupadd, getent and the
+   runtime's commands, each logging its arguments): nothing real is installed, enabled or read. limbo-rs gets
    `LIMBO_RS_NO_GO=1` there, so a command it does not run itself fails instead of reaching a Go limbo (without it, a
    command missing from the dispatch would be compared Go against Go: it happened to seed once). Fixed in Go on the
-   way: `license.Check` and `seed` depended on map order. Next, in order, and what each needs:
-   a. `doctor`, then `setup` (setup.go: what is installed, pacman, systemctl, groups): fake programs on PATH only, the
-      root paths in the namespace, never the real system.
-   b. `net watch`: NFLOG needs root; the daemon differential's namespace has real nft rules for it.
-   c. `passthrough` (a root file, a typed "yes"), `wine` (bwrap and Wine as fakes only, never real Wine here),
+   way: `license.Check` and `seed` depended on map order. Left, and what each needs (the ones that run host programs;
+   all with fakes in a namespace, never the real ones here):
+   a. `net watch`: NFLOG needs root; the daemon differential's namespace has real nft rules for it.
+   b. `passthrough` (a root file, a typed "yes"), `wine` (bwrap and Wine as fakes only, never real Wine here),
       `export`, `screenshot`, `capture` (virsh, qemu-img, usbmon: fakes in the namespace), `up`, `down`, `launch` (the
       engine is ported for the daemon; launch's ssh and waypipe as fakes).
    The integration scripts call `limbo quarantine` through limbo-rs, so a ported command is exercised by the owner's

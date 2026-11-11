@@ -107,3 +107,12 @@ pub fn run(name: &str, args: &[String]) -> Result<(), String> {
         Err(e) => Err(start_err(&path, &e)),
     }
 }
+
+/// `exec.Command(name, args...)` with this process's stdin, stdout and stderr, `Run()`.
+pub fn run_inherit(name: &str, args: &[String]) -> Result<(), String> {
+    let path = look_path(name)?;
+    match Command::new(&path).arg0(name).args(args).status() {
+        Ok(st) => wait_text(st),
+        Err(e) => Err(start_err(&path, &e)),
+    }
+}
