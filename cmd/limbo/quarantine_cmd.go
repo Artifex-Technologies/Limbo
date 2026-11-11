@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -176,8 +177,14 @@ func quarantineCmd(args []string) error {
 func printRecord(r quarantine.Record) {
 	fmt.Printf("%s  guest=%s  status=%s  level=%s\n", r.ID, r.Guest, r.Status, r.Level)
 	fmt.Printf("opened %s by %s\nreason: %s\n", r.Opened.Format(time.RFC3339), r.Source, r.Reason)
-	for k, v := range r.Evidence {
-		fmt.Printf("evidence %s: %s\n", k, v)
+	// in key order (a map's own order changes from run to run; the Rust CLI prints the same order)
+	keys := make([]string, 0, len(r.Evidence))
+	for k := range r.Evidence {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		fmt.Printf("evidence %s: %s\n", k, r.Evidence[k])
 	}
 	for _, a := range r.Advisory {
 		fmt.Printf("\n--- ADVISORY from %s (%s) ---\n", a.Source, a.Time.Format(time.RFC3339))

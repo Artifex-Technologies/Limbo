@@ -80,8 +80,9 @@ behaviour differs from Go's, the port carries Go's:
   | `engine.json` | 184 scenarios: up for eight manifests with each step failing in turn, down, holds, release, defined, held and condemned guests, wrong images, subnets taken; every command line and stdin, event, error and file | 1,598 |
   | `api.json` | 14 scenarios, 172 requests on the four sockets with the Go handlers' own fakes: route tables, the mux, holds, verdicts, a failing audit log, runs and their codes, decoder errors, the password switch | 736 |
   | `hostpolicy.json` | 181 fake hosts (each a sysfs tree, os-release, host policy, approval file, reboot marker, open files, drivers; made a real folder by the Rust test): every case of the hostpolicy tests, then 120 generated hosts; Check, Ready, Standing, HostID, Before/After with every refusal's kind and text | 2,484 |
+  | `cli.json` | the pieces of the socket-client commands' output (the CLI port, step 6): Go's flag parsing with its messages and usage on two flag sets and 39 argument lists, text/tabwriter (67 texts), json.Indent, a RawMessage's compaction and member lookup (21 documents), `%v` of floats, RFC3339, the CLI's sizes | 916 |
 
-  **All 9,822 comparisons equal.** Mapping to the Go test functions of serve's packages: the manifest, virt, policy,
+  **All 10,738 comparisons equal.** Mapping to the Go test functions of serve's packages: the manifest, virt, policy,
   provision and hostfw tests' inputs are all in `manifests.json`; the flows and quarantine tests' scenarios are in theirs
   plus generated ones; the engine tests' scenarios in `engine.json`; `TestRouteTablesPerPrincipal`, the open, verdict,
   close, oversized-body, agent-error, profiles, sample-run and Settings-switch tests in `api.json`. The runs, instances,
@@ -266,6 +267,20 @@ Next, in order:
    remedy), the finished Result with id and times normalised (`r00000001`...), the command lines per run, the events
    (kind, guest, detail) and the files left under state/. Scenarios needing a caller's context (boot timeout through
    ctx, cancel) stay with the differential run: the Rust `Manager::start` takes none.
-3. Then the CLI commands, starting with the ones the daemon's users call most (`limbo quarantine`, `settings`,
-   `instance`, `license`, `exchange`: all talk to the sockets). The integration scripts call `limbo quarantine` through
-   limbo-rs, so a ported command is exercised by the owner's next run of them.
+3. The socket-client CLI commands, in `rust/limbo/src/cli/` (not dispatched yet: main.rs still hands every command
+   but serve to Go). Done (2026-11-11): `flags.rs` (Go's flag package with ContinueOnError and parseInterspersed),
+   `tabw.rs` (text/tabwriter as the CLI sets it up; no 0xff escape handling, cells are decoded JSON), `text.rs`
+   (json.Indent, RawMessage compaction and lookup, `%v` of floats, RFC3339, size), all equal to Go in `cli.json`.
+   The Go CLI now prints evidence in key order and asks settings show's three routes in a fixed order (both were map
+   order, different from run to run). Next: `client.rs` (HTTP over the unix socket as Go's client: the URL parse and
+   escaping of `"http://limbo"+path`, Go's `url.Error` texts (`Get "http://limbo/v1/x": dial unix S: connect: ...`),
+   redirects (307/308 keep method and body, 301-303 become GET, 10 at most), the server's own status line in "server
+   returned ..."); then the five commands from cmd/limbo/quarantine_cmd.go and settings_cmd.go (whoAmI from SUDO_USER/
+   USER, defaultSocket by euid, instance add through manifest::load and Manifest::json, exchange take with O_EXCL|
+   O_NOFOLLOW, 0644, the sha256 check and the SUDO_UID/PKEXEC_UID chown); then `rust/parity/cli-differential.py`: a
+   fake socket server that records each request and answers from a script, both binaries with the same arguments,
+   environment and stdin, compared on stdout, stderr, exit status and the requests; then dispatch in main.rs, the
+   package branch rebased and merged.
+4. The other CLI commands (up, down, launch, seed, export, capture, wine, passthrough, image, doctor, setup, ...), one by one.
+   The integration scripts call `limbo quarantine` through limbo-rs, so a ported command is exercised by the owner's
+   next run of them.

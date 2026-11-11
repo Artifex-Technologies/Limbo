@@ -142,7 +142,9 @@ func settingsCmd(args []string) error {
 	case "show":
 		// One call for the whole page: status, instances, licenses.
 		out := map[string]json.RawMessage{}
-		for key, path := range map[string]string{"status": "/v1/status", "instances": "/v1/instances", "licenses": "/v1/licenses"} {
+		// in a fixed order, so the first refusal is always the same one (a map's order changes from run to run)
+		for _, kp := range [][2]string{{"status", "/v1/status"}, {"instances", "/v1/instances"}, {"licenses", "/v1/licenses"}} {
+			key, path := kp[0], kp[1]
 			raw, err := c.do("GET", path, nil)
 			if err != nil {
 				return c.finish(err)

@@ -30,6 +30,7 @@ pub mod runs;
 pub mod flows;
 
 pub mod api;
+pub mod cli;
 pub mod http;
 pub mod serve;
 

@@ -1,0 +1,5988 @@
+{
+ "cases": [
+  {
+   "fn": "flags",
+   "in": {
+    "args": [],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "",
+    "pos": null,
+    "stderr": "",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "list"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "",
+    "pos": [
+     "list"
+    ],
+    "stderr": "",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "show",
+     "q-1"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "",
+    "pos": [
+     "show",
+     "q-1"
+    ],
+    "stderr": "",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "verdict",
+     "q-1",
+     "safe",
+     "--note",
+     "a b"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "flag provided but not defined: -note",
+    "pos": null,
+    "stderr": "flag provided but not defined: -note\nUsage of instance:\n  -cpus int\n    \tset: processors\n  -delete-disk\n    \tremove: also delete the guest's own disk\n  -devices string\n    \tset: comma-separated\n    \tlist (default \"\\x00\")\n  -json\n    \tprint the server's JSON answer\n  -memory-mb int\n    \tset: memory in MiB\n  -n int\n    \tone letter int (default 7)\n  -socket string\n    \tsocket: admin.sock as root, user.sock otherwise (default \"/run/limbo/user.sock\")\n  -x\tone letter\n",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "--note=x",
+     "list",
+     "-note",
+     "y"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "flag provided but not defined: -note",
+    "pos": null,
+    "stderr": "flag provided but not defined: -note\nUsage of instance:\n  -cpus int\n    \tset: processors\n  -delete-disk\n    \tremove: also delete the guest's own disk\n  -devices string\n    \tset: comma-separated\n    \tlist (default \"\\x00\")\n  -json\n    \tprint the server's JSON answer\n  -memory-mb int\n    \tset: memory in MiB\n  -n int\n    \tone letter int (default 7)\n  -socket string\n    \tsocket: admin.sock as root, user.sock otherwise (default \"/run/limbo/user.sock\")\n  -x\tone letter\n",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-h"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "flag: help requested",
+    "pos": null,
+    "stderr": "Usage of instance:\n  -cpus int\n    \tset: processors\n  -delete-disk\n    \tremove: also delete the guest's own disk\n  -devices string\n    \tset: comma-separated\n    \tlist (default \"\\x00\")\n  -json\n    \tprint the server's JSON answer\n  -memory-mb int\n    \tset: memory in MiB\n  -n int\n    \tone letter int (default 7)\n  -socket string\n    \tsocket: admin.sock as root, user.sock otherwise (default \"/run/limbo/user.sock\")\n  -x\tone letter\n",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "--help"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "flag: help requested",
+    "pos": null,
+    "stderr": "Usage of instance:\n  -cpus int\n    \tset: processors\n  -delete-disk\n    \tremove: also delete the guest's own disk\n  -devices string\n    \tset: comma-separated\n    \tlist (default \"\\x00\")\n  -json\n    \tprint the server's JSON answer\n  -memory-mb int\n    \tset: memory in MiB\n  -n int\n    \tone letter int (default 7)\n  -socket string\n    \tsocket: admin.sock as root, user.sock otherwise (default \"/run/limbo/user.sock\")\n  -x\tone letter\n",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-nope"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "flag provided but not defined: -nope",
+    "pos": null,
+    "stderr": "flag provided but not defined: -nope\nUsage of instance:\n  -cpus int\n    \tset: processors\n  -delete-disk\n    \tremove: also delete the guest's own disk\n  -devices string\n    \tset: comma-separated\n    \tlist (default \"\\x00\")\n  -json\n    \tprint the server's JSON answer\n  -memory-mb int\n    \tset: memory in MiB\n  -n int\n    \tone letter int (default 7)\n  -socket string\n    \tsocket: admin.sock as root, user.sock otherwise (default \"/run/limbo/user.sock\")\n  -x\tone letter\n",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "---x"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "bad flag syntax: ---x",
+    "pos": null,
+    "stderr": "bad flag syntax: ---x\nUsage of instance:\n  -cpus int\n    \tset: processors\n  -delete-disk\n    \tremove: also delete the guest's own disk\n  -devices string\n    \tset: comma-separated\n    \tlist (default \"\\x00\")\n  -json\n    \tprint the server's JSON answer\n  -memory-mb int\n    \tset: memory in MiB\n  -n int\n    \tone letter int (default 7)\n  -socket string\n    \tsocket: admin.sock as root, user.sock otherwise (default \"/run/limbo/user.sock\")\n  -x\tone letter\n",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-=x"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "bad flag syntax: -=x",
+    "pos": null,
+    "stderr": "bad flag syntax: -=x\nUsage of instance:\n  -cpus int\n    \tset: processors\n  -delete-disk\n    \tremove: also delete the guest's own disk\n  -devices string\n    \tset: comma-separated\n    \tlist (default \"\\x00\")\n  -json\n    \tprint the server's JSON answer\n  -memory-mb int\n    \tset: memory in MiB\n  -n int\n    \tone letter int (default 7)\n  -socket string\n    \tsocket: admin.sock as root, user.sock otherwise (default \"/run/limbo/user.sock\")\n  -x\tone letter\n",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "",
+    "pos": [
+     "-"
+    ],
+    "stderr": "",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "--"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "",
+    "pos": null,
+    "stderr": "",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "--",
+     "-x",
+     "-x"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "",
+    "pos": [
+     "-x"
+    ],
+    "stderr": "",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "true"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "list",
+     "--",
+     "--note",
+     "z"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "",
+    "pos": [
+     "list",
+     "--note",
+     "z"
+    ],
+    "stderr": "",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-note"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "flag provided but not defined: -note",
+    "pos": null,
+    "stderr": "flag provided but not defined: -note\nUsage of instance:\n  -cpus int\n    \tset: processors\n  -delete-disk\n    \tremove: also delete the guest's own disk\n  -devices string\n    \tset: comma-separated\n    \tlist (default \"\\x00\")\n  -json\n    \tprint the server's JSON answer\n  -memory-mb int\n    \tset: memory in MiB\n  -n int\n    \tone letter int (default 7)\n  -socket string\n    \tsocket: admin.sock as root, user.sock otherwise (default \"/run/limbo/user.sock\")\n  -x\tone letter\n",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-json=maybe"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "invalid boolean value \"maybe\" for -json: parse error",
+    "pos": null,
+    "stderr": "invalid boolean value \"maybe\" for -json: parse error\nUsage of instance:\n  -cpus int\n    \tset: processors\n  -delete-disk\n    \tremove: also delete the guest's own disk\n  -devices string\n    \tset: comma-separated\n    \tlist (default \"\\x00\")\n  -json\n    \tprint the server's JSON answer\n  -memory-mb int\n    \tset: memory in MiB\n  -n int\n    \tone letter int (default 7)\n  -socket string\n    \tsocket: admin.sock as root, user.sock otherwise (default \"/run/limbo/user.sock\")\n  -x\tone letter\n",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-json",
+     "false"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "",
+    "pos": [
+     "false"
+    ],
+    "stderr": "",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "true",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-json=0"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "",
+    "pos": null,
+    "stderr": "",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus",
+     "0x1F"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "",
+    "pos": null,
+    "stderr": "",
+    "values": {
+     "cpus": "31",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus=1_000"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "",
+    "pos": null,
+    "stderr": "",
+    "values": {
+     "cpus": "1000",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus",
+     "_1"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "invalid value \"_1\" for flag -cpus: parse error",
+    "pos": null,
+    "stderr": "invalid value \"_1\" for flag -cpus: parse error\nUsage of instance:\n  -cpus int\n    \tset: processors\n  -delete-disk\n    \tremove: also delete the guest's own disk\n  -devices string\n    \tset: comma-separated\n    \tlist (default \"\\x00\")\n  -json\n    \tprint the server's JSON answer\n  -memory-mb int\n    \tset: memory in MiB\n  -n int\n    \tone letter int (default 7)\n  -socket string\n    \tsocket: admin.sock as root, user.sock otherwise (default \"/run/limbo/user.sock\")\n  -x\tone letter\n",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus",
+     "1__0"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "invalid value \"1__0\" for flag -cpus: parse error",
+    "pos": null,
+    "stderr": "invalid value \"1__0\" for flag -cpus: parse error\nUsage of instance:\n  -cpus int\n    \tset: processors\n  -delete-disk\n    \tremove: also delete the guest's own disk\n  -devices string\n    \tset: comma-separated\n    \tlist (default \"\\x00\")\n  -json\n    \tprint the server's JSON answer\n  -memory-mb int\n    \tset: memory in MiB\n  -n int\n    \tone letter int (default 7)\n  -socket string\n    \tsocket: admin.sock as root, user.sock otherwise (default \"/run/limbo/user.sock\")\n  -x\tone letter\n",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus",
+     "9223372036854775808"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "invalid value \"9223372036854775808\" for flag -cpus: value out of range",
+    "pos": null,
+    "stderr": "invalid value \"9223372036854775808\" for flag -cpus: value out of range\nUsage of instance:\n  -cpus int\n    \tset: processors\n  -delete-disk\n    \tremove: also delete the guest's own disk\n  -devices string\n    \tset: comma-separated\n    \tlist (default \"\\x00\")\n  -json\n    \tprint the server's JSON answer\n  -memory-mb int\n    \tset: memory in MiB\n  -n int\n    \tone letter int (default 7)\n  -socket string\n    \tsocket: admin.sock as root, user.sock otherwise (default \"/run/limbo/user.sock\")\n  -x\tone letter\n",
+    "values": {
+     "cpus": "9223372036854775807",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus",
+     "-9223372036854775808"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "",
+    "pos": null,
+    "stderr": "",
+    "values": {
+     "cpus": "-9223372036854775808",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus",
+     "0b"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "invalid value \"0b\" for flag -cpus: parse error",
+    "pos": null,
+    "stderr": "invalid value \"0b\" for flag -cpus: parse error\nUsage of instance:\n  -cpus int\n    \tset: processors\n  -delete-disk\n    \tremove: also delete the guest's own disk\n  -devices string\n    \tset: comma-separated\n    \tlist (default \"\\x00\")\n  -json\n    \tprint the server's JSON answer\n  -memory-mb int\n    \tset: memory in MiB\n  -n int\n    \tone letter int (default 7)\n  -socket string\n    \tsocket: admin.sock as root, user.sock otherwise (default \"/run/limbo/user.sock\")\n  -x\tone letter\n",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus",
+     "0o17"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "",
+    "pos": null,
+    "stderr": "",
+    "values": {
+     "cpus": "15",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus",
+     "017"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "",
+    "pos": null,
+    "stderr": "",
+    "values": {
+     "cpus": "15",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus",
+     "+5"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "",
+    "pos": null,
+    "stderr": "",
+    "values": {
+     "cpus": "5",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus",
+     ""
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "invalid value \"\" for flag -cpus: parse error",
+    "pos": null,
+    "stderr": "invalid value \"\" for flag -cpus: parse error\nUsage of instance:\n  -cpus int\n    \tset: processors\n  -delete-disk\n    \tremove: also delete the guest's own disk\n  -devices string\n    \tset: comma-separated\n    \tlist (default \"\\x00\")\n  -json\n    \tprint the server's JSON answer\n  -memory-mb int\n    \tset: memory in MiB\n  -n int\n    \tone letter int (default 7)\n  -socket string\n    \tsocket: admin.sock as root, user.sock otherwise (default \"/run/limbo/user.sock\")\n  -x\tone letter\n",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus",
+     "1e3"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "invalid value \"1e3\" for flag -cpus: parse error",
+    "pos": null,
+    "stderr": "invalid value \"1e3\" for flag -cpus: parse error\nUsage of instance:\n  -cpus int\n    \tset: processors\n  -delete-disk\n    \tremove: also delete the guest's own disk\n  -devices string\n    \tset: comma-separated\n    \tlist (default \"\\x00\")\n  -json\n    \tprint the server's JSON answer\n  -memory-mb int\n    \tset: memory in MiB\n  -n int\n    \tone letter int (default 7)\n  -socket string\n    \tsocket: admin.sock as root, user.sock otherwise (default \"/run/limbo/user.sock\")\n  -x\tone letter\n",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "flag needs an argument: -cpus",
+    "pos": null,
+    "stderr": "flag needs an argument: -cpus\nUsage of instance:\n  -cpus int\n    \tset: processors\n  -delete-disk\n    \tremove: also delete the guest's own disk\n  -devices string\n    \tset: comma-separated\n    \tlist (default \"\\x00\")\n  -json\n    \tprint the server's JSON answer\n  -memory-mb int\n    \tset: memory in MiB\n  -n int\n    \tone letter int (default 7)\n  -socket string\n    \tsocket: admin.sock as root, user.sock otherwise (default \"/run/limbo/user.sock\")\n  -x\tone letter\n",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-memory-mb",
+     "99999999999999999999"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "invalid value \"99999999999999999999\" for flag -memory-mb: value out of range",
+    "pos": null,
+    "stderr": "invalid value \"99999999999999999999\" for flag -memory-mb: value out of range\nUsage of instance:\n  -cpus int\n    \tset: processors\n  -delete-disk\n    \tremove: also delete the guest's own disk\n  -devices string\n    \tset: comma-separated\n    \tlist (default \"\\x00\")\n  -json\n    \tprint the server's JSON answer\n  -memory-mb int\n    \tset: memory in MiB\n  -n int\n    \tone letter int (default 7)\n  -socket string\n    \tsocket: admin.sock as root, user.sock otherwise (default \"/run/limbo/user.sock\")\n  -x\tone letter\n",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "9223372036854775807",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-devices",
+     "",
+     "set",
+     "a"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "",
+    "pos": [
+     "set",
+     "a"
+    ],
+    "stderr": "",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-x"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "",
+    "pos": null,
+    "stderr": "",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "true"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-n",
+     "3",
+     "-x=true",
+     "a",
+     "-x=F"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "",
+    "pos": [
+     "a"
+    ],
+    "stderr": "",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "3",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "--delete-disk",
+     "remove",
+     "lab"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "",
+    "pos": [
+     "remove",
+     "lab"
+    ],
+    "stderr": "",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "true",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-socket",
+     "/tmp/s",
+     "-socket=/tmp/t",
+     "list"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "",
+    "pos": [
+     "list"
+    ],
+    "stderr": "",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/tmp/t",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "a",
+     "-b"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "flag provided but not defined: -b",
+    "pos": null,
+    "stderr": "flag provided but not defined: -b\nUsage of instance:\n  -cpus int\n    \tset: processors\n  -delete-disk\n    \tremove: also delete the guest's own disk\n  -devices string\n    \tset: comma-separated\n    \tlist (default \"\\x00\")\n  -json\n    \tprint the server's JSON answer\n  -memory-mb int\n    \tset: memory in MiB\n  -n int\n    \tone letter int (default 7)\n  -socket string\n    \tsocket: admin.sock as root, user.sock otherwise (default \"/run/limbo/user.sock\")\n  -x\tone letter\n",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-x=",
+     "a"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/user.sock",
+      "Usage": "socket: admin.sock as root, user.sock otherwise"
+     },
+     {
+      "Name": "json",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "print the server's JSON answer"
+     },
+     {
+      "Name": "cpus",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: processors"
+     },
+     {
+      "Name": "memory-mb",
+      "Kind": "i",
+      "Default": "0",
+      "Usage": "set: memory in MiB"
+     },
+     {
+      "Name": "devices",
+      "Kind": "s",
+      "Default": "\u0000",
+      "Usage": "set: comma-separated\nlist"
+     },
+     {
+      "Name": "delete-disk",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "remove: also delete the guest's own disk"
+     },
+     {
+      "Name": "x",
+      "Kind": "b",
+      "Default": "false",
+      "Usage": "one letter"
+     },
+     {
+      "Name": "n",
+      "Kind": "i",
+      "Default": "7",
+      "Usage": "one letter int"
+     }
+    ],
+    "set": "instance"
+   },
+   "out": {
+    "err": "invalid boolean value \"\" for -x: parse error",
+    "pos": null,
+    "stderr": "invalid boolean value \"\" for -x: parse error\nUsage of instance:\n  -cpus int\n    \tset: processors\n  -delete-disk\n    \tremove: also delete the guest's own disk\n  -devices string\n    \tset: comma-separated\n    \tlist (default \"\\x00\")\n  -json\n    \tprint the server's JSON answer\n  -memory-mb int\n    \tset: memory in MiB\n  -n int\n    \tone letter int (default 7)\n  -socket string\n    \tsocket: admin.sock as root, user.sock otherwise (default \"/run/limbo/user.sock\")\n  -x\tone letter\n",
+    "values": {
+     "cpus": "0",
+     "delete-disk": "false",
+     "devices": "\u0000",
+     "json": "false",
+     "memory-mb": "0",
+     "n": "7",
+     "socket": "/run/limbo/user.sock",
+     "x": "false"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "",
+    "pos": null,
+    "stderr": "",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "list"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "",
+    "pos": [
+     "list"
+    ],
+    "stderr": "",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "show",
+     "q-1"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "",
+    "pos": [
+     "show",
+     "q-1"
+    ],
+    "stderr": "",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "verdict",
+     "q-1",
+     "safe",
+     "--note",
+     "a b"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "",
+    "pos": [
+     "verdict",
+     "q-1",
+     "safe"
+    ],
+    "stderr": "",
+    "values": {
+     "level": "restrict",
+     "note": "a b",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "--note=x",
+     "list",
+     "-note",
+     "y"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "",
+    "pos": [
+     "list"
+    ],
+    "stderr": "",
+    "values": {
+     "level": "restrict",
+     "note": "y",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-h"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag: help requested",
+    "pos": null,
+    "stderr": "Usage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "--help"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag: help requested",
+    "pos": null,
+    "stderr": "Usage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-nope"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -nope",
+    "pos": null,
+    "stderr": "flag provided but not defined: -nope\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "---x"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "bad flag syntax: ---x",
+    "pos": null,
+    "stderr": "bad flag syntax: ---x\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-=x"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "bad flag syntax: -=x",
+    "pos": null,
+    "stderr": "bad flag syntax: -=x\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "",
+    "pos": [
+     "-"
+    ],
+    "stderr": "",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "--"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "",
+    "pos": null,
+    "stderr": "",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "--",
+     "-x",
+     "-x"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -x",
+    "pos": null,
+    "stderr": "flag provided but not defined: -x\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "list",
+     "--",
+     "--note",
+     "z"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "",
+    "pos": [
+     "list",
+     "--note",
+     "z"
+    ],
+    "stderr": "",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-note"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag needs an argument: -note",
+    "pos": null,
+    "stderr": "flag needs an argument: -note\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-json=maybe"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -json",
+    "pos": null,
+    "stderr": "flag provided but not defined: -json\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-json",
+     "false"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -json",
+    "pos": null,
+    "stderr": "flag provided but not defined: -json\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-json=0"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -json",
+    "pos": null,
+    "stderr": "flag provided but not defined: -json\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus",
+     "0x1F"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -cpus",
+    "pos": null,
+    "stderr": "flag provided but not defined: -cpus\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus=1_000"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -cpus",
+    "pos": null,
+    "stderr": "flag provided but not defined: -cpus\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus",
+     "_1"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -cpus",
+    "pos": null,
+    "stderr": "flag provided but not defined: -cpus\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus",
+     "1__0"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -cpus",
+    "pos": null,
+    "stderr": "flag provided but not defined: -cpus\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus",
+     "9223372036854775808"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -cpus",
+    "pos": null,
+    "stderr": "flag provided but not defined: -cpus\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus",
+     "-9223372036854775808"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -cpus",
+    "pos": null,
+    "stderr": "flag provided but not defined: -cpus\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus",
+     "0b"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -cpus",
+    "pos": null,
+    "stderr": "flag provided but not defined: -cpus\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus",
+     "0o17"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -cpus",
+    "pos": null,
+    "stderr": "flag provided but not defined: -cpus\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus",
+     "017"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -cpus",
+    "pos": null,
+    "stderr": "flag provided but not defined: -cpus\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus",
+     "+5"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -cpus",
+    "pos": null,
+    "stderr": "flag provided but not defined: -cpus\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus",
+     ""
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -cpus",
+    "pos": null,
+    "stderr": "flag provided but not defined: -cpus\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus",
+     "1e3"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -cpus",
+    "pos": null,
+    "stderr": "flag provided but not defined: -cpus\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-cpus"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -cpus",
+    "pos": null,
+    "stderr": "flag provided but not defined: -cpus\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-memory-mb",
+     "99999999999999999999"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -memory-mb",
+    "pos": null,
+    "stderr": "flag provided but not defined: -memory-mb\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-devices",
+     "",
+     "set",
+     "a"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -devices",
+    "pos": null,
+    "stderr": "flag provided but not defined: -devices\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-x"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -x",
+    "pos": null,
+    "stderr": "flag provided but not defined: -x\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-n",
+     "3",
+     "-x=true",
+     "a",
+     "-x=F"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -n",
+    "pos": null,
+    "stderr": "flag provided but not defined: -n\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "--delete-disk",
+     "remove",
+     "lab"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -delete-disk",
+    "pos": null,
+    "stderr": "flag provided but not defined: -delete-disk\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-socket",
+     "/tmp/s",
+     "-socket=/tmp/t",
+     "list"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "",
+    "pos": [
+     "list"
+    ],
+    "stderr": "",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/tmp/t"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "a",
+     "-b"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -b",
+    "pos": null,
+    "stderr": "flag provided but not defined: -b\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "flags",
+   "in": {
+    "args": [
+     "-x=",
+     "a"
+    ],
+    "defs": [
+     {
+      "Name": "socket",
+      "Kind": "s",
+      "Default": "/run/limbo/admin.sock",
+      "Usage": "admin socket (root only)"
+     },
+     {
+      "Name": "note",
+      "Kind": "s",
+      "Default": "",
+      "Usage": "verdict: a note for the record"
+     },
+     {
+      "Name": "reason",
+      "Kind": "s",
+      "Default": "manually quarantined",
+      "Usage": "restrict: why"
+     },
+     {
+      "Name": "level",
+      "Kind": "s",
+      "Default": "restrict",
+      "Usage": "restrict: restrict or isolate"
+     }
+    ],
+    "set": "quarantine"
+   },
+   "out": {
+    "err": "flag provided but not defined: -x",
+    "pos": null,
+    "stderr": "flag provided but not defined: -x\nUsage of quarantine:\n  -level string\n    \trestrict: restrict or isolate (default \"restrict\")\n  -note string\n    \tverdict: a note for the record\n  -reason string\n    \trestrict: why (default \"manually quarantined\")\n  -socket string\n    \tadmin socket (root only) (default \"/run/limbo/admin.sock\")\n",
+    "values": {
+     "level": "restrict",
+     "note": "",
+     "reason": "manually quarantined",
+     "socket": "/run/limbo/admin.sock"
+    }
+   }
+  },
+  {
+   "fn": "tabwriter",
+   "in": "lab\t\nlab\t😀😀\t12.5 GiB\trunning (changes at next start)\t�\tID\théllo",
+   "out": "lab  \nlab  😀😀  12.5 GiB  running (changes at next start)  �  ID  héllo"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "lab\tq-0123456789ablab\u000bhéllo\tlab\t12.5 GiB\f",
+   "out": "lab  q-0123456789ablab  héllo  lab  12.5 GiB\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "12.5 GiB\u000bq-0123456789ab\nrunning (changes at next start)\tID\n",
+   "out": "12.5 GiB                         q-0123456789ab\nrunning (changes at next start)  ID\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "�\ta\n",
+   "out": "�  a\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "running (changes at next start)\t12.5 GiB\nrunning (changes at next start)\u000b😀😀\tlab\tID\tq-0123456789ab\u000blab\fx y\u000b�\f",
+   "out": "running (changes at next start)  12.5 GiB\nrunning (changes at next start)  😀😀  lab  ID  q-0123456789ab  lab\nx y  �\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "x y\théllo\n",
+   "out": "x y  héllo\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "�\f\f",
+   "out": "�\n\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "\nID\nlab",
+   "out": "\nID\nlab"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "ID\ta\u000b12.5 GiB\t😀😀\t😀😀\n",
+   "out": "ID  a  12.5 GiB  😀😀  😀😀\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "running (changes at next start)\théllo\fhéllo\théllolab\u000b😀😀",
+   "out": "running (changes at next start)  héllo\nhéllo  héllolab  😀😀"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "lab\n12.5 GiB\tq-0123456789ab\nhéllo\t😀😀\n",
+   "out": "lab\n12.5 GiB  q-0123456789ab\nhéllo     😀😀\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "q-0123456789ab\trunning (changes at next start)\tID\n12.5 GiB\t�\u000bq-0123456789ab\n\t�\t�\t�\tIDx y\t😀😀\tID\n",
+   "out": "q-0123456789ab  running (changes at next start)  ID\n12.5 GiB        �                                q-0123456789ab\n                �                                �  �  IDx y  😀😀  ID\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "lab\u000bID\tx y\t\tq-0123456789ab\trunning (changes at next start)héllo\t12.5 GiB\u000ba\t12.5 GiB\t12.5 GiBrunning (changes at next start)\u000b😀😀\tx y\t�\u000b😀😀",
+   "out": "lab  ID  x y    q-0123456789ab  running (changes at next start)héllo  12.5 GiB  a  12.5 GiB  12.5 GiBrunning (changes at next start)  😀😀  x y  �  😀😀"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "ID\u000blab\u000b😀😀\n😀😀\t12.5 GiB\t😀😀\n😀😀\u000b�\tID\n",
+   "out": "ID  lab       😀😀\n😀😀  12.5 GiB  😀😀\n😀😀  �         ID\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "lab\nID\nID",
+   "out": "lab\nID\nID"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "�\t😀😀\u000b\u000blab",
+   "out": "�  😀😀    lab"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "héllo\t12.5 GiB\u000b😀😀\tlab\f12.5 GiB\tlab\u000b😀😀\t12.5 GiB\n😀😀\trunning (changes at next start)\t�\t😀😀\n\u000blab\t12.5 GiB\t�\n",
+   "out": "héllo  12.5 GiB  😀😀  lab\n12.5 GiB  lab                              😀😀        12.5 GiB\n😀😀        running (changes at next start)  �         😀😀\n          lab                              12.5 GiB  �\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "😀😀\f�\t😀😀\t�\tlab\tx y\tx ylab\u000b�héllo\n",
+   "out": "😀😀\n�  😀😀  �  lab  x y  x ylab  �héllo\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "lab\trunning (changes at next start)\tx y\tx y\n😀😀\ta\tlab\théllo\tID\tID\t😀😀\nq-0123456789ab\t😀😀\t😀😀\tlab\n",
+   "out": "lab             running (changes at next start)  x y  x y\n😀😀              a                                lab  héllo  ID  ID  😀😀\nq-0123456789ab  😀😀                               😀😀   lab\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "�\u000b😀😀\t😀😀\nrunning (changes at next start)\tID\tx y\u000ba\ta\ta\n",
+   "out": "�                                😀😀  😀😀\nrunning (changes at next start)  ID  x y  a  a  a\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "running (changes at next start)\t�\fx y\tlab",
+   "out": "running (changes at next start)  �\nx y  lab"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "lab\u000bID",
+   "out": "lab  ID"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "running (changes at next start)\théllo\trunning (changes at next start)\u000b12.5 GiB\n😀😀\u000b\u000brunning (changes at next start)\u000b\nhéllo\t😀😀\t\u000b�\t😀😀\f",
+   "out": "running (changes at next start)  héllo  running (changes at next start)  12.5 GiB\n😀😀                                      running (changes at next start)  \nhéllo                            😀😀                                      �  😀😀\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "12.5 GiB\u000bID\u000b�\tq-0123456789ab\fa\u000bID\u000bq-0123456789ab\tID\trunning (changes at next start)\tq-0123456789ab\n",
+   "out": "12.5 GiB  ID  �  q-0123456789ab\na  ID  q-0123456789ab  ID  running (changes at next start)  q-0123456789ab\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "ID\t😀😀\tlab\ta\n12.5 GiB\tq-0123456789ab\tlab\u000brunning (changes at next start)héllo\t12.5 GiB\tx y\tx y�\u000ba\u000b�\t\n",
+   "out": "ID        😀😀              lab  a\n12.5 GiB  q-0123456789ab  lab  running (changes at next start)héllo  12.5 GiB  x y  x y�  a  �  \n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "a\tx y\u000bx y\u000brunning (changes at next start)\tx y\nrunning (changes at next start)\u000brunning (changes at next start)",
+   "out": "a                                x y  x y  running (changes at next start)  x y\nrunning (changes at next start)  running (changes at next start)"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "12.5 GiB\u000bx y\u000bhéllohéllo\t\ta\t😀😀\f",
+   "out": "12.5 GiB  x y  héllohéllo    a  😀😀\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "héllo\tq-0123456789ab\nrunning (changes at next start)\tq-0123456789ab\t\nID\t�\frunning (changes at next start)\trunning (changes at next start)\t12.5 GiB\t12.5 GiB\n",
+   "out": "héllo                            q-0123456789ab\nrunning (changes at next start)  q-0123456789ab  \nID                               �\nrunning (changes at next start)  running (changes at next start)  12.5 GiB  12.5 GiB\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "ID\u000bhéllo\tq-0123456789ab\tx y\nrunning (changes at next start)\u000blab\t😀😀\tq-0123456789ab\f",
+   "out": "ID                               héllo  q-0123456789ab  x y\nrunning (changes at next start)  lab    😀😀              q-0123456789ab\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "12.5 GiB\tx y\t12.5 GiB\n😀😀\t�\t😀😀\fID\t\u000b12.5 GiB\n",
+   "out": "12.5 GiB  x y  12.5 GiB\n😀😀        �    😀😀\nID    12.5 GiB\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "�\t\u000bID\nx y\t�\ta\tlab\nx y\théllo\tID\u000bx y\n",
+   "out": "�           ID\nx y  �      a   lab\nx y  héllo  ID  x y\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "😀😀\u000bID\tq-0123456789abq-0123456789ab\trunning (changes at next start)\tx y\t�\u000b�\ta\nrunning (changes at next start)\t😀😀\théllo\u000bhéllo\n�\théllo\thélloq-0123456789ab\n",
+   "out": "😀😀                               ID     q-0123456789abq-0123456789ab  running (changes at next start)  x y  �  �  a\nrunning (changes at next start)  😀😀     héllo                         héllo\n�                                héllo  hélloq-0123456789ab\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "running (changes at next start)\u000b�\tID\ta\nrunning (changes at next start)\nx yq-0123456789ab\t12.5 GiB\tlab\n",
+   "out": "running (changes at next start)  �  ID  a\nrunning (changes at next start)\nx yq-0123456789ab  12.5 GiB  lab\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "x y\tq-0123456789ab\t12.5 GiB\t😀😀\flab\u000b12.5 GiB\t�\u000b😀😀\u000b�\trunning (changes at next start)\n",
+   "out": "x y  q-0123456789ab  12.5 GiB  😀😀\nlab  12.5 GiB  �  😀😀  �  running (changes at next start)\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "😀😀\théllo\trunning (changes at next start)\n",
+   "out": "😀😀  héllo  running (changes at next start)\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "x y\tID\théllo\n😀😀\ta\t😀😀ID\t😀😀\t😀😀\u000b\théllo\théllo\fq-0123456789ab\t�\t😀😀",
+   "out": "x y  ID  héllo\n😀😀   a   😀😀ID  😀😀  😀😀    héllo  héllo\nq-0123456789ab  �  😀😀"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "héllo\t12.5 GiB\trunning (changes at next start)\tq-0123456789ab\nID\u000bhéllo\fa\u000brunning (changes at next start)\trunning (changes at next start)\tx y\n",
+   "out": "héllo  12.5 GiB  running (changes at next start)  q-0123456789ab\nID     héllo\na  running (changes at next start)  running (changes at next start)  x y\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "x y\t12.5 GiB\tq-0123456789ab\u000b12.5 GiB\u000b\u000bx y\na\tID\t\u000bq-0123456789ab\u000b12.5 GiB\tq-0123456789ab\f😀😀\théllo\tID\t12.5 GiB😀😀\ta\ta\t😀😀",
+   "out": "x y  12.5 GiB  q-0123456789ab  12.5 GiB                  x y\na    ID                        q-0123456789ab  12.5 GiB  q-0123456789ab\n😀😀  héllo  ID  12.5 GiB😀😀  a  a  😀😀"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "x y\t\tx y\f😀😀\ta\t\n",
+   "out": "x y    x y\n😀😀  a  \n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "a\u000blab\f",
+   "out": "a  lab\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "😀😀\tx y\thélloa\u000bx y\u000b\t😀😀\u000bq-0123456789ab\nx y\tx y\u000b�\t\tq-0123456789ab\f",
+   "out": "😀😀   x y  hélloa  x y    😀😀  q-0123456789ab\nx y  x y  �            q-0123456789ab\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "héllo\nlab\u000blab\théllo\tlab\n",
+   "out": "héllo\nlab  lab  héllo  lab\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "q-0123456789ab\n�\fhéllo\n12.5 GiB\n",
+   "out": "q-0123456789ab\n�\nhéllo\n12.5 GiB\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "running (changes at next start)\u000brunning (changes at next start)\tID\nrunning (changes at next start)\u000blab\tx y\fa\u000b12.5 GiB\t\n",
+   "out": "running (changes at next start)  running (changes at next start)  ID\nrunning (changes at next start)  lab                              x y\na  12.5 GiB  \n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "x y\t\tx y\t😀😀\tq-0123456789ab\n😀😀\t\tID\t�\u000blab\f12.5 GiB\t😀😀\théllo\tlab\nlab\trunning (changes at next start)\tID\u000brunning (changes at next start)\t😀😀\f",
+   "out": "x y    x y  😀😀  q-0123456789ab\n😀😀     ID   �   lab\n12.5 GiB  😀😀                               héllo  lab\nlab       running (changes at next start)  ID     running (changes at next start)  😀😀\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "héllo\u000b😀😀\u000bIDlab\ta\ta\n�\tq-0123456789ab\t�\n",
+   "out": "héllo  😀😀              IDlab  a  a\n�      q-0123456789ab  �\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "�lab\t�\u000bq-0123456789ab\trunning (changes at next start)\t😀😀\fx y\n",
+   "out": "�lab  �  q-0123456789ab  running (changes at next start)  😀😀\nx y\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "x y\tlab\u000bID\u000b😀😀12.5 GiB\t12.5 GiB\t�\tlab\u000bID\t12.5 GiB\n",
+   "out": "x y  lab  ID  😀😀12.5 GiB  12.5 GiB  �  lab  ID  12.5 GiB\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "12.5 GiB\t12.5 GiB\nrunning (changes at next start)\trunning (changes at next start)",
+   "out": "12.5 GiB                         12.5 GiB\nrunning (changes at next start)  running (changes at next start)"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "héllo\tID\u000bx y\nhéllo\u000bID\tx y\n\tlab\u000bhéllo\n",
+   "out": "héllo  ID   x y\nhéllo  ID   x y\n       lab  héllo\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "running (changes at next start)\t😀😀\ta\u000bq-0123456789ab\n12.5 GiB\tlab\u000blab\tx y\flab\trunning (changes at next start)\t�12.5 GiB\théllo\u000bID\ta\n",
+   "out": "running (changes at next start)  😀😀   a    q-0123456789ab\n12.5 GiB                         lab  lab  x y\nlab  running (changes at next start)  �12.5 GiB  héllo  ID  a\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "a\trunning (changes at next start)\n😀😀\u000brunning (changes at next start)\n",
+   "out": "a   running (changes at next start)\n😀😀  running (changes at next start)\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "\u000brunning (changes at next start)\t�\nx y\tID\t😀😀\théllo\tq-0123456789ab\théllo\na\trunning (changes at next start)\u000brunning (changes at next start)\na\trunning (changes at next start)\ta\f",
+   "out": "     running (changes at next start)  �\nx y  ID                               😀😀  héllo  q-0123456789ab  héllo\na    running (changes at next start)  running (changes at next start)\na    running (changes at next start)  a\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "q-0123456789ab\t12.5 GiB\théllo\u000bx y\t😀😀\tlab\n\u000ba\f",
+   "out": "q-0123456789ab  12.5 GiB  héllo  x y  😀😀  lab\n                a\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "😀😀\t😀😀\tlab\u000blab\tlab\nrunning (changes at next start)\t�\t😀😀\tq-0123456789ab\n�\u000b�\n�\u000b12.5 GiB\tID\u000b😀😀\tID\nq-0123456789ab\tq-0123456789ab\fq-0123456789ab\t�",
+   "out": "😀😀                               😀😀  lab  lab  lab\nrunning (changes at next start)  �   😀😀   q-0123456789ab\n�                                �\n�                                12.5 GiB  ID  😀😀  ID\nq-0123456789ab                   q-0123456789ab\nq-0123456789ab  �"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "lab\tq-0123456789ab\trunning (changes at next start)😀😀\tID\tlab\n",
+   "out": "lab  q-0123456789ab  running (changes at next start)😀😀  ID  lab\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "12.5 GiB\t�\u000b�q-0123456789ab\trunning (changes at next start)\tID\n",
+   "out": "12.5 GiB  �  �q-0123456789ab  running (changes at next start)  ID\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "�\u000ba\tIDq-0123456789ab\u000b\ta\f12.5 GiB\ta\ta\n",
+   "out": "�  a  IDq-0123456789ab    a\n12.5 GiB  a  a\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "ID\u000brunning (changes at next start)\tq-0123456789ab\t😀😀\nlab\u000blab\u000b�\trunning (changes at next start)\trunning (changes at next start)\na\t�\n",
+   "out": "ID   running (changes at next start)  q-0123456789ab  😀😀\nlab  lab                              �               running (changes at next start)  running (changes at next start)\na    �\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "ID\u000b😀😀\tID\u000bx y\t\nID\u000bx y\tID\tID\théllo\f",
+   "out": "ID  😀😀   ID  x y  \nID  x y  ID  ID   héllo\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "ID\tGUEST\tSTATUS\n",
+   "out": "ID  GUEST  STATUS\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "a\t",
+   "out": "a"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "a\tb",
+   "out": "a  b"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "\n\n",
+   "out": "\n\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "",
+   "out": ""
+  },
+  {
+   "fn": "tabwriter",
+   "in": "x\ty\tz\nlong cell\t\t\n\tq\n",
+   "out": "x          y  z\nlong cell     \n           q\n"
+  },
+  {
+   "fn": "tabwriter",
+   "in": "a\tb\tc\nonly\nd\te\tf\n",
+   "out": "a  b  c\nonly\nd  e  f\n"
+  },
+  {
+   "fn": "json",
+   "in": "{}",
+   "out": {
+    "compact": "{}",
+    "compact_err": false,
+    "indent": "{}",
+    "indent_err": false,
+    "member": "",
+    "member_err": "",
+    "member_found": false
+   }
+  },
+  {
+   "fn": "json",
+   "in": "[]",
+   "out": {
+    "compact": "[]",
+    "compact_err": false,
+    "indent": "[]",
+    "indent_err": false,
+    "member": "",
+    "member_err": "json: cannot unmarshal array into Go value of type map[string]jsontext.Value",
+    "member_found": false
+   }
+  },
+  {
+   "fn": "json",
+   "in": "{\"a\":1}",
+   "out": {
+    "compact": "{\"a\":1}",
+    "compact_err": false,
+    "indent": "{\n  \"a\": 1\n}",
+    "indent_err": false,
+    "member": "",
+    "member_err": "",
+    "member_found": false
+   }
+  },
+  {
+   "fn": "json",
+   "in": " {\"a\" : [1, 2, {\"b\":[]}], \"c\": {} } ",
+   "out": {
+    "compact": "{\"a\":[1,2,{\"b\":[]}],\"c\":{}}",
+    "compact_err": false,
+    "indent": "{\n  \"a\": [\n    1,\n    2,\n    {\n      \"b\": []\n    }\n  ],\n  \"c\": {}\n} ",
+    "indent_err": false,
+    "member": "",
+    "member_err": "",
+    "member_found": false
+   }
+  },
+  {
+   "fn": "json",
+   "in": "[ \"x\\\"y\" , \"é<&>\" , null, true ]",
+   "out": {
+    "compact": "[\"x\\\"y\",\"é\\u003c\\u0026\\u003e\",null,true]",
+    "compact_err": false,
+    "indent": "[\n  \"x\\\"y\",\n  \"é<&>\",\n  null,\n  true\n]",
+    "indent_err": false,
+    "member": "",
+    "member_err": "json: cannot unmarshal array into Go value of type map[string]jsontext.Value",
+    "member_found": false
+   }
+  },
+  {
+   "fn": "json",
+   "in": "\"s\"",
+   "out": {
+    "compact": "\"s\"",
+    "compact_err": false,
+    "indent": "\"s\"",
+    "indent_err": false,
+    "member": "",
+    "member_err": "json: cannot unmarshal string into Go value of type map[string]jsontext.Value",
+    "member_found": false
+   }
+  },
+  {
+   "fn": "json",
+   "in": "12 ",
+   "out": {
+    "compact": "12",
+    "compact_err": false,
+    "indent": "12 ",
+    "indent_err": false,
+    "member": "",
+    "member_err": "json: cannot unmarshal number into Go value of type map[string]jsontext.Value",
+    "member_found": false
+   }
+  },
+  {
+   "fn": "json",
+   "in": "  1.0e5",
+   "out": {
+    "compact": "1.0e5",
+    "compact_err": false,
+    "indent": "1.0e5",
+    "indent_err": false,
+    "member": "",
+    "member_err": "json: cannot unmarshal number into Go value of type map[string]jsontext.Value",
+    "member_found": false
+   }
+  },
+  {
+   "fn": "json",
+   "in": "{\"a\":\"x\"",
+   "out": {
+    "compact": "",
+    "compact_err": true,
+    "indent": "",
+    "indent_err": true,
+    "member": "",
+    "member_err": "unexpected end of JSON input",
+    "member_found": false
+   }
+  },
+  {
+   "fn": "json",
+   "in": "nope",
+   "out": {
+    "compact": "",
+    "compact_err": true,
+    "indent": "",
+    "indent_err": true,
+    "member": "",
+    "member_err": "invalid character 'o' in literal null (expecting 'u')",
+    "member_found": false
+   }
+  },
+  {
+   "fn": "json",
+   "in": "",
+   "out": {
+    "compact": "",
+    "compact_err": true,
+    "indent": "",
+    "indent_err": true,
+    "member": "",
+    "member_err": "unexpected end of JSON input",
+    "member_found": false
+   }
+  },
+  {
+   "fn": "json",
+   "in": "{\"a\":1} {\"b\":2}",
+   "out": {
+    "compact": "",
+    "compact_err": true,
+    "indent": "",
+    "indent_err": true,
+    "member": "",
+    "member_err": "invalid character '{' after top-level value",
+    "member_found": false
+   }
+  },
+  {
+   "fn": "json",
+   "in": "{\"k\":\"\u2028\"}",
+   "out": {
+    "compact": "{\"k\":\"\\u2028\"}",
+    "compact_err": false,
+    "indent": "{\n  \"k\": \"\u2028\"\n}",
+    "indent_err": false,
+    "member": "",
+    "member_err": "",
+    "member_found": false
+   }
+  },
+  {
+   "fn": "json",
+   "in": "{\"d\":{\"d\":{\"d\":[[],[{}]]}}}",
+   "out": {
+    "compact": "{\"d\":{\"d\":{\"d\":[[],[{}]]}}}",
+    "compact_err": false,
+    "indent": "{\n  \"d\": {\n    \"d\": {\n      \"d\": [\n        [],\n        [\n          {}\n        ]\n      ]\n    }\n  }\n}",
+    "indent_err": false,
+    "member": "",
+    "member_err": "",
+    "member_found": false
+   }
+  },
+  {
+   "fn": "json",
+   "in": "[1,\n2]\n\n",
+   "out": {
+    "compact": "[1,2]",
+    "compact_err": false,
+    "indent": "[\n  1,\n  2\n]\n\n",
+    "indent_err": false,
+    "member": "",
+    "member_err": "json: cannot unmarshal array into Go value of type map[string]jsontext.Value",
+    "member_found": false
+   }
+  },
+  {
+   "fn": "json",
+   "in": "{\"status\":{\"version\":\"0.1.0\"},\"instances\":[{\"name\":\"lab\"}]}",
+   "out": {
+    "compact": "{\"status\":{\"version\":\"0.1.0\"},\"instances\":[{\"name\":\"lab\"}]}",
+    "compact_err": false,
+    "indent": "{\n  \"status\": {\n    \"version\": \"0.1.0\"\n  },\n  \"instances\": [\n    {\n      \"name\": \"lab\"\n    }\n  ]\n}",
+    "indent_err": false,
+    "member": "[{\"name\":\"lab\"}]",
+    "member_err": "",
+    "member_found": true
+   }
+  },
+  {
+   "fn": "json",
+   "in": "{\"instances\":1,\"instances\":[2]}",
+   "out": {
+    "compact": "{\"instances\":1,\"instances\":[2]}",
+    "compact_err": false,
+    "indent": "{\n  \"instances\": 1,\n  \"instances\": [\n    2\n  ]\n}",
+    "indent_err": false,
+    "member": "[2]",
+    "member_err": "",
+    "member_found": true
+   }
+  },
+  {
+   "fn": "json",
+   "in": "{\"instances\":\"x\"}",
+   "out": {
+    "compact": "{\"instances\":\"x\"}",
+    "compact_err": false,
+    "indent": "{\n  \"instances\": \"x\"\n}",
+    "indent_err": false,
+    "member": "\"x\"",
+    "member_err": "",
+    "member_found": true
+   }
+  },
+  {
+   "fn": "json",
+   "in": "[1]",
+   "out": {
+    "compact": "[1]",
+    "compact_err": false,
+    "indent": "[\n  1\n]",
+    "indent_err": false,
+    "member": "",
+    "member_err": "json: cannot unmarshal array into Go value of type map[string]jsontext.Value",
+    "member_found": false
+   }
+  },
+  {
+   "fn": "json",
+   "in": "null",
+   "out": {
+    "compact": "null",
+    "compact_err": false,
+    "indent": "null",
+    "indent_err": false,
+    "member": "",
+    "member_err": "",
+    "member_found": false
+   }
+  },
+  {
+   "fn": "json",
+   "in": "\"str\"",
+   "out": {
+    "compact": "\"str\"",
+    "compact_err": false,
+    "indent": "\"str\"",
+    "indent_err": false,
+    "member": "",
+    "member_err": "json: cannot unmarshal string into Go value of type map[string]jsontext.Value",
+    "member_found": false
+   }
+  },
+  {
+   "fn": "float_v",
+   "in": "0",
+   "out": "0"
+  },
+  {
+   "fn": "float_v",
+   "in": "1",
+   "out": "1"
+  },
+  {
+   "fn": "float_v",
+   "in": "-1",
+   "out": "-1"
+  },
+  {
+   "fn": "float_v",
+   "in": "1.5",
+   "out": "1.5"
+  },
+  {
+   "fn": "float_v",
+   "in": "100",
+   "out": "100"
+  },
+  {
+   "fn": "float_v",
+   "in": "100000000000000000000",
+   "out": "1e+20"
+  },
+  {
+   "fn": "float_v",
+   "in": "1e+21",
+   "out": "1e+21"
+  },
+  {
+   "fn": "float_v",
+   "in": "1.2345678901234569e+23",
+   "out": "1.2345678901234569e+23"
+  },
+  {
+   "fn": "float_v",
+   "in": "0.0001",
+   "out": "0.0001"
+  },
+  {
+   "fn": "float_v",
+   "in": "0.00001",
+   "out": "1e-05"
+  },
+  {
+   "fn": "float_v",
+   "in": "0.000123",
+   "out": "0.000123"
+  },
+  {
+   "fn": "float_v",
+   "in": "3.14159",
+   "out": "3.14159"
+  },
+  {
+   "fn": "float_v",
+   "in": "2.5e-7",
+   "out": "2.5e-07"
+  },
+  {
+   "fn": "float_v",
+   "in": "-2e+30",
+   "out": "-2e+30"
+  },
+  {
+   "fn": "float_v",
+   "in": "9007199254740992",
+   "out": "9.007199254740992e+15"
+  },
+  {
+   "fn": "float_v",
+   "in": "1.7976931348623157e+308",
+   "out": "1.7976931348623157e+308"
+  },
+  {
+   "fn": "float_v",
+   "in": "5e-324",
+   "out": "5e-324"
+  },
+  {
+   "fn": "float_v",
+   "in": "3.4734616885029256e-25",
+   "out": "3.4734616885029256e-25"
+  },
+  {
+   "fn": "float_v",
+   "in": "0.015246599090068603",
+   "out": "0.015246599090068603"
+  },
+  {
+   "fn": "float_v",
+   "in": "9970034.768547565",
+   "out": "9.970034768547565e+06"
+  },
+  {
+   "fn": "float_v",
+   "in": "0.2112087714567657",
+   "out": "0.2112087714567657"
+  },
+  {
+   "fn": "float_v",
+   "in": "7.960724240311026e-11",
+   "out": "7.960724240311026e-11"
+  },
+  {
+   "fn": "float_v",
+   "in": "223.50198339615142",
+   "out": "223.50198339615142"
+  },
+  {
+   "fn": "float_v",
+   "in": "1.1161562391474676e-23",
+   "out": "1.1161562391474676e-23"
+  },
+  {
+   "fn": "float_v",
+   "in": "9.382823401955476e-10",
+   "out": "9.382823401955476e-10"
+  },
+  {
+   "fn": "float_v",
+   "in": "3321495029741.158",
+   "out": "3.321495029741158e+12"
+  },
+  {
+   "fn": "float_v",
+   "in": "6.29408715933671e-9",
+   "out": "6.29408715933671e-09"
+  },
+  {
+   "fn": "float_v",
+   "in": "5740.464813404313",
+   "out": "5740.464813404313"
+  },
+  {
+   "fn": "float_v",
+   "in": "1.5919685961082859e-19",
+   "out": "1.5919685961082859e-19"
+  },
+  {
+   "fn": "float_v",
+   "in": "4570.8178106423675",
+   "out": "4570.8178106423675"
+  },
+  {
+   "fn": "float_v",
+   "in": "20238439817008.117",
+   "out": "2.0238439817008117e+13"
+  },
+  {
+   "fn": "float_v",
+   "in": "1003103884802549100",
+   "out": "1.0031038848025491e+18"
+  },
+  {
+   "fn": "float_v",
+   "in": "12692175294319.283",
+   "out": "1.2692175294319283e+13"
+  },
+  {
+   "fn": "float_v",
+   "in": "5.615044950080846e-23",
+   "out": "5.615044950080846e-23"
+  },
+  {
+   "fn": "float_v",
+   "in": "17636.563636297564",
+   "out": "17636.563636297564"
+  },
+  {
+   "fn": "float_v",
+   "in": "130061498004115.23",
+   "out": "1.3006149800411523e+14"
+  },
+  {
+   "fn": "float_v",
+   "in": "0.9432572750135275",
+   "out": "0.9432572750135275"
+  },
+  {
+   "fn": "float_v",
+   "in": "4196554454628180.5",
+   "out": "4.1965544546281805e+15"
+  },
+  {
+   "fn": "float_v",
+   "in": "37935202457970524000",
+   "out": "3.7935202457970524e+19"
+  },
+  {
+   "fn": "float_v",
+   "in": "2.975984470281964e-15",
+   "out": "2.975984470281964e-15"
+  },
+  {
+   "fn": "float_v",
+   "in": "4.9687737508426114e-8",
+   "out": "4.9687737508426114e-08"
+  },
+  {
+   "fn": "float_v",
+   "in": "478892091.71489054",
+   "out": "4.7889209171489054e+08"
+  },
+  {
+   "fn": "float_v",
+   "in": "1.915696939740102e-24",
+   "out": "1.915696939740102e-24"
+  },
+  {
+   "fn": "float_v",
+   "in": "276514360442339170",
+   "out": "2.7651436044233917e+17"
+  },
+  {
+   "fn": "float_v",
+   "in": "3085734983338.982",
+   "out": "3.085734983338982e+12"
+  },
+  {
+   "fn": "float_v",
+   "in": "5342827467336866000",
+   "out": "5.342827467336866e+18"
+  },
+  {
+   "fn": "float_v",
+   "in": "939.9235196715481",
+   "out": "939.9235196715481"
+  },
+  {
+   "fn": "float_v",
+   "in": "2095761348212657000",
+   "out": "2.095761348212657e+18"
+  },
+  {
+   "fn": "float_v",
+   "in": "2396598726631292000",
+   "out": "2.396598726631292e+18"
+  },
+  {
+   "fn": "float_v",
+   "in": "10331.0103568634",
+   "out": "10331.0103568634"
+  },
+  {
+   "fn": "float_v",
+   "in": "66235692607.87783",
+   "out": "6.623569260787783e+10"
+  },
+  {
+   "fn": "float_v",
+   "in": "1.617728384282109e-11",
+   "out": "1.617728384282109e-11"
+  },
+  {
+   "fn": "float_v",
+   "in": "44268750147810104",
+   "out": "4.4268750147810104e+16"
+  },
+  {
+   "fn": "float_v",
+   "in": "53353671381.703186",
+   "out": "5.3353671381703186e+10"
+  },
+  {
+   "fn": "float_v",
+   "in": "0.1286812045163372",
+   "out": "0.1286812045163372"
+  },
+  {
+   "fn": "float_v",
+   "in": "6.710062576725908e-22",
+   "out": "6.710062576725908e-22"
+  },
+  {
+   "fn": "float_v",
+   "in": "863385721.1355369",
+   "out": "8.633857211355369e+08"
+  },
+  {
+   "fn": "size",
+   "in": 0,
+   "out": "0 KiB"
+  },
+  {
+   "fn": "size",
+   "in": 1023,
+   "out": "0 KiB"
+  },
+  {
+   "fn": "size",
+   "in": 1024,
+   "out": "1 KiB"
+  },
+  {
+   "fn": "size",
+   "in": 1048575,
+   "out": "1023 KiB"
+  },
+  {
+   "fn": "size",
+   "in": 1048576,
+   "out": "1.0 MiB"
+  },
+  {
+   "fn": "size",
+   "in": 1073741823,
+   "out": "1024.0 MiB"
+  },
+  {
+   "fn": "size",
+   "in": 1073741824,
+   "out": "1.0 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 5905580032,
+   "out": "5.5 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 1342177280,
+   "out": "1.2 GiB"
+  },
+  {
+   "fn": "size",
+   "in": -5000,
+   "out": "-5 KiB"
+  },
+  {
+   "fn": "size",
+   "in": 1099511627776,
+   "out": "1024.0 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 107374182,
+   "out": "102.4 MiB"
+  },
+  {
+   "fn": "size",
+   "in": 1288490188,
+   "out": "1.2 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 3860233936389,
+   "out": "3595.1 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 3478969353696,
+   "out": "3240.0 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 453401650974,
+   "out": "422.3 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 3634682926090,
+   "out": "3385.1 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 508360230586,
+   "out": "473.4 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 2267733537966,
+   "out": "2112.0 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 1472271909150,
+   "out": "1371.2 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 3725632467845,
+   "out": "3469.8 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 3171584667034,
+   "out": "2953.8 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 3876776868322,
+   "out": "3610.5 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 2353132273984,
+   "out": "2191.5 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 1346517318130,
+   "out": "1254.0 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 2899950952131,
+   "out": "2700.8 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 4128643662945,
+   "out": "3845.1 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 3291885001429,
+   "out": "3065.8 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 3126258590165,
+   "out": "2911.6 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 686753729131,
+   "out": "639.6 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 4020916573603,
+   "out": "3744.8 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 3180239272623,
+   "out": "2961.8 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 3076263389414,
+   "out": "2865.0 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 519889772642,
+   "out": "484.2 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 2573574750054,
+   "out": "2396.8 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 1588654892424,
+   "out": "1479.6 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 2134623332303,
+   "out": "1988.0 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 520219497481,
+   "out": "484.5 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 2379601751783,
+   "out": "2216.2 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 3856060518212,
+   "out": "3591.2 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 4304698971978,
+   "out": "4009.1 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 2254227838641,
+   "out": "2099.4 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 3958994387420,
+   "out": "3687.1 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 3260818531222,
+   "out": "3036.9 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 2309398516276,
+   "out": "2150.8 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 1667338386979,
+   "out": "1552.8 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 4253983314990,
+   "out": "3961.8 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 4360446990794,
+   "out": "4061.0 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 714876074534,
+   "out": "665.8 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 1585352580191,
+   "out": "1476.5 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 2059294399445,
+   "out": "1917.9 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 3221011111332,
+   "out": "2999.8 GiB"
+  },
+  {
+   "fn": "size",
+   "in": 1932068314385,
+   "out": "1799.4 GiB"
+  },
+  {
+   "fn": "rfc3339",
+   "in": "2026-11-10T09:00:00Z",
+   "out": "2026-11-10T09:00:00Z"
+  },
+  {
+   "fn": "rfc3339",
+   "in": "2026-11-10T09:00:00.123456789Z",
+   "out": "2026-11-10T09:00:00Z"
+  },
+  {
+   "fn": "rfc3339",
+   "in": "2026-11-10T09:00:00.5+02:00",
+   "out": "2026-11-10T09:00:00+02:00"
+  },
+  {
+   "fn": "rfc3339",
+   "in": "2026-11-10T09:00:00-07:30",
+   "out": "2026-11-10T09:00:00-07:30"
+  },
+  {
+   "fn": "rfc3339",
+   "in": "0001-01-01T00:00:00Z",
+   "out": "0001-01-01T00:00:00Z"
+  }
+ ],
+ "fixture": "cli"
+}
