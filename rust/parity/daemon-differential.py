@@ -498,7 +498,12 @@ def nflog_traffic():
   }
 }
 """
-    subprocess.run(["/usr/bin/nft", "-f", "-"], input=rules.encode(), check=False)
+    # the real nft (the one on PATH is a fake): /usr/bin on Arch, /usr/sbin on Debian and Ubuntu
+    nft = next((p for p in ("/usr/bin/nft", "/usr/sbin/nft", "/sbin/nft") if os.access(p, os.X_OK)), None)
+    if nft is None:
+        print("no nft on this computer: the NFLOG part of the run is empty for both daemons", file=sys.stderr)
+        return
+    subprocess.run([nft, "-f", "-"], input=rules.encode(), check=False)
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     for port in (9, 10, 11, 13):
         for host in ("127.0.0.1", "127.0.0.2", "127.0.0.3"):

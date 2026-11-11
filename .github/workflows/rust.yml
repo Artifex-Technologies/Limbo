@@ -30,10 +30,15 @@ jobs:
       - name: both daemons on the same socket traffic
         run: |
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          # the real nft for the NFLOG packets (the runner has none), and the modules a user namespace cannot load
+          sudo apt-get install -y --no-install-recommends nftables
+          sudo modprobe -a nf_tables nfnetlink_log nft_log || true
           sudo mkdir -p /etc/limbo
           CGO_ENABLED=0 go build -trimpath -o /tmp/limbo-go ./cmd/limbo
           (cd rust && cargo build --locked --release)
           python3 -I rust/parity/daemon-differential.py --go /tmp/limbo-go --rs rust/target/release/limbo-rs --out /tmp/ld --idle 5
+          # the NFLOG part ran: both daemons wrote flow events
+          grep -q '"kind":"net.flow"' /tmp/ld/go/state/events.jsonl
   audit:
     runs-on: ubuntu-latest
     steps:
