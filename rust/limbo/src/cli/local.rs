@@ -17,7 +17,7 @@ const USAGE: &str = "usage: limbo <validate|plan|seed|up|launch|down|address|exp
 
 /// The commands main.go's `run` handles before its manifest flag set, and those it handles after it that are still
 /// the Go binary's.
-const OWN_SWITCH: [&str; 9] = ["serve", "quarantine", "passthrough", "settings", "instance", "license", "exchange", "net", "wine"];
+const OWN_SWITCH: [&str; 8] = ["serve", "quarantine", "settings", "instance", "license", "exchange", "net", "wine"];
 const STILL_GO: [&str; 1] = ["capture"];
 
 /// `limbo` with no command, `version`, `validate`, `plan`, `seed`, `address`, `report`, `analyze`, `image`, `doctor`, `setup` and any command Go does not know; None
@@ -42,6 +42,9 @@ pub fn run(cmd: Option<&str>, args: &[String], io: &mut Io) -> Option<Result<(),
     }
     if cmd == "setup" {
         return Some(super::setup::setup_cmd(args, io));
+    }
+    if cmd == "passthrough" {
+        return Some(super::passthrough::run(args, io));
     }
     if OWN_SWITCH.contains(&cmd) || STILL_GO.contains(&cmd) {
         return None;

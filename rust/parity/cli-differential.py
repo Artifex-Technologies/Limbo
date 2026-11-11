@@ -5,7 +5,8 @@ command; local_cases) on the same files, limbo report on the same log and record
 here, the scripted socket; analyze_cases), limbo image (records here, the trusted ones under `unshare -r`;
 image_cases), limbo doctor and setup (fake programs only, in a user and mount namespace with Limbo's folders replaced;
 setup_cases), limbo up, down, launch, export and screenshot (fake virsh, qemu-img, nft, ufw, ssh, waypipe and
-xfreerdp3 in such a namespace, /run/limbo/user.sock there being the scripted socket; act_cases).
+xfreerdp3 in such a namespace, /run/limbo/user.sock there being the scripted socket; act_cases) and limbo passthrough
+(made-up os-release, host policy and sysfs device folders bound over, the answer typed into a pty; passthrough_cases).
 
 A fake server listens on a unix socket in a scratch folder, records every request it gets (method, target, Host,
 Content-Length, Referer, Transfer-Encoding, the other header names, the body) and answers each with the next raw
@@ -987,6 +988,9 @@ def setup_cases():
 NSRUN_ACT = r"""#!/bin/sh
 if [ -d /etc/limbo ]; then /usr/bin/mount --bind "$NS_ETC" /etc/limbo || exit 97; fi
 if [ -d /var/lib/limbo ]; then /usr/bin/mount --bind "$NS_VAR" /var/lib/limbo || exit 97; fi
+if [ -n "$NS_OSREL" ]; then /usr/bin/mount --bind "$NS_OSREL" /etc/os-release || exit 97; fi
+if [ -n "$NS_SYSUSB" ]; then /usr/bin/mount --bind "$NS_SYSUSB" /sys/bus/usb/devices || exit 97; fi
+if [ -n "$NS_SYSPCI" ]; then /usr/bin/mount --bind "$NS_SYSPCI" /sys/bus/pci/devices || exit 97; fi
 /usr/bin/mount -t tmpfs -o mode=755 tmpfs /run || exit 97
 /usr/bin/mkdir /run/limbo && /usr/bin/ln -s "$NS_SOCK" /run/limbo/user.sock || exit 97
 if [ -n "$NS_USER" ]; then exec /usr/bin/unshare -U --map-user="$NS_USER" --map-group="$NS_USER" -- "$@"; fi
@@ -1160,6 +1164,111 @@ def act_cases():
     return cs
 
 
+def passthrough_cases():
+    """limbo passthrough status | approve | revoke | clear, as uid 0 in the act namespace with /etc/os-release, the
+    host policy and the sysfs device folders (/sys/bus/usb/devices, /sys/bus/pci/devices) bound over by the case's own:
+    neither binary sees a device of this computer. The typed answer comes from a pty (stdin must be a terminal)."""
+    cs = []
+    usb = {"sysusb/1-1/idVendor": "1234\n", "sysusb/1-1/idProduct": "ABCD\n", "sysusb/1-1/busnum": "77\n",
+           "sysusb/1-1/devnum": "5\n", "sysusb/1-1:1.0/": "", "sysusb/2-1/idVendor": "5059\n", "sysusb/2-1/idProduct": "4040\n",
+           "sysusb/2-1/busnum": "78\n", "sysusb/2-1/devnum": "9\n", "sysusb/usb1/idVendor": "1d6b\n",
+           "sysusb/usb1/idProduct": "0002\n"}
+    gpu = "syspci/0000:77:00.0/"
+    pci = {gpu + "vendor": "0x10de\n", gpu + "class": "0x030000\n", gpu + "boot_vga": "0\n",
+           gpu + "iommu_group/devices/0000:77:00.0/": "", gpu + "iommu_group/devices/0000:77:00.1/": "",
+           gpu + "iommu_group/devices/0000:00:01.0/": "", gpu + "drm/card77/": "", gpu + "sound/card77/": "",
+           "syspci/0000:77:00.1/class": "0x040300\n", "syspci/0000:77:00.1/iommu_group/devices/0000:77:00.0/": "",
+           "syspci/0000:77:00.1/iommu_group/devices/0000:77:00.1/": "", "syspci/0000:00:01.0/class": "0x060400\n",
+           "syspci/0000:78:00.0/boot_vga": "1\n", "syspci/0000:78:00.0/iommu_group/devices/0000:78:00.0/": "",
+           "syspci/0000:79:00.0/iommu_group/devices/0000:79:00.0/": "", "syspci/0000:79:00.0/iommu_group/devices/0000:79:00.5/": "",
+           "syspci/0000:7a:00.0/vendor": "0x1002\n"}
+    policy = {"pci_allow": ["0000:77:00.0", "0000:77:00.1", "0000:78:00.0", "0000:79:00.0", "0000:7A:00.0"],
+              "usb_allow": ["1234:abcd", "5059:4040", "1d6b:0002"], "usb_standing": ["5059:4040", "dead:beef", "XYZ"]}
+    base = {"nsrun": NSRUN_ACT, "etc/": "", "var/": "", "osrel": 'NAME="Labyrinth OS"\nID=labyrinth\n', **usb, **pci,
+            "etc/host-policy.json": json.dumps(policy), "run/": ""}
+    later = "2099-01-02T03:04:05.123456789Z"
+    approval = json.dumps({"devices": ["1234:abcd", "0000:77:00.0"], "expires": later, "by": "alice"})
+    norm = [(r'"time":"[^"]*"', '"time":"T"'), (r'"expires":"[^"]*"', '"expires":"T"'),
+            (r"approved until [0-9:T-]+", "approved until D")]
+
+    def P(name, args, files=None, env=None, stdin=b"", state=True, user=False):
+        e = {"PATH": "{W}/bin", "NS_ETC": "{W}/etc", "NS_VAR": "{W}/var", "NS_SOCK": "{S}", "NS_OSREL": "{W}/osrel",
+             "NS_SYSUSB": "{W}/sysusb", "NS_SYSPCI": "{W}/syspci", "SUDO_USER": "", "USER": "tester", "TZ": "UTC"}
+        if user:
+            e["NS_USER"] = "1000"
+        e.update(env or {})
+        a = (["--state-dir", "{W}/st", "--i-know", "--run-dir", "{W}/run"] if state else []) + list(args)
+        cs.append({"name": "pass " + name, "cmd": "passthrough", "args": a, "answers": [], "env": e, "stdin": stdin,
+                   "files": {**base, **(files or {})}, "nsrun": True, "norm": norm})
+
+    yes = ("pty", b"yes\n")
+    P("no args", [])
+    P("unknown", ["frob"])
+    P("bad flag", ["--bogus", "status"])
+    P("help", ["-h"])
+    P("not root", ["status"], user=True)
+    P("without i-know", ["--state-dir", "{W}/st", "status"], state=False)
+    P("default state", ["status"], state=False)
+    P("state env", ["--i-know", "status"], env={"LIMBO_STATE_DIR": "{W}/se"}, state=False)
+    P("status", ["status"])
+    P("status approved", ["status"], {"st/passthrough-approval.json*": approval})
+    for tz in ("Europe/Berlin", "America/St_Johns", "Asia/Kathmandu", "", "Nowhere/Else"):
+        P(f"status approved tz {tz}", ["status"], {"st/passthrough-approval.json*": approval}, {"TZ": tz})
+    P("status approved no TZ", ["status"], {"st/passthrough-approval.json*": approval}, {"TZ": None})
+    P("status expired", ["status"], {"st/passthrough-approval.json*": approval.replace("2099", "2001")})
+    P("status damaged", ["status"], {"st/passthrough-approval.json*": "{"})
+    P("status null devices", ["status"], {"st/passthrough-approval.json*": json.dumps({"expires": later, "by": "b"})})
+    P("status approval folder", ["status"], {"st/passthrough-approval.json/": ""})
+    P("status blocked", ["status"], {"run/passthrough.blocked": "x"})
+    P("status default run dir", ["--state-dir", "{W}/st", "--i-know", "status"], state=False)
+    P("status lykanos", ["status"], {"osrel": "ID='LykanOS'\n"})
+    P("status no os id", ["status"], {"osrel": "NAME=x\n"})
+    P("status no policy", ["status"], {"etc/host-policy.json": "{"})
+    P("status empty standing", ["status"], {"etc/host-policy.json": json.dumps({"usb_allow": ["1234:abcd"]})})
+    P("revoke", ["revoke"], {"st/passthrough-approval.json": approval}, {"SUDO_USER": "bob"})
+    P("revoke none", ["revoke"])
+    P("revoke empty folder", ["revoke"], {"st/passthrough-approval.json/": ""})
+    P("revoke full folder", ["revoke"], {"st/passthrough-approval.json/x": "y"})
+    P("revoke log unwritable", ["revoke"], {"st/events.jsonl/": ""})
+    P("clear", ["clear"], {"run/passthrough.blocked": "x"})
+    P("clear none", ["clear"])
+    P("clear full folder", ["clear"], {"run/passthrough.blocked/x": "y"})
+    P("approve nothing", ["approve"], stdin=yes)
+    P("approve not a terminal", ["approve", "1234:abcd"], stdin=b"yes\n")
+    P("approve dev null", ["approve", "1234:abcd"], stdin=None)
+    P("approve usb", ["approve", "1234:abcd"], stdin=yes)
+    P("approve usb sudo user", ["approve", "1234:abcd"], {"bin/": ""}, {"SUDO_USER": "carol"}, stdin=yes)
+    P("approve usb no", ["approve", "1234:abcd"], stdin=("pty", b"no\n"))
+    P("approve usb YES", ["approve", "1234:abcd"], stdin=("pty", b"  YES  \n"))
+    P("approve usb spaces", ["approve", "1234:abcd"], stdin=("pty", b"\t yes \n"))
+    P("approve two usb flags after", ["approve", "1234:abcd", "5059:4040", "--minutes", "90"], stdin=yes)
+    P("approve gpu", ["approve", "0000:77:00.0", "0000:77:00.1"], stdin=yes)
+    P("approve gpu and usb", ["--minutes=5", "approve", "0000:77:00.0", "0000:77:00.1", "1234:abcd"], stdin=yes)
+    P("approve gpu one function", ["approve", "0000:77:00.0"], stdin=yes)
+    for m in ("0", "-5", "120", "121", "1099511627776", "153722867280912930", "0x10", "x"):
+        P(f"approve minutes {m}", ["approve", "--minutes", m, "1234:abcd"], stdin=yes)
+    P("approve blocked", ["approve", "1234:abcd"], {"run/passthrough.blocked": "x"}, stdin=yes)
+    P("approve not listed", ["approve", "0000:01:00.0"], stdin=yes)
+    P("approve usb upper", ["approve", "1234:ABCD"], stdin=yes)
+    P("approve usb not listed", ["approve", "aaaa:bbbb"], stdin=yes)
+    P("approve usb unplugged", ["approve", "1d6b:0003"], {"etc/host-policy.json": json.dumps({"usb_allow": ["1d6b:0003"]})}, stdin=yes)
+    P("approve usb hub", ["approve", "1d6b:0002"], stdin=yes)
+    P("approve usb driver busy", ["approve", "1234:abcd"], {"sysusb/1-1:1.0/driver@": "/sys/bus/usb/drivers/usbhid"}, stdin=yes)
+    P("approve usb driver usbfs", ["approve", "1234:abcd"], {"sysusb/1-1:1.0/driver@": "/sys/bus/usb/drivers/usbfs"}, stdin=yes)
+    P("approve mixed busy", ["approve", "0000:77:00.0", "0000:77:00.1", "1234:abcd"], {"sysusb/1-1:1.0/driver@": "/x/cdc_acm"}, stdin=yes)
+    P("approve boot vga", ["approve", "0000:78:00.0"], stdin=yes)
+    P("approve shared group", ["approve", "0000:79:00.0"], stdin=yes)
+    P("approve no group", ["approve", "0000:7a:00.0"], stdin=yes)
+    P("approve gone", ["approve", "0000:7b:00.0"], {"etc/host-policy.json": json.dumps({"pci_allow": ["0000:7b:00.0"]})}, stdin=yes)
+    P("approve lykanos", ["approve", "1234:abcd"], {"osrel": "ID=lykanos\n"}, stdin=yes)
+    P("approve other os", ["approve", "1234:abcd"], {"osrel": "ID=arch\n"}, stdin=yes)
+    P("approve no policy", ["approve", "1234:abcd"], {"etc/host-policy.json": "[]"}, stdin=yes)
+    P("approve replaces", ["approve", "5059:4040"], {"st/passthrough-approval.json": approval}, stdin=yes)
+    P("approve state unwritable", ["approve", "1234:abcd"], {"st/passthrough-approval.json.tmp/": ""}, stdin=yes)
+    P("approve no state", ["--state-dir", "", "--i-know", "--run-dir", "{W}/run", "approve", "1234:abcd"], stdin=yes, state=False)
+    return cs
+
+
 class Server:
     """The scripted socket: records requests, answers from the case's list in order."""
 
@@ -1305,8 +1414,18 @@ def run_one(binary, case, base):
         # uid 0 in a user namespace: the files made here are root's there (no real root)
         argv = [shutil.which("unshare") or "/usr/bin/unshare", "-r"] + argv
     stdin = case["stdin"]
+    master = None
     try:
-        if stdin is None:
+        if isinstance(stdin, tuple):
+            # a terminal: the answer is typed into a pty before the command starts
+            import pty
+            master, slave = pty.openpty()
+            os.write(master, stdin[1])
+            try:
+                p = subprocess.run(argv, cwd=work, env=env, stdin=slave, capture_output=True, timeout=30)
+            finally:
+                os.close(slave)
+        elif stdin is None:
             with open(os.devnull, "rb") as dn:
                 p = subprocess.run(argv, cwd=work, env=env, stdin=dn, capture_output=True, timeout=30)
         else:
@@ -1319,6 +1438,8 @@ def run_one(binary, case, base):
         res = {"stdout": "", "stderr": "TIMEOUT", "exit": -1}
     finally:
         srv.close()
+        if master is not None:
+            os.close(master)
     res["requests"] = srv.requests
     res["files"] = snapshot(work, case.get("norm", []))
     return res
@@ -1338,7 +1459,7 @@ def main():
     if len(os.path.join(base, "s")) >= 100:
         sys.exit(f"{base}: too long for a socket path")
     os.umask(0o022)
-    cs = [c for c in cases() + local_cases() + analyze_cases() + image_cases() + setup_cases() + act_cases() if a.only in c["name"]]
+    cs = [c for c in cases() + local_cases() + analyze_cases() + image_cases() + setup_cases() + act_cases() + passthrough_cases() if a.only in c["name"]]
     bad = 0
     comparisons = 0
     for c in cs:

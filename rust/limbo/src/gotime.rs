@@ -512,3 +512,116 @@ mod tests {
         assert!(u.before(&t) && t.after(&u));
     }
 }
+
+/// time.Duration's String: "72h3m0.5s", "1.5ms", "0s"; the largest unit first, no trailing zeros in the fraction.
+pub fn duration_string(d: i64) -> String {
+    fn frac(buf: &mut Vec<u8>, mut v: u64, prec: u32) -> u64 {
+        let mut print = false;
+        for _ in 0..prec {
+            let digit = (v % 10) as u8;
+            print = print || digit != 0;
+            if print {
+                buf.push(b'0' + digit);
+            }
+            v /= 10;
+        }
+        if print {
+            buf.push(b'.');
+        }
+        v
+    }
+    fn int(buf: &mut Vec<u8>, mut v: u64) {
+        if v == 0 {
+            buf.push(b'0');
+            return;
+        }
+        while v > 0 {
+            buf.push(b'0' + (v % 10) as u8);
+            v /= 10;
+        }
+    }
+    // built backwards, as Go fills its buffer from the end
+    let mut b: Vec<u8> = vec![];
+    let neg = d < 0;
+    let mut u = d.unsigned_abs();
+    if u < 1_000_000_000 {
+        b.push(b's');
+        let prec = match u {
+            0 => return "0s".into(),
+            1..=999 => {
+                b.push(b'n');
+                0
+            }
+            1000..=999_999 => {
+                b.extend_from_slice("µ".as_bytes().iter().rev().copied().collect::<Vec<u8>>().as_slice());
+                3
+            }
+            _ => {
+                b.push(b'm');
+                6
+            }
+        };
+        u = frac(&mut b, u, prec);
+        int(&mut b, u);
+    } else {
+        b.push(b's');
+        u = frac(&mut b, u, 9);
+        int(&mut b, u % 60);
+        u /= 60;
+        if u > 0 {
+            b.push(b'm');
+            int(&mut b, u % 60);
+            u /= 60;
+            if u > 0 {
+                b.push(b'h');
+                int(&mut b, u);
+            }
+        }
+    }
+    if neg {
+        b.push(b'-');
+    }
+    b.reverse();
+    String::from_utf8(b).unwrap_or_default()
+}
+
+#[cfg(test)]
+mod duration_tests {
+    /// Go's own answers (time.Duration(m) * time.Minute, then plain durations), written by a Go program.
+    #[test]
+    fn duration_string_is_gos() {
+        let minutes: [(i64, &str); 11] = [
+            (0, "0s"),
+            (1, "1m0s"),
+            (30, "30m0s"),
+            (120, "2h0m0s"),
+            (121, "2h1m0s"),
+            (-5, "-5m0s"),
+            (1 << 40, "1428016h22m54.643421184s"),
+            (i64::MAX, "-1m0s"),
+            (i64::MIN, "0s"),
+            (153722867280912930, "-8s"),
+            (1537228672809129301, "-20s"),
+        ];
+        for (m, want) in minutes {
+            assert_eq!(super::duration_string(m.wrapping_mul(60_000_000_000)), want, "{m} minutes");
+        }
+        let plain: [(i64, &str); 12] = [
+            (1, "1ns"),
+            (999, "999ns"),
+            (1000, "1µs"),
+            (1500, "1.5µs"),
+            (999999, "999.999µs"),
+            (1000000, "1ms"),
+            (1500000, "1.5ms"),
+            (999999999, "999.999999ms"),
+            (1000000000, "1s"),
+            (1000000001, "1.000000001s"),
+            (3723000000000, "1h2m3s"),
+            (i64::MIN, "-2562047h47m16.854775808s"),
+        ];
+        for (d, want) in plain {
+            assert_eq!(super::duration_string(d), want, "{d}");
+        }
+    }
+}

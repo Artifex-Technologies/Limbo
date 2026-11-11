@@ -1,7 +1,7 @@
 //! Whether this host lets a guest have real hardware, and whether now is a safe moment (Go: internal/hostpolicy, the
 //! parts limbo serve uses). LykanOS never (hard-coded), Labyrinth only for devices on root's list, any other OS never;
 //! a person's approval, nothing on the host using the device, no earlier damage. Everything fails closed. Approving
-//! stays in the Go CLI: no socket route can approve, here or in Go.
+//! is `limbo passthrough approve` at a terminal (cli/passthrough.rs): no socket route can approve, here or in Go.
 
 use crate::gotime::Time;
 use crate::manifest::{self, Devices, Manifest};
@@ -49,12 +49,16 @@ struct Config {
 }
 go_struct!(Config as "hostpolicy.Config" { pci_allow: "pci_allow" => "[]string", usb_allow: "usb_allow" => "[]string", usb_standing: "usb_standing" => "[]string" });
 
+/// A person's permission, for a limited time, to hand the named devices to guests (root's file in the state folder).
 #[derive(Default)]
-struct Approval {
-    devices: Option<Vec<String>>,
-    expires: Time,
-    by: String,
+pub struct Approval {
+    pub devices: Option<Vec<String>>,
+    pub expires: Time,
+    pub by: String,
 }
+
+/// MaxApproval: how long one approval can last at most (2 hours, in nanoseconds).
+pub const MAX_APPROVAL: i64 = 2 * 3600 * 1_000_000_000;
 go_struct!(Approval as "hostpolicy.Approval" { devices: "devices" => "[]string", expires: "expires" => "time.Time", by: "by" => "string" });
 
 /// The host's policy. `root` is where the host's files are read from ("/" in production, a folder in tests).
@@ -220,11 +224,72 @@ impl Policy {
         }
         let b = std::fs::read(self.approval_path()).ok()?;
         let a = gojson::unmarshal(&b, Approval::default(), "hostpolicy.Approval").ok()?;
-        let _ = &a.by;
         if !(self.now)().before(&a.expires) {
             return None;
         }
         Some(a.devices.unwrap_or_default())
+    }
+
+    /// Approval: the approval in effect, or None (unreadable, damaged, expired or readable by others counts as none).
+    pub fn approval(&self) -> Option<Approval> {
+        if self.state_dir.is_empty() {
+            return None;
+        }
+        let m = std::fs::metadata(self.approval_path()).ok()?;
+        if !m.is_file() || sys::Stat::of(&m).perm() & 0o077 != 0 {
+            return None;
+        }
+        let b = std::fs::read(self.approval_path()).ok()?;
+        let a = gojson::unmarshal(&b, Approval::default(), "hostpolicy.Approval").ok()?;
+        if !(self.now)().before(&a.expires) {
+            return None;
+        }
+        Some(a)
+    }
+
+    /// CanApprove: the devices are eligible here (check) and nothing on the host uses them; writes nothing.
+    pub fn can_approve(&self, devs: &[String]) -> Result<(), Refused> {
+        if self.blocked() {
+            return Err(Refused::RebootNeeded);
+        }
+        let m = Manifest { devices: split(devs), ..Default::default() };
+        self.check(&m)?;
+        let who = self.busy(&m.devices);
+        if !who.is_empty() {
+            return Err(Refused::Busy(who));
+        }
+        Ok(())
+    }
+
+    /// Approve: records the approval of `devs` for `d` nanoseconds, after the same checks as can_approve.
+    pub fn approve(&self, devs: &[String], d: i64, by: &str) -> Result<Approval, String> {
+        if self.state_dir.is_empty() {
+            return Err("hostpolicy: no state directory".into());
+        }
+        if d <= 0 || d > MAX_APPROVAL {
+            return Err("hostpolicy: an approval lasts between 1 minute and 2h0m0s".into());
+        }
+        self.can_approve(devs).map_err(|e| e.to_string())?;
+        let a = Approval { devices: Some(devs.to_vec()), expires: (self.now)().add(d).utc(), by: by.to_string() };
+        let b = gojson::Obj::new().strs("devices", devs).str("expires", &a.expires.rfc3339_nano()).str("by", by).end();
+        sys::go_mkdir_all(&self.state_dir, 0o700)?;
+        let tmp = format!("{}.tmp", self.approval_path());
+        sys::write_file(&tmp, b.as_bytes(), 0o600).map_err(|e| sys::go_path_error("open", &tmp, &e))?;
+        std::fs::rename(&tmp, self.approval_path()).map_err(|e| format!("rename {tmp} {}: {}", self.approval_path(), sys::go_err(&e)))?;
+        Ok(a)
+    }
+
+    /// Revoke: ends any approval now.
+    pub fn revoke(&self) -> Result<(), String> {
+        if self.state_dir.is_empty() {
+            return Ok(());
+        }
+        go_remove(&self.approval_path())
+    }
+
+    /// Clear: removes the reboot-needed marker.
+    pub fn clear(&self) -> Result<(), String> {
+        go_remove(&self.blocked_path())
     }
 
     pub fn blocked(&self) -> bool {
@@ -363,4 +428,32 @@ fn scan_proc() -> BTreeMap<String, Vec<String>> {
         out.insert(format!("{comm} ({pid})"), files);
     }
     out
+}
+
+/// split: the named devices sorted into PCI addresses and USB IDs by their form (a USB ID is vendor:product).
+fn split(devs: &[String]) -> Devices {
+    let (mut pci, mut usb) = (None::<Vec<String>>, None::<Vec<String>>);
+    for x in devs {
+        if manifest::usb_id_ok(x) {
+            usb.get_or_insert_with(Vec::new).push(x.clone());
+        } else {
+            pci.get_or_insert_with(Vec::new).push(x.clone());
+        }
+    }
+    Devices { pci, usb }
+}
+
+/// os.Remove, and its error unless the path did not exist (as `!os.IsNotExist(err)` reads it): unlink, then rmdir;
+/// when both fail, rmdir's error unless it is ENOTDIR.
+fn go_remove(p: &str) -> Result<(), String> {
+    let Err(e) = std::fs::remove_file(p) else { return Ok(()) };
+    let e = match std::fs::remove_dir(p) {
+        Ok(()) => return Ok(()),
+        Err(e1) if e1.raw_os_error() != Some(libc::ENOTDIR) => e1,
+        Err(_) => e,
+    };
+    if e.kind() == std::io::ErrorKind::NotFound {
+        return Ok(());
+    }
+    Err(sys::go_path_error("remove", p, &e))
 }

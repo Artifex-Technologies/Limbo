@@ -22,7 +22,7 @@ state files are the contract between the two and are the Go daemon's, in the sam
 | 3 | the differential run of both daemons on the same socket traffic (`rust/parity/daemon-differential.py`) | **done**: no difference |
 | 4 | the real-guest scripts against the Rust daemon (`LIMBO_RS=... scripts/integration-*.sh`) | **prepared, needs root**: commands below |
 | 5 | the rehearsal on a copy of this computer's real state (`--from-host`), then the switch | **prepared, needs root**: "The switch" |
-| 6 | the CLI commands, one by one | **in progress**: the five socket-client commands, then version, validate, plan, address, seed, report, analyze, image, doctor, setup, up, down, launch, export and screenshot (2026-11-11, `cli.json`, `cliclient.json`, `manifests.json`, `tz.json` and the CLI differential run); the rest open ("Resume here") |
+| 6 | the CLI commands, one by one | **in progress**: the five socket-client commands, then version, validate, plan, address, seed, report, analyze, image, doctor, setup, up, down, launch, export, screenshot and passthrough (2026-11-11, `cli.json`, `cliclient.json`, `manifests.json`, `tz.json` and the CLI differential run); the rest open ("Resume here") |
 
 ## Layout
 
@@ -315,7 +315,9 @@ Next, in order:
    1802bd7); `doctor` and `setup` (`cli/setup.rs`, internal/deps; 6c39956); `up`, `down`, `launch`, `export` and
    `screenshot` (`cli/act.rs`: the daemon's engine with the CLI's wiring, Go's preflight, launch's hold and address
    gates with `fmt.Sscanf`'s reading of the address, os.CreateTemp's names, `--check` with its 20 s limit per ssh;
-   the commit with this note). The CLI differential run: 781 cases, 3,905 comparisons, no difference (about 9
+   8627402); `passthrough status | approve | revoke | clear` (`cli/passthrough.rs`; hostpolicy's approval,
+   can_approve, approve, revoke, clear with os.Remove's rules; Go's Duration.String in `gotime`, pinned by a test with
+   Go's own answers; the commit with this note). The CLI differential run: 854 cases, 4,270 comparisons, no difference (about 10
    minutes: analyze polls every 3 s, one launch check waits out its 20 s ssh limit). The image cases that
    need root's files run under `unshare -r` (uid 0 in a user namespace, so the files made for the case are root's
    there; never real root), with `--state-dir` in the work folder and `--i-know`; a case's `prep` writes the record
@@ -326,7 +328,9 @@ Next, in order:
    run the same way (`NSRUN_ACT`), with a tmpfs on /run whose /run/limbo/user.sock is the case's scripted socket (a
    person's launch asks it, never the real daemon), and for a person's launch a second user namespace that makes the
    command uid 1000 again; virsh, qemu-img, nft (logging the rules it is fed), ufw, ssh, waypipe and xfreerdp3 are
-   fakes: no guest, firewall, network or display is touched. limbo-rs gets
+   fakes: no guest, firewall, network or display is touched. passthrough runs there too, with /etc/os-release, the host
+   policy and /sys/bus/usb/devices and /sys/bus/pci/devices bound over by made-up ones (no device of this computer is
+   read) and the typed answer from a pty. limbo-rs gets
    `LIMBO_RS_NO_GO=1` there, so a command it does not run itself fails instead of reaching a Go limbo (without it, a
    command missing from the dispatch would be compared Go against Go: it happened to seed once). Fixed in Go on the
    way: `license.Check` and `seed` depended on map order; `launch --check` panicked on an app.exec of only spaces
@@ -336,7 +340,15 @@ Next, in order:
    b. `capture`: everything up to the recording could be faked (sysfs bound over in the namespace, modprobe on PATH),
       but the recording is usbmon's MON_IOCX_GETX ioctl on /dev/usbmonN, which no fake file answers: it stays on Go
       until it can be proved against a real usbmon.
-   c. `passthrough` (a root file, a typed "yes" at a terminal: a pty in the differential, sysfs folders bound over),
-      `wine` (bwrap and Wine as fakes only, never real Wine here; internal/wine is about 2,000 lines).
+   c. `wine`: not started (internal/wine is about 2,000 lines without its tests). The plan: carry the pure parts over
+      as Go fixtures first (`internal/wine/parity_test.go`: options.go's Merge and flag checks, profile.go's
+      LoadProfile, shares.go, prefix.go's names, xauth.go's FilterXauth, sandbox.go's bwrap argument vector for a set
+      of `Host` values written by hand, record.go's JSON), then run_linux.go and probe_linux.go. Probe reads the host
+      (accounts, /etc, /dev/dri and NVIDIA nodes by stat only, /sys/dev/char, the X11, Wayland and PulseAudio sockets,
+      ~/.Xauthority): the differential must give both binaries a made-up host instead, in the act namespace with
+      HOME, XDG_RUNTIME_DIR, DISPLAY and WAYLAND_DISPLAY pointing into the case folder and empty folders bound over
+      /dev/dri and /tmp/.X11-unix; `--dry-run` first (it prints the sandbox and the steps), then real runs with a fake
+      `bwrap` on PATH that logs its arguments and never starts Wine. Real Wine never runs here; the Go tests' real
+      runs stay behind `-short`.
    The integration scripts call `limbo quarantine` through limbo-rs, so a ported command is exercised by the owner's
    next run of them.

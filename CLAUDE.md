@@ -18,7 +18,7 @@ Coordination Log has the details). The Wine backend (`limbo wine`, `internal/win
 
 **The Rust port of `limbo serve`** (since 2026-11-10, `rust/`, docs/RUST_PORT.md): `limbo-rs serve` is the daemon;
 `quarantine`, `settings`, `instance`, `license`, `exchange`, `version`, `validate`, `plan`, `address`, `seed`, `report`,
-`analyze`, `image`, `doctor`, `setup`, `up`, `down`, `launch`, `export` and `screenshot` run in Rust too (2026-11-11, `rust/parity/cli-differential.py` compares them
+`analyze`, `image`, `doctor`, `setup`, `up`, `down`, `launch`, `export`, `screenshot` and `passthrough` run in Rust too (2026-11-11, `rust/parity/cli-differential.py` compares them
 with Go); every other command is handed to the Go binary. Equal to Go on 28,888 fixture comparisons
 (`testdata/parity`, written by
 each package's `parity_test.go`; `LIMBO_PARITY_UPDATE=1 go test ./internal/... ./cmd/limbo -run Parity` after a deliberate change)
