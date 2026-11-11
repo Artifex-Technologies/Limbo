@@ -9,23 +9,24 @@ post_install() {
 post_upgrade() {
 	if ! command -v virsh >/dev/null 2>&1; then
 		post_install
-		return
+	else
+		start_image_timer
 	fi
-	start_image_timer
 	rust_daemon_note
 }
 
 # Since the Rust port, /usr/bin/limbo is limbo-rs (the daemon) and the Go build is /usr/lib/limbo/limbo-go. A host that
 # switched by hand first (a drop-in naming /usr/lib/limbo/limbo-rs) no longer needs it; the daemon itself is replaced
 # at its next restart, which destroys the guest of a validation run in progress (as any restart does), so it is left
-# to the person.
+# to the person. Nothing here restarts it or removes a file the package does not own.
 rust_daemon_note() {
 	if [ -f /etc/systemd/system/limbo.service.d/rust.conf ]; then
 		echo "==> limbo.service is the Rust daemon from this package now; the hand-made drop-in can go:"
-		echo "    sudo rm /etc/systemd/system/limbo.service.d/rust.conf /usr/lib/limbo/limbo-rs && sudo systemctl daemon-reload"
+		echo "    sudo rm /etc/systemd/system/limbo.service.d/rust.conf && sudo systemctl daemon-reload"
+		echo "    and after the restart below: sudo rm /usr/lib/limbo/limbo-rs"
 	fi
 	if [ -d /run/systemd/system ] && systemctl -q is-active limbo.service 2>/dev/null; then
-		echo "==> Restart limbo.service to run the new daemon (not while a validation run is active):"
+		echo "==> Restart limbo.service to run this version's daemon (not while a validation run is active):"
 		echo "    sudo systemctl restart limbo.service"
 	fi
 }

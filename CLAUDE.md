@@ -23,8 +23,9 @@ with Go); every other command is handed to the Go binary. Equal to Go on 31,919 
 (`testdata/parity`, written by
 each package's `parity_test.go`; `LIMBO_PARITY_UPDATE=1 go test ./internal/... ./cmd/limbo -run Parity` after a deliberate change)
 and in a differential run of both daemons (`rust/parity/daemon-differential.py`). A change to a serve package now
-needs its fixture regenerated and the Rust side kept equal (`cd rust && scripts/nicecargo.sh test --offline`). Not
-switched yet: the owner's root steps are in docs/RUST_PORT.md.
+needs its fixture regenerated and the Rust side kept equal (`cd rust && scripts/nicecargo.sh test --offline`). Switched
+by hand on 2026-11-10 (a drop-in); since 2026-11-11 the package ships it: `/usr/bin/limbo` is limbo-rs (the daemon and
+the CLI), the Go build is `/usr/lib/limbo/limbo-go` for `net watch` and `capture` (docs/RUST_PORT.md "Packaging").
 
 A Claude session isolated in a worktree has its commands refused when they wrap a payload the guard cannot read
 (`bash script`, `env`, `nice` before `go test`, a program literally named `cmd` after `--`): run real Wine checks from
@@ -184,6 +185,16 @@ From Heimdall's CLAUDE.md Coordination Log.
   repository; it waits for that image's recipe.
 
 ## Coordination Log (newest first)
+
+### 2026-11-11 (2) — The package ships limbo-rs as /usr/bin/limbo
+- Branch `package-rust-daemon` rebased onto main and merged: `packaging/arch/PKGBUILD` builds both, `/usr/bin/limbo` is
+  limbo-rs (`limbo.service` runs it unchanged), the Go build is `/usr/lib/limbo/limbo-go` for `net watch` and
+  `capture`. Fixed on the way: a command line that was not UTF-8 made limbo-rs panic instead of reaching Go
+  (`rust/limbo/tests/dispatch.rs`).
+- **For Labyrinth_OS:** done from here the same day: limbo-git (and the store's copy) build limbo-rs the same way.
+- My PC still runs the hand-made drop-in until the package is installed: the steps for a host that switched by hand
+  are in docs/RUST_PORT.md "Packaging" (one restart of limbo.service, not during a validation run).
+— Signed: Limbo / Claude Opus 5.5
 
 ### 2026-11-11 — The owner's first real-guest run against limbo-rs: the scripts, not the port
 - Rehearsal never started (root in `unshare -rmn` cannot open a script or binary in a 0700 home: now copied into the

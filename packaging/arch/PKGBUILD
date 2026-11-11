@@ -1,8 +1,8 @@
 # Maintainer: Artifex Technologies (https://github.com/Artifex-Technologies)
 #
 # Limbo ships as a small package of its own (two binaries, units, docs). /usr/bin/limbo is limbo-rs, the Rust build:
-# it is the daemon (`limbo serve`, limbo.service) and hands every other command, unchanged, to the Go build at
-# /usr/lib/limbo/limbo-go (docs/RUST_PORT.md), until each command is ported.
+# it is the daemon (`limbo serve`, limbo.service) and runs every command but the two not ported yet (`net watch`,
+# `capture`), which it hands, unchanged, to the Go build at /usr/lib/limbo/limbo-go (docs/RUST_PORT.md).
 # Its heavy runtime (libvirt, QEMU, dnsmasq, ...) is deliberately NOT in
 # depends=(): an image can carry Limbo "packaged and ready" without every system
 # also carrying a hypervisor stack it may never use. `sudo limbo setup` installs

@@ -20,8 +20,8 @@ state files are the contract between the two and are the Go daemon's, in the sam
 | 1 | every package `serve` uses, in `rust/limbo`: events, quarantine, settings, manifest, virt (XML, subnets), policy, hostfw, provision, disk, image proofs, license, exchange, hostpolicy (the serve side), engine, runs, instances, flows (aggregator + NFLOG socket), the HTTP layer with Go's ServeMux rules, api, serve | **done** (2026-11-10) |
 | 2 | the Go fixtures (`testdata/parity`), the properties, fuzz targets and Kani harnesses | **done**: see "Proof" |
 | 3 | the differential run of both daemons on the same socket traffic (`rust/parity/daemon-differential.py`) | **done**: no difference |
-| 4 | the real-guest scripts against the Rust daemon (`LIMBO_RS=... scripts/integration-*.sh`) | **prepared, needs root**: commands below |
-| 5 | the rehearsal on a copy of this computer's real state (`--from-host`), then the switch | **prepared, needs root**: "The switch" |
+| 4 | the real-guest scripts against the Rust daemon (`LIMBO_RS=... scripts/integration-*.sh`) | **done** (2026-11-11): quarantine 71/71, sarina 15/15, chain 32/32 with limbo-rs ("The owner's first run") |
+| 5 | the rehearsal on a copy of this computer's real state (`--from-host`), then the switch | **done**: rehearsal no difference; my PC switched by hand (drop-in) on 2026-11-10, no restart since; the package ships it since 2026-11-11 ("Packaging") |
 | 6 | the CLI commands, one by one | **in progress**: the five socket-client commands, then version, validate, plan, address, seed, report, analyze, image, doctor, setup, up, down, launch, export, screenshot, passthrough and wine (2026-11-11, `cli.json`, `cliclient.json`, `manifests.json`, `tz.json`, `wine.json` and the CLI differential run); `net watch` and `capture` open ("Resume here") |
 
 ## Layout
@@ -35,7 +35,8 @@ rust/
     api.rs                    the route tables (one function), handlers, the Kani harnesses on the tables
     serve.rs                  startup in Go's order, one poll(2) loop, a thread per connection and per run
     main.rs                   `serve`, else exec the Go limbo
-  limbo/tests/                parity_* (the Go fixtures), properties.rs (exhaustive claims, proptest, fuzz bodies)
+  limbo/tests/                parity_* (the Go fixtures), properties.rs (exhaustive claims, proptest, fuzz bodies),
+                              dispatch.rs (what reaches the Go build, unchanged)
   fuzz/                       cargo-fuzz targets (nightly): http_request, json, manifest, nflog
   parity/daemon-differential.py   both daemons, the same traffic, compared
   scripts/nicecargo.sh        cargo at nice 15
@@ -243,36 +244,56 @@ limbo settings status    # the CLI (Go) through the Rust daemon's user.sock
 sudo rm /etc/systemd/system/limbo.service.d/rust.conf && sudo systemctl daemon-reload && sudo systemctl restart limbo.service
 ```
 
+Step 4 is what I did on 2026-11-10. With the package (since 2026-11-11) the switch is the package itself, and a host
+that switched by hand moves to it with the steps under "Packaging".
+
 Restarting `limbo.service` while a validation run is executing destroys that run's guest (the startup reap, as with any
 restart of the Go daemon): switch when Sarina is not running one.
 
-## Packaging (branch `package-rust-daemon`, not merged)
+## Packaging (2026-11-11)
 
-Until this lands, the systemd drop-in of "The switch" runs the Rust daemon on my PC. The packages then ship it:
+From 2026-11-10 my PC ran the Rust daemon through the drop-in of step 4 above. Since 2026-11-11 the packages ship it:
 
-- **`packaging/arch/PKGBUILD`** (this branch): `/usr/bin/limbo` is limbo-rs (the daemon, and the dispatcher that hands
-  every command it does not have to the Go build), `/usr/lib/limbo/limbo-go` is the Go build (limbo-rs finds it there:
-  `main.rs` `go_binary`). `limbo.service`, `limbo-image-verify.service` and the wine shim keep calling `/usr/bin/limbo`,
-  so no unit changes. `makedepends` gains `rust`, `depends` `gcc-libs` (the binary links libc and libgcc_s);
-  `prepare()` runs `cargo fetch --locked`, `build()` `cargo build --frozen --release -p limbo --bin limbo-rs`, and
-  `check()` runs the Rust tests too (the Go fixtures, properties, fuzz bodies: seconds). `limbo.install` says, on
-  upgrade, that a hand-made drop-in can go and that the service runs the new daemon only after a restart (not during a
-  validation run). This is the layout `scripts/integration-systemd.sh` already tests with `LIMBO_RS=`.
-- **Labyrinth's `packages/pkgbuilds/limbo-git/PKGBUILD`** (built from the local Limbo checkout; edited from a session
-  in Labyrinth_OS, not from here): the same four changes, in its own style: `depends=('glibc' 'gcc-libs')`,
-  `makedepends=('go' 'git' 'rust')`; a `prepare()` with `cd "$srcdir/limbo/rust" && cargo fetch --locked --target
-  "$(rustc -vV | sed -n 's/host: //p')"`; in `build()` `-o limbo-go` for the Go build, then `cd rust &&
-  CARGO_TARGET_DIR=target cargo build --frozen --release -p limbo --bin limbo-rs`; in `check()` `(cd rust &&
-  CARGO_TARGET_DIR=target cargo test --frozen -p limbo)`; in `package()` `install -Dm755 rust/target/release/limbo-rs
-  "$pkgdir/usr/bin/limbo"` and `install -Dm755 limbo-go "$pkgdir/usr/lib/limbo/limbo-go"` instead of the one
-  `install ... limbo "$pkgdir/usr/bin/limbo"`. Its `limbo.install` takes the same `rust_daemon_note`.
-- **On a host that switched by hand** (my PC): the hand-installed `/usr/lib/limbo/limbo-go` is not the package's, and
-  pacman refuses to overwrite it. Before installing the new package: `sudo rm /usr/lib/limbo/limbo-go` (the running
-  daemon is unaffected; the CLI is still /usr/bin/limbo, Go, until the upgrade). After it: `sudo rm
-  /etc/systemd/system/limbo.service.d/rust.conf /usr/lib/limbo/limbo-rs && sudo systemctl daemon-reload && sudo
-  systemctl restart limbo.service` (not during a validation run).
-- **Not done here:** a binary package build (`makepkg`) of the branch; the ISO's package list needs nothing new (same
-  package name).
+- **`packaging/arch/PKGBUILD`**: `/usr/bin/limbo` is limbo-rs: the daemon, every ported command, and the dispatcher that
+  hands `net watch`, `capture` and any command line that is not UTF-8, unchanged, to the Go build at
+  `/usr/lib/limbo/limbo-go` (where limbo-rs looks: `main.rs` `go_binary`; `/usr/bin/limbo` itself is skipped, so it
+  never runs itself). The packaged `limbo.service` (`ExecStart=/usr/bin/limbo serve ...`), `limbo-image-verify.service`
+  and the wine shim keep calling `/usr/bin/limbo`, so no unit changes. `makedepends` gains `rust`, `depends` `gcc-libs`
+  (the binary links libc and libgcc_s); `prepare()` runs `cargo fetch --locked`, `build()` `cargo build --frozen
+  --release -p limbo --bin limbo-rs`, and `check()` runs the Rust tests too. `LIMBO_RS_NO_GO` is set by the CLI
+  differential run only, never by a unit, a package or a script. `limbo.install` says, on upgrade, that a hand-made
+  drop-in can go and that the service runs the new daemon only after a restart (it restarts nothing itself).
+  `rust/limbo/tests/dispatch.rs` pins the hand-over to Go: before it, a command line that was not UTF-8 made limbo-rs
+  panic in `std::env::args()` instead of reaching Go (as `/usr/bin/limbo`, every such command would have failed).
+- **Labyrinth's `packages/pkgbuilds/limbo-git`** (built from the local Limbo checkout) and the store's copy
+  (`profile/airootfs/usr/share/labyrinth/pkgbuilds/limbo-git`, built from GitHub): the same changes, mirrored in
+  Labyrinth_OS the same day. The ISO's package list needs nothing new (same package name).
+- **On a host that switched by hand** (my PC; root). The hand-installed `/usr/lib/limbo/limbo-go` is no package's file,
+  so pacman needs `--overwrite` for it; `/usr/lib/limbo/limbo-rs` is not in the package and stays until removed. Nothing
+  restarts until the `restart` line; the drop-in goes only once the packaged unit is in place:
+
+  ```bash
+  sudo pacman -U --overwrite /usr/lib/limbo/limbo-go limbo-git-<version>-x86_64.pkg.tar.zst
+  sudo rm /etc/systemd/system/limbo.service.d/rust.conf && sudo rmdir --ignore-fail-on-non-empty /etc/systemd/system/limbo.service.d
+  sudo systemctl daemon-reload
+  systemctl show -p ExecStart --value limbo.service      # /usr/bin/limbo serve ...
+  sudo systemctl restart limbo.service                     # not during a validation run (the startup reap)
+  sudo rm /usr/lib/limbo/limbo-rs                          # the hand-installed daemon, named nowhere now
+  limbo rs-version; limbo version; limbo doctor; systemctl is-active limbo.service
+  pid=$(systemctl show -p MainPID --value limbo.service); ps -o args= -p "$pid"; grep -E '^(VmRSS|Threads)' /proc/$pid/status
+  ```
+
+  Back to the Go daemon with the package installed (the state is shared; the CLI stays limbo-rs):
+
+  ```bash
+  sudo mkdir -p /etc/systemd/system/limbo.service.d
+  printf '[Service]\nExecStart=\nExecStart=/usr/lib/limbo/limbo-go serve --state-dir /var/lib/limbo/state --run-dir /run/limbo --profile-dir /etc/limbo/validation\n' \
+    | sudo tee /etc/systemd/system/limbo.service.d/go.conf
+  sudo systemctl daemon-reload && sudo systemctl restart limbo.service
+  ```
+
+  Back to the previous package entirely: `sudo pacman -U` of the old file (pacman's cache), which makes `/usr/bin/limbo`
+  the Go build again and removes `/usr/lib/limbo/limbo-go`; then `restart`.
 
 ## The owner's first run (2026-11-10, release build of bea73d9): every failure was the scripts' or this computer's
 
@@ -321,9 +342,12 @@ change; green since run 42950117164); the owner's first run read and every failu
 Next, in order:
 
 1. Rerun done 2026-11-11 (rehearsal NO DIFFERENCE, quarantine 71/71 and sarina 15/15 with both daemons; chain's Go-only
-   failures were leftover test heimdallds, fixed in 8531da0): integration-chain.sh once more with both daemons, then the
-   switch (drop-in) and the Rust daemon's figures after it. The packages' side is on branch `package-rust-daemon`
-   ("Packaging"): merge it, mirror it in Labyrinth's limbo-git, and follow the steps for a host that switched by hand.
+   failures were leftover test heimdallds, fixed in 8531da0). Switched by hand (drop-in) on 2026-11-10: the Rust daemon
+   has run since with no restart. Packaging done 2026-11-11 ("Packaging"): the branch `package-rust-daemon` rebased
+   onto main and merged, the dispatch's non-UTF-8 panic fixed (`tests/dispatch.rs`), Labyrinth's limbo-git mirrored,
+   a package built from main without root (nothing installed). Left for me (root): install it on my PC with the steps
+   for a host that switched by hand (`--overwrite /usr/lib/limbo/limbo-go`, the drop-in removed after, one restart
+   when no validation run is active), then the Rust daemon's figures (`VmRSS`, `Threads`) as in step 4.
 2. (hostpolicy done: `hostpolicy.json`.) Carry over the runs tests that use a fake clock and executor (`internal/runs/*_test.go`) as fixtures; today the differential run covers runs end to end, not each branch.
    Plan: `internal/runs/parity_test.go` with a runner that fails by line prefix as `engine/parity_test.go` words it
    (`<line>: exit status 1: <stderr>`; the Rust side builds `CmdErr` with the same text, `not_found` for
@@ -342,8 +366,7 @@ Next, in order:
    encoding/json reads times with time.Parse (comma fractions, a one-digit hour and offsets up to 24:60 are accepted;
    the port had refused them) and names error paths differently (gojson's Ctx now follows it; the daemon differential
    still shows no difference); Go's `exchange take` panicked on a guest name the URL cannot carry (`%zz`), now an
-   error. rustix 1.1.6 (RUSTSEC-2026-0486) in 20022c7. Not done here: the package branch `package-rust-daemon`
-   (rebase and merge it when the daemon is switched; it is not merged, and nothing is installed).
+   error. rustix 1.1.6 (RUSTSEC-2026-0486) in 20022c7. The package branch: merged 2026-11-11 (item 1).
 4. The other CLI commands, one by one. Done 2026-11-11: `version`, `validate`, `plan`, `address`, an unknown command
    and no command (`cli/local.rs`, `launch.rs`; 3bf2c9d); `report` (`report.rs`, `events::read`, `parseSince` pinned
    by `cli.json`; f6e12f3); `analyze` (`cli/analyze.rs`, Content-Type in the client; 6c3e257); `seed` (`cli/seed.rs`,
