@@ -98,6 +98,11 @@ impl El {
     }
 }
 
+/// [`esc`] for the other modules: xml.EscapeText.
+pub(crate) fn esc_text(s: &str, out: &mut String) {
+    esc(s, out)
+}
+
 /// Go's EscapeText/EscapeString: the five specials and the white space Go writes as character references; a character
 /// XML does not allow becomes U+FFFD.
 fn esc(s: &str, out: &mut String) {

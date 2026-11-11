@@ -394,7 +394,7 @@ def local_cases():
     cs = []
 
     def L(name, cmd, args, files=None, env=None, stdin=b"", norm=None):
-        cs.append({"name": name if cmd == "report" else "m " + name[2:], "cmd": cmd, "args": list(args), "answers": [],
+        cs.append({"name": name if cmd in ("report", "seed") else "m " + name[2:], "cmd": cmd, "args": list(args), "answers": [],
                    "env": env or {}, "stdin": stdin, "files": files or {}, "norm": norm or []})
 
     lin = {"m.json": MANIFEST}
@@ -472,6 +472,7 @@ def local_cases():
     L("l frobnicate state", "frobnicate", ["-state-dir", "x", "m.json"], lin)
     L("l plan non-utf8 manifest", "plan", ["m.json"], {"m.json": mf(app={"name": "W", "exec": "a\u00ffb"})})
     report_cases(L)
+    seed_cases(L)
     return cs
 
 
@@ -654,6 +655,118 @@ def analyze_cases():
     return cs
 
 
+FAKE_PUB = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOtq1lTZ8bS0bYpDn3m0Yy3uKQ0o4m6F1rYqJcVv8hJX"
+# Fakes for the programs seed runs (never the real ones: a real key pair or ISO differs on every run). Files ending in
+# "*" are made executable.
+FAKE_KEYGEN = r"""#!/bin/sh
+PATH=/usr/bin:/bin
+f=; c=
+while [ $# -gt 0 ]; do
+  case "$1" in -f) f=$2; shift ;; -C) c=$2; shift ;; esac
+  shift
+done
+priv='-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmU=\n-----END OPENSSH PRIVATE KEY-----\n'
+case "$FAKE_KEYGEN" in
+  fail) echo "Saving key \"$f\" failed: Permission denied"; echo "to stderr" >&2; exit 3 ;;
+  nopub) printf -- "$priv" > "$f"; exit 0 ;;
+  onefield) printf -- "$priv" > "$f"; echo "onefield" > "$f.pub"; exit 0 ;;
+  notopenssh) printf -- '-----BEGIN PRIVATE KEY-----\nx\n' > "$f" ;;
+  *) printf -- "$priv" > "$f" ;;
+esac
+printf '%s %s\n' "PUBKEY" "$c" > "$f.pub"
+""".replace("PUBKEY", FAKE_PUB)
+FAKE_XORRISO = r"""#!/bin/sh
+PATH=/usr/bin:/bin
+o=; d=; v=
+while [ $# -gt 0 ]; do
+  case "$1" in -o) o=$2; shift ;; -V) v=$2; shift ;; -as|mkisofs|-J|-r) ;; *) d=$1 ;; esac
+  shift
+done
+if [ "$FAKE_XORRISO" = fail ]; then echo "xorriso : FAILURE : Cannot write '$o'"; echo "and to stderr" >&2; exit 5; fi
+(echo "label $v"; cd "$d" && for x in *; do printf '%s %s\n' "$x" "$(wc -c < "$x")"; done) > "$o"
+"""
+
+
+def seed_cases(L):
+    """limbo seed: the host key pair (fake ssh-keygen), the cloud-init files or the Windows answer file, the CD (fake
+    xorriso)."""
+    bins = {"bin/ssh-keygen*": FAKE_KEYGEN, "bin/xorriso*": FAKE_XORRISO, "kg/ssh-keygen*": FAKE_KEYGEN, "empty/": ""}
+    env = {"PATH": "{W}/bin"}
+    pw = [(r"\A[a-km-zA-HJ-NP-Z2-9]{20}\n\Z", "PW\n"), (r"<Value>[a-km-zA-HJ-NP-Z2-9]{20}</Value>", "<Value>PW</Value>")]
+    lin = dict(bins, **{"m.json": MANIFEST})
+    pinned = dict(bins, **{"m.json": mf(provision={"ssh_public_key": "ssh-ed25519 AAAAkey me@host", "host_key": FAKE_PUB + " limbo-lab"})})
+    other_pin = dict(bins, **{"m.json": mf(provision={"ssh_public_key": "ssh-ed25519 AAAAkey me@host",
+                                                       "host_key": "ssh-ed25519 " + "B" * 68})})
+    lin_key = dict(bins, **{"m.json": mf(provision={"ssh_public_key": "ssh-ed25519 AAAAkey me@host", "packages": ["nmap", "tcpdump"]},
+                                         access={"user": "analyst", "sudo": True})})
+    win = mf(name="win", os="windows", access={"user": "analyst"}, app={"name": "Notepad", "exec": "notepad.exe"},
+             provision={"ssh_public_key": "ssh-ed25519 AAAAkey me@host"},
+             windows={"iso": "{W}/win.iso", "license_file": "{W}/lic.txt"})
+    wfiles = dict(bins, **{"m.json": win})
+    S = lambda name, args, files, e=None, norm=None: L(name, "seed", args, files, env=dict(env, **(e or {})), norm=norm)
+    S("seed no dir", ["m.json"], lin)
+    S("seed three args", ["m.json", "out", "x"], lin)
+    S("seed linux no key", ["m.json", "out"], lin)
+    S("seed linux", ["m.json", "out"], lin_key)
+    S("seed linux pinned", ["m.json", "out"], dict(pinned))
+    S("seed linux other pin", ["m.json", "out"], other_pin)
+    S("seed linux reuse", ["m.json", "out"], dict(pinned, **{"out/ssh_host_ed25519_key": "-----BEGIN OPENSSH PRIVATE KEY-----\nold\n",
+                                                             "out/ssh_host_ed25519_key.pub": "  " + FAKE_PUB + "  old comment \n\n"}))
+    S("seed linux reuse no pub", ["m.json", "out"], dict(pinned, **{"out/ssh_host_ed25519_key": "x"}))
+    S("seed linux private folder", ["m.json", "out"], dict(pinned, **{"out/ssh_host_ed25519_key/": ""}))
+    S("seed linux private link", ["m.json", "out"], dict(pinned, **{"out/ssh_host_ed25519_key@": "nowhere"}))
+    S("seed linux keygen fails", ["m.json", "out"], pinned, {"FAKE_KEYGEN": "fail"})
+    S("seed linux keygen no pub", ["m.json", "out"], pinned, {"FAKE_KEYGEN": "nopub"})
+    S("seed linux keygen one field", ["m.json", "out"], pinned, {"FAKE_KEYGEN": "onefield"})
+    S("seed linux keygen not openssh", ["m.json", "out"], dict(lin_key), {"FAKE_KEYGEN": "notopenssh"})
+    S("seed linux no keygen", ["m.json", "out"], pinned, {"PATH": "{W}/empty"})
+    S("seed linux keygen relative", ["m.json", "out"], pinned, {"PATH": "bin"})
+    S("seed linux keygen empty path", ["m.json", "out"], pinned, {"PATH": ""})
+    S("seed linux keygen by path entry", ["m.json", "out"], pinned, {"PATH": "{W}/empty:{W}/kg"})
+    S("seed linux iso", ["--iso", "{W}/seed.iso", "m.json", "out"], pinned)
+    S("seed linux iso relative", ["-iso=seed.iso", "m.json", "out"], pinned)
+    S("seed linux iso fails", ["--iso", "seed.iso", "m.json", "out"], pinned, {"FAKE_XORRISO": "fail"})
+    S("seed linux no xorriso", ["--iso", "seed.iso", "m.json", "out"], pinned, {"PATH": "{W}/kg"})
+    S("seed linux xorriso not executable", ["--iso", "seed.iso", "m.json", "out"], dict(pinned, **{"nx/xorriso": FAKE_XORRISO}),
+      {"PATH": "{W}/kg:{W}/nx"})
+    S("seed linux dir is file", ["m.json", "f"], dict(pinned, **{"f": "x"}))
+    S("seed linux dir nested", ["m.json", "a/b/c"], pinned)
+    S("seed linux dir under file", ["m.json", "f/b"], dict(pinned, **{"f": "x"}))
+    S("seed linux user-data folder", ["m.json", "out"], dict(pinned, **{"out/user-data/": ""}))
+    S("seed linux meta-data folder", ["m.json", "out"], dict(pinned, **{"out/meta-data/": ""}))
+    S("seed linux after flags", ["m.json", "out", "--iso", "x.iso"], pinned)
+    S("seed win fresh", ["m.json", "out"], wfiles, norm=pw)
+    S("seed win fresh iso", ["--iso", "{W}/w.iso", "m.json", "out"], wfiles, norm=pw)
+    good = "Pa55word-is-long enough"
+    S("seed win password", ["m.json", "out"], dict(wfiles, **{"out/windows-password": "  " + good + "\n\n"}))
+    S("seed win password xml", ["m.json", "out"], dict(wfiles, **{"out/windows-password": "<a&b>\"quote\" 'é' ok\n"}))
+    S("seed win password short", ["m.json", "out"], dict(wfiles, **{"out/windows-password": "short\n"}))
+    S("seed win password control", ["m.json", "out"], dict(wfiles, **{"out/windows-password": "long enough \x01 here\n"}))
+    S("seed win password long", ["m.json", "out"], dict(wfiles, **{"out/windows-password": "x" * 128}))
+    S("seed win password 127", ["m.json", "out"], dict(wfiles, **{"out/windows-password": "é" * 127}))
+    S("seed win password bytes", ["m.json", "out"], dict(wfiles, **{"out/windows-password": b"bytes \xff\xfe in a password"}))
+    S("seed win password folder", ["m.json", "out"], dict(wfiles, **{"out/windows-password/": ""}))
+    S("seed win cd is file", ["m.json", "out"], dict(wfiles, **{"out/windows-password": good, "out/cd": "x"}))
+    S("seed win cd file folder", ["m.json", "out"], dict(wfiles, **{"out/windows-password": good, "out/cd/limbo-setup.ps1/": ""}))
+    S("seed win iso", ["--iso", "w.iso", "m.json", "out"], dict(wfiles, **{"out/windows-password": good}))
+    S("seed win iso fails", ["--iso", "w.iso", "m.json", "out"], dict(wfiles, **{"out/windows-password": good}), {"FAKE_XORRISO": "fail"})
+    S("seed win long name", ["m.json", "out"], dict(bins, **{"m.json": win.replace('"win"', '"abcdefghijkl"'),
+                                                             "out/windows-password": good}))
+    S("seed win no ssh key", ["m.json", "out"], dict(bins, **{"m.json": mf(
+        name="win", os="windows", access={"user": "analyst"}, app={"name": "N", "exec": "n.exe"},
+        windows={"iso": "{W}/win.iso", "license_file": "{W}/lic.txt"}), "out/windows-password": good}))
+    S("seed win private not a key", ["m.json", "out"], dict(wfiles, **{"out/windows-password": good,
+                                                                       "out/ssh_host_ed25519_key": "nothing",
+                                                                       "out/ssh_host_ed25519_key.pub": FAKE_PUB}))
+    S("seed win pub bytes", ["m.json", "out"], dict(wfiles, **{"out/windows-password": good,
+                                                               "out/ssh_host_ed25519_key": "-----BEGIN OPENSSH PRIVATE KEY-----\n\xff\n",
+                                                               "out/ssh_host_ed25519_key.pub": FAKE_PUB.encode() + b" c\xffomment\n"}))
+    S("seed linux pub bytes", ["m.json", "out"], dict(lin_key, **{"out/ssh_host_ed25519_key": b"-----BEGIN OPENSSH PRIVATE KEY-----\n\xff\n",
+                                                                  "out/ssh_host_ed25519_key.pub": FAKE_PUB.encode() + b" c\xffomment\n"}))
+    S("seed linux pub bytes in key", ["m.json", "out"], dict(lin_key, **{"out/ssh_host_ed25519_key": "-----BEGIN OPENSSH PRIVATE KEY-----\n",
+                                                                         "out/ssh_host_ed25519_key.pub": b"ssh-ed25519 \xff\xfe more"}))
+
+
 class Server:
     """The scripted socket: records requests, answers from the case's list in order."""
 
@@ -737,7 +850,7 @@ class Server:
 
 def make_files(work, files):
     for name, content in files.items():
-        p = os.path.join(work, name.rstrip("/@"))
+        p = os.path.join(work, name.rstrip("/@*"))
         os.makedirs(os.path.dirname(p), exist_ok=True)
         if name.endswith("/"):
             os.makedirs(p, exist_ok=True)
@@ -749,6 +862,8 @@ def make_files(work, files):
         else:
             with open(p, "w") as f:
                 f.write(content.replace("{W}", work))
+        if name.endswith("*"):
+            os.chmod(p, 0o755)
 
 
 def normalize(data, norm):
@@ -783,8 +898,9 @@ def run_one(binary, case, base):
     make_files(work, case["files"])
     srv = Server(sockp, case["answers"])
     args = [a.replace("{S}", sockp).replace("{D}", base).replace("{W}", work) for a in case["args"]]
-    env = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "HOME": work, "USER": "tester"}
-    env.update(case["env"])
+    # LIMBO_RS_NO_GO: limbo-rs fails a command it has not ported instead of handing it to a Go limbo
+    env = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "HOME": work, "USER": "tester", "LIMBO_RS_NO_GO": "1"}
+    env.update({k: v.replace("{W}", work) if isinstance(v, str) else v for k, v in case["env"].items()})
     env = {k: v for k, v in env.items() if v is not None}
     argv = [binary] + ([case["cmd"]] if case["cmd"] is not None else []) + args
     stdin = case["stdin"]

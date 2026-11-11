@@ -1,4 +1,5 @@
-//! testdata/parity/manifests.json: manifest parsing, the libvirt XML, the firewall rules, the seed and the UFW rules,
+//! testdata/parity/manifests.json: manifest parsing, the libvirt XML, the firewall rules, the seeds (cloud-init with and
+//! without the guest's host key, a Windows guest's answer file and keys) and the UFW rules,
 //! as the Go code makes them.
 
 mod common;
@@ -70,6 +71,38 @@ fn manifests_virt_policy_provision_match_go() {
                 let j = |v: Vec<Vec<String>>| serde_json::to_string(&v).unwrap();
                 d.eq("ufw open", &j(hostfw::ufw_open(&b)), &serde_json::to_string(&c["out"]["open"]).unwrap());
                 d.eq("ufw close", &j(hostfw::ufw_close(&b)), &serde_json::to_string(&c["out"]["close"]).unwrap());
+            }
+            "seed.linux" | "seed.windows" => {
+                let i = &c["in"];
+                let doc = s(&i["manifest"]);
+                let m = manifest::parse(doc.as_bytes()).expect("parsed in Go");
+                let hk: Option<(Vec<u8>, Vec<u8>)> =
+                    i["key"].as_object().map(|k| (s(&k["Private"]).into_bytes(), s(&k["Public"]).into_bytes()));
+                let o = &c["out"];
+                if c["fn"] == "seed.linux" {
+                    let r = provision::build_with_host_key(&m, hk.as_ref().map(|(p, u)| (p.as_slice(), u.as_slice())));
+                    d.eq(&format!("seed error {doc} {:?}", i["key"]), &errtext(&r), &s(&o["error"]));
+                    if let Ok(sd) = r {
+                        d.eq("seed user-data", &sd.user_data, &s(&o["user_data"]));
+                        d.eq("seed meta-data", &sd.meta_data, &s(&o["meta_data"]));
+                    }
+                } else {
+                    let op = &i["opts"];
+                    let opts = provision::WindowsOptions {
+                        password: s(&op["Password"]),
+                        product_key: s(&op["ProductKey"]),
+                        host_key: hk,
+                        image_index: op["ImageIndex"].as_i64().unwrap_or(0),
+                    };
+                    let r = provision::build_windows(&m, &opts);
+                    let what = format!("windows seed {doc} {op}");
+                    d.eq(&format!("{what} error"), &errtext(&r), &s(&o["error"]));
+                    let got: std::collections::BTreeMap<String, String> =
+                        r.unwrap_or_default().into_iter().map(|(k, v)| (k, String::from_utf8(v).unwrap())).collect();
+                    let want: std::collections::BTreeMap<String, String> =
+                        o["files"].as_object().map(|f| f.iter().map(|(k, v)| (k.clone(), s(v))).collect()).unwrap_or_default();
+                    d.eq(&format!("{what} files"), &format!("{got:#?}"), &format!("{want:#?}"));
+                }
             }
             other => panic!("unknown case {other}"),
         }

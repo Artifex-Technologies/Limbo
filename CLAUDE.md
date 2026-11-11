@@ -17,8 +17,9 @@ Coordination Log has the details). The Wine backend (`limbo wine`, `internal/win
 `go test ./...` runs it for real (bwrap + Wine's own `cmd`/`cscript`, headless, about 15 s); `-short` skips that.
 
 **The Rust port of `limbo serve`** (since 2026-11-10, `rust/`, docs/RUST_PORT.md): `limbo-rs serve` is the daemon;
-`quarantine`, `settings`, `instance`, `license` and `exchange` run in Rust too (2026-11-11, `rust/parity/cli-differential.py`
-compares them with Go); every other command is handed to the Go binary. Equal to Go on 18,187 fixture comparisons
+`quarantine`, `settings`, `instance`, `license`, `exchange`, `version`, `validate`, `plan`, `address`, `seed`, `report`
+and `analyze` run in Rust too (2026-11-11, `rust/parity/cli-differential.py` compares them with Go); every other
+command is handed to the Go binary. Equal to Go on 24,521 fixture comparisons
 (`testdata/parity`, written by
 each package's `parity_test.go`; `LIMBO_PARITY_UPDATE=1 go test ./internal/... ./cmd/limbo -run Parity` after a deliberate change)
 and in a differential run of both daemons (`rust/parity/daemon-differential.py`). A change to a serve package now

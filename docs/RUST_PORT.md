@@ -4,9 +4,11 @@ I want as much of the ecosystem as possible in Rust, for lightness and smoothnes
 `limbo serve` is Limbo's always-on part, so it goes first; Heimdall's port (its `docs/RUST_PORT.md`) is the model. The
 Go daemon measured 18.8 MB RSS idle on my PC; the target was about 3-5 MB.
 
-The CLI (`up`, `down`, `launch`, `seed`, `export`, `capture`, `wine`, `passthrough`, `image`, `doctor`, `setup`, ...)
-stays in Go for now, except the five socket-client commands (`quarantine`, `settings`, `instance`, `license`,
-`exchange`), which limbo-rs runs itself since 2026-11-11 (when their arguments and the variables they read are UTF-8).
+The CLI is being ported command by command. limbo-rs runs these itself (when their arguments and the variables they
+read are UTF-8): the five socket-client commands (`quarantine`, `settings`, `instance`, `license`, `exchange`) and,
+since 2026-11-11, `version`, `validate`, `plan`, `address`, `seed`, `report`, `analyze`, an unknown command and no
+command at all. Still in Go: `up`, `down`, `launch`, `export`, `screenshot`, `capture`, `wine`, `passthrough`,
+`image`, `doctor`, `setup`, `net`.
 `limbo-rs serve` is the daemon; **every other command is handed, unchanged, to the Go binary**
 (`$LIMBO_GO_BINARY`, else `limbo-go` beside `limbo-rs`, else `/usr/lib/limbo/limbo-go`, else `/usr/bin/limbo`). The
 state files are the contract between the two and are the Go daemon's, in the same formats.
@@ -20,7 +22,7 @@ state files are the contract between the two and are the Go daemon's, in the sam
 | 3 | the differential run of both daemons on the same socket traffic (`rust/parity/daemon-differential.py`) | **done**: no difference |
 | 4 | the real-guest scripts against the Rust daemon (`LIMBO_RS=... scripts/integration-*.sh`) | **prepared, needs root**: commands below |
 | 5 | the rehearsal on a copy of this computer's real state (`--from-host`), then the switch | **prepared, needs root**: "The switch" |
-| 6 | the CLI commands, one by one | **in progress**: the five socket-client commands done (2026-11-11, `cliclient.json` and the CLI differential run); the rest open |
+| 6 | the CLI commands, one by one | **in progress**: the five socket-client commands, then version, validate, plan, address, seed, report and analyze (2026-11-11, `cli.json`, `cliclient.json`, `manifests.json` and the CLI differential run); the rest open ("Resume here") |
 
 ## Layout
 
@@ -76,16 +78,16 @@ behaviour differs from Go's, the port carries Go's:
 
   | Fixture | What | Comparisons |
   | --- | --- | --- |
-  | `manifests.json` | manifest.Parse on 85 variants (every case of the manifest tests and more), and for each one that parses the domain and network XML, addressing, nft rules (apply, restrict, release), the cloud-init seed, the names; a Windows domain; the UFW rules | 1,344 |
+  | `manifests.json` | manifest.Parse on 85 variants (every case of the manifest tests and more), and for each one that parses the domain and network XML, addressing, nft rules (apply, restrict, release), the cloud-init seed, the names; a Windows domain; the UFW rules; the seeds `limbo seed` writes (cloud-init with the guest's host key pair, a Windows guest's answer file, first-logon script and keys, with every option and refusal) | 1,566 |
   | `flows.json` | prefixes, scopes, packet parsing (crafted and random), whole and damaged netlink reads, the bind requests, acks, 30 generated aggregator sequences with a clock | 520 |
   | `quarantine.json` | clean() and 25 generated store sequences (records, errors, holding, the list, the files on disk) | 3,140 |
   | `engine.json` | 184 scenarios: up for eight manifests with each step failing in turn, down, holds, release, defined, held and condemned guests, wrong images, subnets taken; every command line and stdin, event, error and file | 1,598 |
   | `api.json` | 14 scenarios, 172 requests on the four sockets with the Go handlers' own fakes: route tables, the mux, holds, verdicts, a failing audit log, runs and their codes, decoder errors, the password switch | 736 |
   | `hostpolicy.json` | 181 fake hosts (each a sysfs tree, os-release, host policy, approval file, reboot marker, open files, drivers; made a real folder by the Rust test): every case of the hostpolicy tests, then 120 generated hosts; Check, Ready, Standing, HostID, Before/After with every refusal's kind and text | 2,484 |
-  | `cli.json` | the pieces of the socket-client commands' output (the CLI port, step 6): Go's flag parsing with its messages and usage on two flag sets and 39 argument lists, text/tabwriter (67 texts), json.Indent, a RawMessage's compaction and member lookup (21 documents), `%v` of floats, RFC3339, the CLI's sizes | 916 |
+  | `cli.json` | the pieces of the socket-client commands' output (the CLI port, step 6): Go's flag parsing with its messages and usage on two flag sets and 39 argument lists, text/tabwriter (67 texts), json.Indent, a RawMessage's compaction and member lookup (21 documents), `%v` of floats, RFC3339, the CLI's sizes; `limbo report --since` (parseSince) from a fixed time on 3,056 inputs | 7,028 |
   | `cliclient.json` | the CLI's HTTP client (`cmd/limbo/parity_client_test.go`): 317 request URLs `"http://limbo"+path` as http.NewRequest reads them (error, request target, the URL as an error writes it), 928 Locations resolved against them (userinfo, IPv6 literals, ports, dot segments, opaque and scheme-only references), 68 responses as http.ReadResponse reads them (status lines, MIME headers and continuations, Content-Length, chunked bodies and their errors, trailers, 1xx), 35 times as Go 1.27's encoding/json reads them | 7,449 |
 
-  **All 18,187 comparisons equal.** Mapping to the Go test functions of serve's packages: the manifest, virt, policy,
+  **All 24,521 comparisons equal.** Mapping to the Go test functions of serve's packages: the manifest, virt, policy,
   provision and hostfw tests' inputs are all in `manifests.json`; the flows and quarantine tests' scenarios are in theirs
   plus generated ones; the engine tests' scenarios in `engine.json`; `TestRouteTablesPerPrincipal`, the open, verdict,
   close, oversized-body, agent-error, profiles, sample-run and Settings-switch tests in `api.json`. The runs, instances,
@@ -149,8 +151,9 @@ no error); a command's end was noticed only every 25 ms (now a pidfd in poll(2))
   U+FFFD. Such a name is refused by every name rule either way; only the refusal's text differs.
 - A file name in an outbox that holds a real U+FFFD character is not listed by the port (it cannot be told from a
   replaced byte); Go lists it.
-- `license.Check` for a Windows guest with both files missing: Go's map order decides which file it names; the port
-  always names the ISO first.
+- (Fixed in Go 2026-11-11: `license.Check` for a Windows guest with both files missing named either file, by map
+  order; both now name the ISO first. Likewise `limbo seed` wrote its files in map order; both now write them in one
+  order, which decides what a failed write leaves.)
 - A type error inside image-proofs.json: Go names the field `Record.images.Sig.dev`, the port `Record.images.dev`. The
   text only says why a damaged record file was ignored.
 - One request per connection (`Connection: close`); Go keeps connections open. Limbo's clients (the Go CLI, Heimdall,
@@ -163,8 +166,13 @@ no error); a command's end was noticed only every 25 ms (now a pidfd in poll(2))
   not reproduced). Bytes after a complete answer are dropped silently (Go may log "Unsolicited response received on idle
   HTTP channel", time-stamped, when its read loop sees them first). An answer's status line that is not UTF-8 reaches
   "server returned ..." with U+FFFD. An argument or one of the variables the five commands read (SUDO_USER, USER,
-  PKEXEC_UID, SUDO_UID, SUDO_GID) that is not UTF-8 hands the command to the Go limbo. The 60 s client timeout is in
+  PKEXEC_UID, SUDO_UID, SUDO_GID, and for the manifest commands HOME, LIMBO_STATE_DIR and TMPDIR) that is not UTF-8
+  hands the command to the Go limbo. The 60 s client timeout is in
   the port with Go's texts but not exercised by the differential run (it would take a minute per case).
+- `limbo seed`: the output of a failing ssh-keygen or xorriso reaches the error with each byte that is not UTF-8 as
+  U+FFFD (Go prints the bytes). `limbo report` and `limbo analyze`: the time now (the report's "Generated", a --since
+  duration, analyze's deadline) is the one input the differential run cannot hold equal; the report's lines that show
+  it are normalised there, and `parseSince` is pinned from a fixed time by `cli.json`.
 - JSON error paths now follow Go 1.27 everywhere (the document's own struct name, the path as the document spells it,
   array indexes); the image-proofs.json entry above was written before that and was not checked again.
 
@@ -293,6 +301,26 @@ Next, in order:
    still shows no difference); Go's `exchange take` panicked on a guest name the URL cannot carry (`%zz`), now an
    error. rustix 1.1.6 (RUSTSEC-2026-0486) in 20022c7. Not done here: the package branch `package-rust-daemon`
    (rebase and merge it when the daemon is switched; it is not merged, and nothing is installed).
-4. The other CLI commands (up, down, launch, seed, export, capture, wine, passthrough, image, doctor, setup, ...), one by one.
+4. The other CLI commands, one by one. Done 2026-11-11: `version`, `validate`, `plan`, `address`, an unknown command
+   and no command (`cli/local.rs`, `launch.rs`; 3bf2c9d); `report` (`report.rs`, `events::read`, `parseSince` pinned
+   by `cli.json`; f6e12f3); `analyze` (`cli/analyze.rs`, Content-Type in the client; 6c3e257); `seed` (`cli/seed.rs`,
+   `cli/goexec.rs` for os/exec with Go's error texts, the Windows answer file in `provision.rs` pinned by
+   `manifests.json`, fake ssh-keygen and xorriso in the differential; the commit with this note). The CLI differential
+   run: 559 cases, 2,795 comparisons, no difference (about 4 minutes: analyze polls every 3 s). limbo-rs gets
+   `LIMBO_RS_NO_GO=1` there, so a command it does not run itself fails instead of reaching a Go limbo (without it, a
+   command missing from the dispatch would be compared Go against Go: it happened to seed once). Fixed in Go on the way:
+   `license.Check` and `seed` depended on map order. Next, in order, and what each needs:
+   a. `image list | verify`: list shows `HashedAt` in the local time zone (Go's TZ and /etc/localtime rules: port
+      them, or libc's localtime_r with the TZ cases compared), and the record file's ignore reasons, where `image.rs`
+      differs from Go today ("permission denied" for Go's "lstat P: permission denied" and "open P: ...", the
+      `Record.images.Sig.dev` path above). The trusted path needs root-owned files: run those cases under `unshare -r`
+      (uid 0 in a user namespace, as the daemon differential does) with `--state-dir` in the work folder and `--i-know`.
+      verify is root's (the same namespace) and writes events (normalise their times).
+   b. `doctor`, then `setup` (setup.go: what is installed, pacman, systemctl, groups): fake programs on PATH only, the
+      root paths in the namespace, never the real system.
+   c. `net watch`: NFLOG needs root; the daemon differential's namespace has real nft rules for it.
+   d. `passthrough` (a root file, a typed "yes"), `wine` (bwrap and Wine as fakes only, never real Wine here),
+      `export`, `screenshot`, `capture` (virsh, qemu-img, usbmon: fakes in the namespace), `up`, `down`, `launch` (the
+      engine is ported for the daemon; launch's ssh and waypipe as fakes).
    The integration scripts call `limbo quarantine` through limbo-rs, so a ported command is exercised by the owner's
    next run of them.

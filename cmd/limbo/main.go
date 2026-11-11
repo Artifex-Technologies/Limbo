@@ -43,6 +43,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -334,7 +335,9 @@ func seed(m *manifest.Manifest, dir, isoPath string) error {
 	if err != nil {
 		return err
 	}
-	for name, body := range map[string]string{"user-data": s.UserData, "meta-data": s.MetaData} {
+	// in this order (a map's order varied, and with it which files a failed write left)
+	for _, f := range [][2]string{{"user-data", s.UserData}, {"meta-data", s.MetaData}} {
+		name, body := f[0], f[1]
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600); err != nil {
 			return err
 		}
@@ -385,7 +388,13 @@ func seedWindows(m *manifest.Manifest, dir, isoPath string, hk *provision.HostKe
 	if err := os.MkdirAll(cd, 0o700); err != nil {
 		return err
 	}
-	for name, body := range files {
+	names := make([]string, 0, len(files))
+	for name := range files {
+		names = append(names, name)
+	}
+	sort.Strings(names) // in one order, as for user-data above
+	for _, name := range names {
+		body := files[name]
 		if err := os.WriteFile(filepath.Join(cd, name), body, 0o600); err != nil {
 			return err
 		}

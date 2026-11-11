@@ -19,9 +19,9 @@ const USAGE: &str = "usage: limbo <validate|plan|seed|up|launch|down|address|exp
 /// the Go binary's.
 const OWN_SWITCH: [&str; 12] =
     ["serve", "quarantine", "doctor", "setup", "passthrough", "settings", "instance", "license", "exchange", "net", "wine", "image"];
-const STILL_GO: [&str; 7] = ["seed", "up", "down", "launch", "capture", "export", "screenshot"];
+const STILL_GO: [&str; 6] = ["up", "down", "launch", "capture", "export", "screenshot"];
 
-/// `limbo` with no command, `version`, `validate`, `plan`, `address`, `report`, `analyze` and any command Go does not know; None
+/// `limbo` with no command, `version`, `validate`, `plan`, `seed`, `address`, `report`, `analyze` and any command Go does not know; None
 /// for the rest.
 pub fn run(cmd: Option<&str>, args: &[String], io: &mut Io) -> Option<Result<(), Fail>> {
     let Some(cmd) = cmd else { return Some(Err(Fail::Msg(USAGE.into()))) };
@@ -61,6 +61,7 @@ pub fn default_state_dir(io: &Io) -> String {
 /// The flags every manifest command shares (main.go's `run`).
 struct Opts {
     state: String,
+    iso: String,
     pos: Vec<String>,
 }
 
@@ -77,7 +78,7 @@ fn parse(cmd: &str, args: &[String], io: &mut Io) -> Result<Opts, Fail> {
     let r = fs.parse(args, &mut stderr);
     let _ = io.err.write_all(&stderr);
     let pos = r.map_err(Fail::Msg)?;
-    Ok(Opts { state: fs.str("state-dir"), pos })
+    Ok(Opts { state: fs.str("state-dir"), iso: fs.str("iso"), pos })
 }
 
 fn manifest_cmd(cmd: &str, args: &[String], io: &mut Io) -> Result<(), Fail> {
@@ -92,6 +93,12 @@ fn manifest_cmd(cmd: &str, args: &[String], io: &mut Io) -> Result<(), Fail> {
             Ok(())
         }
         "plan" => plan(&m, &o.state, io),
+        "seed" => {
+            if o.pos.len() != 2 {
+                return Err(Fail::Msg("seed: output directory required".into()));
+            }
+            super::seed::seed(&m, &o.pos[1], &o.iso, io)
+        }
         "address" => {
             let ip = guest_address(&m, &o.state)?;
             let _ = writeln!(io.out, "{ip}");
