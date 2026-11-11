@@ -7,8 +7,8 @@ Go daemon measured 18.8 MB RSS idle on my PC; the target was about 3-5 MB.
 The CLI is being ported command by command. limbo-rs runs these itself (when their arguments and the variables they
 read are UTF-8): the five socket-client commands (`quarantine`, `settings`, `instance`, `license`, `exchange`) and,
 since 2026-11-11, `version`, `validate`, `plan`, `address`, `seed`, `report`, `analyze`, `image`, `doctor`, `setup`,
-an unknown command and no command at all. Still in Go: `up`, `down`, `launch`, `export`, `screenshot`, `capture`,
-`wine`, `passthrough`, `net`.
+`up`, `down`, `launch`, `export`, `screenshot`, `passthrough`, `wine`, an unknown command and no command at all. Still
+in Go: `capture` and `net`.
 `limbo-rs serve` is the daemon; **every other command is handed, unchanged, to the Go binary**
 (`$LIMBO_GO_BINARY`, else `limbo-go` beside `limbo-rs`, else `/usr/lib/limbo/limbo-go`, else `/usr/bin/limbo`). The
 state files are the contract between the two and are the Go daemon's, in the same formats.
@@ -22,7 +22,7 @@ state files are the contract between the two and are the Go daemon's, in the sam
 | 3 | the differential run of both daemons on the same socket traffic (`rust/parity/daemon-differential.py`) | **done**: no difference |
 | 4 | the real-guest scripts against the Rust daemon (`LIMBO_RS=... scripts/integration-*.sh`) | **prepared, needs root**: commands below |
 | 5 | the rehearsal on a copy of this computer's real state (`--from-host`), then the switch | **prepared, needs root**: "The switch" |
-| 6 | the CLI commands, one by one | **in progress**: the five socket-client commands, then version, validate, plan, address, seed, report, analyze, image, doctor, setup, up, down, launch, export, screenshot and passthrough (2026-11-11, `cli.json`, `cliclient.json`, `manifests.json`, `tz.json` and the CLI differential run); the rest open ("Resume here") |
+| 6 | the CLI commands, one by one | **in progress**: the five socket-client commands, then version, validate, plan, address, seed, report, analyze, image, doctor, setup, up, down, launch, export, screenshot, passthrough and wine (2026-11-11, `cli.json`, `cliclient.json`, `manifests.json`, `tz.json`, `wine.json` and the CLI differential run); `net watch` and `capture` open ("Resume here") |
 
 ## Layout
 
@@ -67,6 +67,10 @@ behaviour differs from Go's, the port carries Go's:
 - **HTTP**: Go 1.27's mux: a path that is not clean is redirected with **307**, a path served under another method gets
   405 with `Allow` (GET implies HEAD), anything else `404 page not found`, wildcards matched on escaped segments.
 - **Accounts**: the Go limbo is built with CGO_ENABLED=0, so it reads /etc/group and /etc/passwd itself; so does the port.
+- **Processes** (`limbo wine`): bwrap is started as Go's os/exec starts it, with fork and execve (no shell fallback for a
+  file without `#!`, which std's execvp would try), its own process group, descriptors 3 and 4 and the data files from 5,
+  every signal back to its default and an empty mask in the child; SIGINT, SIGTERM and SIGHUP are read from a signalfd
+  while a sandbox runs (Go's signal.Notify) and what is left unread is dropped afterwards (Go's channel).
 - **Processes**: the exec error texts (`exit status 1`, `signal: killed`, `exec: "virsh": executable file not found in
   $PATH`), a command killed by its deadline or a stop read as exit -1 with no error (as Go's ssh executor reads it).
 
@@ -88,7 +92,9 @@ behaviour differs from Go's, the port carries Go's:
   | `tz.json` | Go's local time zone as `limbo image list` shows times (`cmd/limbo/parity_tz_test.go`): 47 TZif files made up for it (versions 1-3, transitions, first-zone rules, broken files, and 29 POSIX TZ footers: rules J, n and M, offsets and times out of the usual range, malformed ones) read by LoadLocationFromTZData, 27 times looked up in each | 4,367 |
   | `cliclient.json` | the CLI's HTTP client (`cmd/limbo/parity_client_test.go`): 317 request URLs `"http://limbo"+path` as http.NewRequest reads them (error, request target, the URL as an error writes it), 928 Locations resolved against them (userinfo, IPv6 literals, ports, dot segments, opaque and scheme-only references), 68 responses as http.ReadResponse reads them (status lines, MIME headers and continuations, Content-Length, chunked bodies and their errors, trailers, 1xx), 35 times as Go 1.27's encoding/json reads them | 7,449 |
 
-  **All 28,888 comparisons equal.** Mapping to the Go test functions of serve's packages: the manifest, virt, policy,
+  | `wine.json` | the Wine backend's parts that do not touch the host (`internal/wine/parity_test.go`): 1,026 share checks (two sets of Limbo's folders, three homes, sources that differ from the path), 606 Merges of a profile and the command line against a folder tree made for the test (symlinks absolute, relative, chained, looping and dangling, a named pipe, a file where a folder is expected), 316 sandboxes for hand-written and 70 generated hosts (with SetChdir, WithEnv and the whole command), 308 trace splits (Go's 64 KiB chunks, limits at and around their edges), 216 X authority filters (crafted, damaged, generated), 210 dry runs against the tree, 56 profiles and 20 profile files (modes, sizes, links), names, folders, ShimPrefix, the run record, the prefix record and prefixArch's scanner limits, the lock's message, ensureDir, the pruning of run folders | 3,031 |
+
+  **All 31,919 comparisons equal.** Mapping to the Go test functions of serve's packages: the manifest, virt, policy,
   provision and hostfw tests' inputs are all in `manifests.json`; the flows and quarantine tests' scenarios are in theirs
   plus generated ones; the engine tests' scenarios in `engine.json`; `TestRouteTablesPerPrincipal`, the open, verdict,
   close, oversized-body, agent-error, profiles, sample-run and Settings-switch tests in `api.json`. The runs, instances,
@@ -177,6 +183,11 @@ no error); a command's end was noticed only every 25 ms (now a pidfd in poll(2))
 - `limbo setup`'s question reads stdin through a buffer, as Go's does, but Go's holds 4,096 bytes and the port's
   8,192: with more than 4 KB waiting on stdin, the programs setup runs afterwards (pacman, systemctl) find less of it
   left in the port. Nobody pipes that much into setup.
+- `limbo wine`: an environment variable or the working folder that is not UTF-8 hands the command to the Go limbo (it
+  reads the whole environment). An `#arch=` line of a prefix's system.reg, an /etc/passwd or /etc/group line, or a
+  symlink target under /, /etc/localtime or /sys/class/drm with bytes that are not UTF-8 reads them as U+FFFD (Go keeps
+  the bytes; Wine and the system write none). A profile that shrinks between its stat and its read: Go fails with
+  `EOF`, the port reads what is there (a race only). The environment bwrap gets is the same list in the same order.
 - JSON error paths now follow Go 1.27 everywhere (the document's own struct name, the path as the document spells it,
   array indexes); the image-proofs.json entry above was written before that and was not checked again.
 
@@ -317,8 +328,9 @@ Next, in order:
    gates with `fmt.Sscanf`'s reading of the address, os.CreateTemp's names, `--check` with its 20 s limit per ssh;
    8627402); `passthrough status | approve | revoke | clear` (`cli/passthrough.rs`; hostpolicy's approval,
    can_approve, approve, revoke, clear with os.Remove's rules; Go's Duration.String in `gotime`, pinned by a test with
-   Go's own answers; the commit with this note). The CLI differential run: 854 cases, 4,270 comparisons, no difference (about 10
-   minutes: analyze polls every 3 s, one launch check waits out its 20 s ssh limit). The image cases that
+   Go's own answers; 6778c2b). The CLI differential run: 977 cases, 4,885 comparisons, no difference (about 11
+   minutes: analyze polls every 3 s, one launch check waits out its 20 s ssh limit, one wine stop waits out its 10 s
+   grace). The image cases that
    need root's files run under `unshare -r` (uid 0 in a user namespace, so the files made for the case are root's
    there; never real root), with `--state-dir` in the work folder and `--i-know`; a case's `prep` writes the record
    file with each image's real device, inode, size and times; 16 values of $TZ. doctor and setup run under
@@ -330,7 +342,22 @@ Next, in order:
    command uid 1000 again; virsh, qemu-img, nft (logging the rules it is fed), ufw, ssh, waypipe and xfreerdp3 are
    fakes: no guest, firewall, network or display is touched. passthrough runs there too, with /etc/os-release, the host
    policy and /sys/bus/usb/devices and /sys/bus/pci/devices bound over by made-up ones (no device of this computer is
-   read) and the typed answer from a pty. limbo-rs gets
+   read) and the typed answer from a pty. `wine` (`wine/`, internal/wine file by file, and `cli/wine.rs`; 23e0976 and the commit with this note):
+   its pure parts pinned by `wine.json` (3,031 comparisons), then the dry run and real runs on a made-up host
+   (`NSRUN_WINE`): an overlay puts Limbo's fake bwrap, wine and wineserver over /usr/bin (nothing of the host changes);
+   /dev holds only the usual nodes and made-up graphics nodes (/dev/null bound over each name), /sys, /opt and /etc are
+   the case's own (made-up accounts, /etc entries, a Vulkan manifest naming a folder under /opt), /tmp is the
+   namespace's own with the case's X11 socket folder; the Wayland, PulseAudio and PipeWire sockets, ~/.Xauthority and
+   the PulseAudio cookie are made up in the case folder; a nested user namespace makes the command uid 1000. The fake
+   bwrap logs its arguments, the environment and the data files on its descriptors and acts the sandbox's part from the
+   case's fake.ctl (the started byte, the prefix made, output and Wine's trace lines, an exit status, a stop request sent
+   to limbo and the answer read from descriptor 3, a second signal, a stop ignored until the 10 s grace kills it); it
+   never starts anything, and nothing of this computer's display, sound, graphics card or accounts is read. 123 cases:
+   74 dry runs (every refusal before a run, shares, profiles, the host's variations) and 49 runs (making a prefix,
+   setting its Windows version, every setup and sandbox failure, the trace split, stops by SIGTERM, SIGINT and SIGHUP,
+   the kill, root, missing bwrap or Wine, a bwrap without an interpreter, a busy prefix, an unwritable state folder, a
+   full event log, the shim). Fixed in Go on the way: ParseProfile and Build named a bad environment name in map
+   order (with two, either one). limbo-rs gets
    `LIMBO_RS_NO_GO=1` there, so a command it does not run itself fails instead of reaching a Go limbo (without it, a
    command missing from the dispatch would be compared Go against Go: it happened to seed once). Fixed in Go on the
    way: `license.Check` and `seed` depended on map order; `launch --check` panicked on an app.exec of only spaces
@@ -340,15 +367,5 @@ Next, in order:
    b. `capture`: everything up to the recording could be faked (sysfs bound over in the namespace, modprobe on PATH),
       but the recording is usbmon's MON_IOCX_GETX ioctl on /dev/usbmonN, which no fake file answers: it stays on Go
       until it can be proved against a real usbmon.
-   c. `wine`: not started (internal/wine is about 2,000 lines without its tests). The plan: carry the pure parts over
-      as Go fixtures first (`internal/wine/parity_test.go`: options.go's Merge and flag checks, profile.go's
-      LoadProfile, shares.go, prefix.go's names, xauth.go's FilterXauth, sandbox.go's bwrap argument vector for a set
-      of `Host` values written by hand, record.go's JSON), then run_linux.go and probe_linux.go. Probe reads the host
-      (accounts, /etc, /dev/dri and NVIDIA nodes by stat only, /sys/dev/char, the X11, Wayland and PulseAudio sockets,
-      ~/.Xauthority): the differential must give both binaries a made-up host instead, in the act namespace with
-      HOME, XDG_RUNTIME_DIR, DISPLAY and WAYLAND_DISPLAY pointing into the case folder and empty folders bound over
-      /dev/dri and /tmp/.X11-unix; `--dry-run` first (it prints the sandbox and the steps), then real runs with a fake
-      `bwrap` on PATH that logs its arguments and never starts Wine. Real Wine never runs here; the Go tests' real
-      runs stay behind `-short`.
    The integration scripts call `limbo quarantine` through limbo-rs, so a ported command is exercised by the owner's
    next run of them.

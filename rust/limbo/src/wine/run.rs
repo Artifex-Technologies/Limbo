@@ -533,11 +533,14 @@ impl Run<'_> {
                 let _ = f.write_all(&content);
             });
         }
+        // the program's own lines go to this process's error output through a descriptor of the tracer's own: the
+        // command holds the Stderr lock for as long as it runs
         let tracer = trace_pipe.map(|(r, mut tf)| {
             let limit = tr.as_ref().map_or(TRACE_LIMIT, |t| t.limit);
-            std::thread::spawn(move || {
-                let mut err = std::io::stderr();
-                split_trace(std::fs::File::from(r), &mut tf, &mut err, limit)
+            let err = dup_std(2).ok().map(std::fs::File::from);
+            std::thread::spawn(move || match err {
+                Some(mut err) => split_trace(std::fs::File::from(r), &mut tf, &mut err, limit),
+                None => split_trace(std::fs::File::from(r), &mut tf, &mut std::io::sink(), limit),
             })
         });
         let (wait_r, wait_w) = match pipe() {

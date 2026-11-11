@@ -5,8 +5,11 @@ command; local_cases) on the same files, limbo report on the same log and record
 here, the scripted socket; analyze_cases), limbo image (records here, the trusted ones under `unshare -r`;
 image_cases), limbo doctor and setup (fake programs only, in a user and mount namespace with Limbo's folders replaced;
 setup_cases), limbo up, down, launch, export and screenshot (fake virsh, qemu-img, nft, ufw, ssh, waypipe and
-xfreerdp3 in such a namespace, /run/limbo/user.sock there being the scripted socket; act_cases) and limbo passthrough
-(made-up os-release, host policy and sysfs device folders bound over, the answer typed into a pty; passthrough_cases).
+xfreerdp3 in such a namespace, /run/limbo/user.sock there being the scripted socket; act_cases), limbo passthrough
+(made-up os-release, host policy and sysfs device folders bound over, the answer typed into a pty; passthrough_cases)
+and limbo wine (a made-up host: Limbo's fake bwrap, wine and wineserver over /usr/bin, a /dev, /sys, /opt, /etc and
+/tmp of the case's own with made-up graphics nodes, display and sound sockets and accounts; the dry run, then runs whose
+fake bwrap logs what it is given and acts the sandbox's part, never starting anything; wine_cases).
 
 A fake server listens on a unix socket in a scratch folder, records every request it gets (method, target, Host,
 Content-Length, Referer, Transfer-Encoding, the other header names, the body) and answers each with the next raw
@@ -30,6 +33,7 @@ import os
 import re
 import shutil
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
@@ -1269,6 +1273,305 @@ def passthrough_cases():
     return cs
 
 
+# The made-up host limbo wine runs on: Limbo's fakes over /usr/bin (bwrap, wine, wineserver; an overlay, nothing of the
+# host changed), a /dev holding only the usual nodes and made-up graphics nodes (each /dev/null bound over a name), a
+# made-up /sys and /opt, a /tmp of its own whose X11 socket folder is the case's, and an /etc of the case's own (its
+# accounts, its /etc entries; ld.so.cache from the host so programs still load). With NS_USER, an ordinary uid again.
+NSRUN_WINE = r"""#!/bin/sh
+W="$NS_W"
+B="${W%/*}"
+# the binary under test, reachable at one path once /tmp is the namespace's own
+/usr/bin/touch "$B/limbo-under-test" && /usr/bin/mount --bind "$1" "$B/limbo-under-test" || exit 97
+shift
+set -- "$B/limbo-under-test" "$@"
+/usr/bin/mount -t overlay overlay -o lowerdir="$W/fakebin:/usr/bin" /usr/bin || exit 97
+for n in null zero full random urandom tty; do /usr/bin/mount --bind /dev/$n "$W/dev/$n" || exit 97; done
+for n in $NS_CHARDEVS; do /usr/bin/mount --bind /dev/null "$W/dev/$n" || exit 97; done
+/usr/bin/mount --rbind "$W/dev" /dev || exit 97
+/usr/bin/mount --rbind "$W/sys" /sys || exit 97
+if [ -d /opt ]; then /usr/bin/mount --rbind "$W/opt" /opt || exit 97; fi
+/usr/bin/mount --bind /etc "$W/realetc" || exit 97
+/usr/bin/mount --rbind "$B" /mnt || exit 97
+/usr/bin/mount -t tmpfs -o mode=1777 tmpfs /tmp || exit 97
+/usr/bin/mkdir -p "$B" /tmp/.X11-unix || exit 97
+/usr/bin/mount --rbind /mnt "$B" || exit 97
+/usr/bin/mount --bind "$W/x11" /tmp/.X11-unix || exit 97
+/usr/bin/mount -t tmpfs -o mode=755 tmpfs /etc || exit 97
+/usr/bin/cp -a "$W/etc/." /etc/ || exit 97
+cd "$W/$NS_CWD" || exit 97
+if [ -n "$NS_PWD" ]; then export PWD="$NS_PWD"; fi
+if [ -n "$NS_USER" ]; then exec /usr/bin/unshare -U --map-user="$NS_USER" --map-group="$NS_USER" -- "$@"; fi
+exec "$@"
+"""
+
+# The fake bwrap: logs its arguments, the environment it was given and the data files on its descriptors, then acts
+# as the sandbox would by what the case's fake.ctl says (the started byte on descriptor 4, the prefix made, output,
+# Wine's trace lines, an exit status, a stop request sent to limbo and the answer read from descriptor 3). It never
+# starts anything.
+FAKE_BWRAP = r"""#!/bin/sh
+L={W}/calls.log
+[ -f {W}/fake.ctl ] && . {W}/fake.ctl
+step=run
+case "$*" in *"wineboot --init"*) step=create;; *"winecfg -v"*) step=windows;; esac
+{
+  echo "== bwrap ($step)"
+  for a in "$@"; do printf ' [%s]\n' "$a"; done
+  echo " env:"
+  /usr/bin/env | /usr/bin/sort | /usr/bin/grep -v -e '^PWD=' -e '^SHLVL=' -e '^_=' -e '^OLDPWD=' | /usr/bin/sed 's/^/  /'
+  prev=
+  for a in "$@"; do
+    if [ "$prev" = --ro-bind-data ]; then echo " fd $a:"; /usr/bin/od -An -tx1 <&"$a"; fi
+    prev=$a
+  done
+} >> "$L"
+if [ "$NOSTART" = "$step" ]; then echo "bwrap: Creating new namespace failed: Operation not permitted" >&2; exit ${NOSTART_EXIT:-1}; fi
+printf x >&4
+exec 4>&-
+for last in "$@"; do :; done
+if [ "${STOP_STEP:-run}" = "$step" ]; then
+  if [ -n "$STOP" ]; then kill -$STOP $PPID; read -r line <&3; echo " stop pipe: $line" >> "$L"; exit ${STOP_EXIT:-0}; fi
+  if [ -n "$STOP2" ]; then kill -$STOP2 $PPID; /usr/bin/sleep 0.5; kill -$STOP2 $PPID; exec /usr/bin/sleep 20; fi
+  if [ -n "$STOP_IGNORE" ]; then kill -TERM $PPID; exec /usr/bin/sleep 20; fi
+fi
+case $step in
+create)
+  if [ -n "$CREATE_FAIL" ]; then echo "wine: could not load kernel32.dll, status c0000135" >&2; exit $CREATE_FAIL; fi
+  printf '#arch=%s\n' "$WINEARCH" > "$WINEPREFIX/system.reg"
+  echo "wineboot: prefix made, winecfg -v $last";;
+windows)
+  if [ -n "$WINDOWS_FAIL" ]; then exit $WINDOWS_FAIL; fi
+  echo "winecfg -v $last";;
+run)
+  if [ -n "$RUN_OUT" ]; then echo "$RUN_OUT"; fi
+  if [ -n "$RUN_ERR" ]; then echo "$RUN_ERR" >&2; fi
+  if [ -n "$RUN_TRACE" ]; then
+    printf '1234.567:0020:0024:trace:loaddll:build_module Loaded L"C:\\\\windows\\\\system32\\\\kernel32.dll"\nthe program says hello\n0024:err:ole:CoGetClassObject class not registered\n0028:trace:winsock:connect x\n' >&2
+  fi
+  if [ -n "$RUN_STDIN" ]; then echo " stdin:" >> "$L"; /usr/bin/cat >> "$L"; fi
+  exit ${RUN_EXIT:-0};;
+esac
+"""
+
+FAKE_WINE = "#!/bin/sh\necho \"$0 must never run here: $*\" >> {W}/calls.log\nexit 99\n"
+
+
+def xauth_entry(family, addr, num, name, data):
+    b = family.to_bytes(2, "big")
+    for f in (addr, num, name, data):
+        b += len(f).to_bytes(2, "big") + f
+    return b
+
+
+def wine_cases():
+    """limbo wine on a made-up host (NSRUN_WINE): --dry-run first, then runs with the fake bwrap; as an ordinary user
+    (uid 1000 in a nested user namespace) unless the case is about root."""
+    cs = []
+    pw = "root:x:0:0:root:/root:/bin/sh\nada:x:1000:1000:Ada,,,:/home/ada:/bin/sh\nnobody:x:65534:65534::/:/bin/false\n"
+    gr = "root:x:0:\nada:x:1000:\nnobody:x:65534:\n"
+    xa = (xauth_entry(256, b"fakehost", b"5", b"MIT-MAGIC-COOKIE-1", b"0123456789abcdef")
+          + xauth_entry(256, b"fakehost", b"0", b"MIT-MAGIC-COOKIE-1", b"other display")
+          + xauth_entry(0, b"\x7f\x00\x00\x01", b"5", b"MIT-MAGIC-COOKIE-1", b"over the network"))
+    drm = "sys/devices/pci0000:00/0000:00:02.0/drm/"
+    base = {
+        "nsrun": NSRUN_WINE, "fakebin/bwrap*": FAKE_BWRAP, "fakebin/wine*": FAKE_WINE, "fakebin/wineserver*": FAKE_WINE,
+        **{f"dev/{n}": "" for n in ("null", "zero", "full", "random", "urandom", "tty", "nvidia0", "nvidiactl",
+                                    "nvidia-modeset", "nvidia-uvm", "ntsync", "nvidiafoo")},
+        "dev/fd@": "/proc/self/fd", "dev/dri/card1": "", "dev/dri/renderD128": "", "dev/dri/by-path/": "", "dev/nvidia-caps/": "",
+        "sys/class/drm/card1@": "../../devices/pci0000:00/0000:00:02.0/drm/card1",
+        "sys/class/drm/renderD128@": "../../devices/pci0000:00/0000:00:02.0/drm/renderD128",
+        drm + "card1/": "", drm + "renderD128/": "", "sys/devices/system/cpu/": "", "sys/dev/char/": "",
+        "sys/module/nvidia/": "", "sys/module/nvidia_drm/": "", "opt/fakegpu/lib/": "",
+        "etc/passwd": pw, "etc/group": gr, "etc/ld.so.cache@": "{W}/realetc/ld.so.cache",
+        "etc/localtime@": "/usr/share/zoneinfo/UTC", "etc/fonts/": "", "etc/ssl/": "", "etc/nsswitch.conf": "", "etc/pulse/": "",
+        "etc/alsa/": "", "etc/vulkan/icd.d/fake.json": json.dumps({"ICD": {"library_path": "/opt/fakegpu/lib/libfake.so"}}),
+        "etc/vulkan/icd.d/other.json": '{"ICD":{"library_path":"libnvidia.so.0"}}', "etc/resolv.conf": "", "etc/hosts": "",
+        "realetc/": "", "x11/X5=": "", "xdg/wayland-1=": "", "xdg/pulse/native=": "", "xdg/pipewire-0=": "",
+        "home/.Xauthority": xa, "home/.config/pulse/cookie": b"\x01\x02cookie",
+        "games/prog.exe": b"MZ a made-up program\n", "games/sub/": "", "data/file.txt": "x\n", "fake.ctl": "",
+    }
+    # what differs between two runs by design: times, run folders' names, the lock's pid, durations
+    norm = [(r'"time":"[^"]*"', '"time":"T"'), (r"[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}", "RUNID"),
+            (r'"(started|ended|updated)": ?"[^"]*"', r'"\1":"T"'), (r'"seconds":"[^"]*"', '"seconds":"S"'),
+            (r"\A[0-9]+\n\Z", "PID\n")]
+    pfx = "home/.local/share/limbo/wine/"
+
+    def Wc(name, args, files=None, env=None, stdin=b"", user=True, cwd="", ctl="", prep=None, dry=False):
+        e = {"PATH": "/usr/bin", "HOME": "{W}/home", "USER": "ada", "XDG_RUNTIME_DIR": "{W}/xdg", "WAYLAND_DISPLAY": "wayland-1",
+             "DISPLAY": ":5", "NS_W": "{W}", "NS_CWD": cwd, "NS_CHARDEVS": "nvidia0 nvidiactl nvidia-modeset nvidia-uvm ntsync",
+             "DXVK_HUD": "fps", "GITHUB_TOKEN": "not-for-the-sandbox", "WINEDEBUG": "-all"}
+        if user:
+            e["NS_USER"] = "1000"
+        e.update(env or {})
+        f = {**base, **(files or {})}
+        if ctl:
+            f["fake.ctl"] = ctl
+        a = (["--dry-run"] if dry else ["--state-dir", "{W}/st"]) + list(args)
+        cs.append({"name": "wine " + name, "cmd": "wine", "args": a, "answers": [], "env": e, "stdin": stdin,
+                   "files": {k: v for k, v in f.items() if v is not None}, "nsrun": True, "norm": norm, "prep": prep})
+
+    def D(name, args, files=None, env=None, **k):
+        Wc("dry " + name, args, files, env, dry=True, **k)
+
+    prof = "home/.config/limbo/wine/"
+    # ---- the dry run: the sandbox, the steps, every refusal before a run ----
+    D("default", ["--", "notepad.exe"])
+    D("as root", ["--", "notepad.exe"], user=False)
+    D("no program", [])
+    D("program and args", ["--share", "{W}/games", "--", "{W}/games/prog.exe", "a", "b c", "it's", ""])
+    D("relative share and program", ["--share", "games", "--", "games/prog.exe"])
+    D("program outside", ["--", "{W}/games/prog.exe"])
+    D("program missing outside", ["--", "{W}/games/missing.exe"])
+    D("network headless", ["--network", "--headless", "--", "x"])
+    D("no gpu no x11", ["--no-gpu", "--no-x11", "--no-audio", "--", "x"])
+    D("no display", ["--no-display", "--", "x"])
+    D("env", ["--env", "DXVK_ASYNC=1", "--env", "LD_PRELOAD=/usr/lib/x.so", "--env", "EMPTY=", "--", "x"])
+    D("env reserved", ["--env", "WINEPREFIX=/x", "--", "x"])
+    D("env not a pair", ["--env", "NOEQUALS", "--", "x"])
+    D("windows arch", ["--windows", "win7", "--arch", "win32", "--", "x"])
+    D("windows bad", ["--windows", "win12", "--", "x"])
+    D("arch bad", ["--arch", "arm64", "--", "x"])
+    D("prefix bad", ["--prefix", "Bad", "--", "x"])
+    D("prefix", ["--prefix", "game", "--", "x"])
+    D("trace", ["--trace", "--", "x"])
+    D("shares", ["--share", "{W}/games", "--share-rw", "{W}/data", "--share", "{W}/games/sub", "--", "x"])
+    D("share twice", ["--share", "{W}/games", "--share-rw", "{W}/games", "--", "x"])
+    D("share home", ["--share", "{W}/home", "--", "x"])
+    D("share ssh", ["--share", "{W}/home/.ssh", "--", "x"], {"home/.ssh/": ""})
+    D("share missing", ["--share", "{W}/nothing", "--", "x"])
+    D("share dev", ["--share", "/dev/dri", "--", "x"])
+    D("profile", ["--prefix", "game", "--", "x"], {prof + "game.json": json.dumps(
+        {"share": ["~/../games"], "share_rw": ["{W}/data"], "env": {"DXVK_HUD": "full", "MANGOHUD": "1"}, "network": "host",
+         "gpu": False, "windows": "win81", "trace": True})})
+    D("profile program", ["--prefix", "game"], {prof + "game.json": json.dumps(
+        {"share": ["{W}/games"], "program": "{W}/games/prog.exe", "args": ["-x", "y z"]})})
+    D("profile program null args", ["--prefix", "game"], {prof + "game.json": '{"program":"notepad"}'})
+    D("profile broken", ["--prefix", "game", "--", "x"], {prof + "game.json": "{"})
+    D("profile unknown field", ["--prefix", "game", "--", "x"], {prof + "game.json": '{"netwrk":"host"}'})
+    D("profile relative share", ["--prefix", "game", "--", "x"], {prof + "game.json": '{"share":["games"]}'})
+    D("profile writable by others", ["--prefix", "game", "--", "x"], {prof + "game.json": "{}"},
+      prep=lambda w: os.chmod(os.path.join(w, prof, "game.json"), 0o666))
+    D("profile flags cannot widen", ["--prefix", "game", "--", "x"], {prof + "game.json": '{"display":false,"audio":false,"x11":false}'})
+    D("prefix exists", ["--windows", "win11", "--", "x"], {pfx + "default/system.reg": "#arch=win64\n"})
+    D("prefix exists no windows", ["--", "x"], {pfx + "default/system.reg": "#arch=win64\n"})
+    D("prefix being made", ["--", "x"], {pfx + "default/system.reg": "#arch=win64\n", pfx + ".default.creating": ""})
+    D("no display host", ["--", "x"], env={"DISPLAY": None, "WAYLAND_DISPLAY": None})
+    D("wayland absolute", ["--", "x"], env={"WAYLAND_DISPLAY": "{W}/xdg/wayland-1", "XDG_RUNTIME_DIR": "relative"})
+    D("display variants unix", ["--", "x"], env={"DISPLAY": "unix:5.0"})
+    D("display over network", ["--", "x"], env={"DISPLAY": "fakehost:5"})
+    D("display no socket", ["--", "x"], env={"DISPLAY": ":7"})
+    D("xauthority env", ["--", "x"], {"xa2": xauth_entry(65535, b"", b"", b"M", b"wild")}, env={"XAUTHORITY": "{W}/xa2"})
+    D("xauthority missing", ["--", "x"], env={"XAUTHORITY": "{W}/nothing"})
+    D("pulse server env", ["--", "x"], {"cookie2": b"c2"}, env={"PULSE_SERVER": "unix:{W}/xdg/pulse/native", "PULSE_COOKIE": "{W}/cookie2"})
+    D("pulse server elsewhere", ["--", "x"], env={"PULSE_SERVER": "tcp:fakehost:4713"})
+    D("pipewire only", ["--", "x"], {"xdg/pulse/native=": None})
+    D("no runtime dir", ["--", "x"], env={"XDG_RUNTIME_DIR": None})
+    D("no gpu host", ["--", "x"], {"dev/dri/card1": None, "dev/dri/renderD128": None, "sys/module/nvidia/": None,
+                                   "sys/module/nvidia_drm/": None}, env={"NS_CHARDEVS": ""})
+    D("no dri folder", ["--", "x"], {"dev/dri/card1": None, "dev/dri/renderD128": None, "dev/dri/by-path/": None})
+    D("etc variants", ["--network", "--", "x"], {"etc/localtime@": None, "etc/localtime": "TZif", "etc/ssl/": None,
+                                                 "etc/gai.conf": "", "etc/services": "", "etc/vulkan/icd.d/fake.json": "["})
+    D("localtime relative link", ["--", "x"], {"etc/localtime@": "../usr/share/zoneinfo/UTC"})
+    D("localtime outside usr", ["--", "x"], {"etc/localtime@": "/opt/zone"})
+    D("no localtime", ["--", "x"], {"etc/localtime@": None})
+    D("root dirs", ["--", "x"], user=False, env={"USER": "root"})
+    D("no account", ["--", "x"], {"etc/passwd": "root:x:0:0::/root:/bin/sh\n"}, env={"USER": None})
+    D("account from env", ["--", "x"], {"etc/passwd": "root:x:0:0::/root:/bin/sh\n"}, env={"USER": "zed"})
+    D("home relative", ["--", "x"], env={"HOME": "rel"})
+    D("no home", ["--", "x"], {"etc/passwd": "root:x:0:0::/root:/bin/sh\n"}, env={"HOME": None})
+    D("group missing", ["--", "x"], {"etc/group": "root:x:0:\n"})
+    D("passwd odd lines", ["--", "x"], {"etc/passwd": "# comment\n  \n+ada:x:1000:1000::/x:/bin/sh\nada:x:x:1000::/y:/bin/sh\n"
+                                                      "  bea:x:1000:1000:B:/home/bea:/bin/sh  \r\n"})
+    D("xdg dirs", ["--", "x"], env={"XDG_DATA_HOME": "{W}/xdgdata", "XDG_CACHE_HOME": "relative", "XDG_CONFIG_HOME": "{W}/cfg/"})
+    D("cwd in share", ["--share", "{W}/games", "--", "x"], cwd="games")
+    D("cwd pwd link", ["--share", "{W}/games", "--", "x"], {"gameslink@": "games"}, cwd="games", env={"NS_PWD": "{W}/gameslink"})
+    D("cwd pwd wrong", ["--", "x"], cwd="games", env={"NS_PWD": "{W}/data"})
+    D("shim default", ["--shim", "--", "x"])
+    D("shim prefix", ["--shim", "--", "x"], env={"WINEPREFIX": "{W}/home/.local/share/limbo/wine/steam"})
+    D("shim elsewhere", ["--shim", "--", "x"], env={"WINEPREFIX": "{W}/home/.wine"})
+    D("shim with prefix", ["--shim", "--prefix", "x", "--", "x"])
+    D("shim no program", ["--shim"])
+    D("bad flag", ["--bogus"])
+    D("help", ["-h"])
+    D("flag value missing", ["--share"])
+    D("flags after program", ["--", "x", "--network"])
+    D("no dashes", ["notepad", "--network"])
+
+    # ---- runs with the fake bwrap ----
+    made = {pfx + "default/system.reg": "#arch=win64\n",
+            pfx + ".default.json": '{"arch":"win64","windows":"win10","updated":"2026-11-08T10:00:00Z"}\n'}
+    Wc("first run", ["--", "notepad.exe", "/x"])
+    Wc("exit status", ["--", "x"], made, ctl="RUN_EXIT=3\n")
+    Wc("output and stdin", ["--", "x"], made, stdin=b"typed in\n", ctl="RUN_OUT='to stdout'\nRUN_ERR='to stderr'\nRUN_STDIN=1\n")
+    Wc("existing prefix", ["--", "x"], made)
+    Wc("windows changed", ["--windows", "win7", "--", "x"], made)
+    Wc("windows same", ["--windows", "win10", "--", "x"], made)
+    Wc("windows no record", ["--windows", "win7", "--", "x"], {pfx + "default/system.reg": "#arch=win64\n"})
+    Wc("windows step fails", ["--windows", "win7", "--", "x"], made, ctl="WINDOWS_FAIL=2\n")
+    Wc("create fails", ["--", "x"], ctl="CREATE_FAIL=5\n")
+    Wc("create fails win32", ["--arch", "win32", "--", "x"], ctl="CREATE_FAIL=1\n")
+    Wc("create win32", ["--arch", "win32", "--windows", "winxp", "--", "x"])
+    Wc("arch mismatch", ["--arch", "win32", "--", "x"], made)
+    Wc("arch unknown in prefix", ["--arch", "win32", "--", "x"], {pfx + "default/system.reg": "no arch line\n"})
+    Wc("being made again", ["--", "x"], {**made, pfx + ".default.creating": ""})
+    Wc("not started", ["--", "x"], made, ctl="NOSTART=run\n")
+    Wc("not started status", ["--", "x"], made, ctl="NOSTART=run\nNOSTART_EXIT=8\n")
+    Wc("create not started", ["--", "x"], ctl="NOSTART=create\n")
+    Wc("windows not started", ["--windows", "win7", "--", "x"], made, ctl="NOSTART=windows\n")
+    Wc("trace", ["--trace", "--", "x"], made, ctl="RUN_TRACE=1\n")
+    Wc("trace untraced", ["--", "x"], made, ctl="RUN_TRACE=1\n")
+    Wc("stop term", ["--", "x"], made, ctl="STOP=TERM\nSTOP_EXIT=0\n")
+    Wc("stop int", ["--", "x"], made, ctl="STOP=INT\nSTOP_EXIT=130\n")
+    Wc("stop hup", ["--", "x"], made, ctl="STOP=HUP\n")
+    Wc("stop twice kills", ["--", "x"], made, ctl="STOP2=INT\n")
+    Wc("stop while making", ["--", "x"], ctl="STOP=TERM\nSTOP_STEP=create\nSTOP_EXIT=0\n")
+    Wc("stop ignored", ["--", "x"], made, ctl="STOP_IGNORE=1\n")
+    Wc("as root", ["--", "x"], user=False)
+    Wc("no bwrap", ["--", "x"], {"fakebin/bwrap*": None, "fakebin/bwrap": "not executable\n"})
+    Wc("no wine", ["--", "x"], {"fakebin/wine*": None, "fakebin/wine": "not executable\n"})
+    Wc("bwrap without interpreter", ["--", "x"], {"fakebin/bwrap*": "echo not a script\n"})
+    Wc("prefix busy", ["--", "x"], made, prep=hold_lock(pfx + ".default.lock", b"4242\n"))
+    Wc("state unwritable", ["--state-dir", "{W}/stfile", "--", "x"], {"stfile": "a file"})
+    Wc("default state", ["--", "x"], made)
+    Wc("state from env", ["--", "x"], made, env={"LIMBO_STATE_DIR": "{W}/st-env"})
+    Wc("share refused", ["--share", "{W}/home/.ssh", "--", "x"], {"home/.ssh/": ""})
+    Wc("program outside", ["--", "{W}/games/prog.exe"])
+    Wc("shim refused", ["--shim", "--", "x"], env={"WINEPREFIX": "/elsewhere/.wine"})
+    Wc("shim", ["--shim", "--", "x", "y"], made)
+    Wc("shim named prefix", ["--shim", "--", "x"], env={"WINEPREFIX": "{W}/home/.local/share/limbo/wine/steam"})
+    Wc("profile refused", ["--prefix", "game", "--", "x"], {prof + "game.json": '{"network":"internet-only"}'})
+    Wc("profile program", ["--prefix", "game"], {prof + "game.json": json.dumps(
+        {"share": ["{W}/games"], "program": "{W}/games/prog.exe", "args": ["-x", "y z"], "env": {"DXVK_ASYNC": "1"}})})
+    Wc("hashed program", ["--share", "{W}/games", "--share-rw", "{W}/data", "--", "{W}/games/prog.exe", "arg"], made)
+    Wc("cwd in share", ["--share", "{W}/games", "--", "x"], made, cwd="games")
+    Wc("program in drive c", ["--", "C:\\Program Files\\App\\app.exe"],
+       {**made, pfx + "default/drive_c/Program Files/App/app.exe": b"MZ app\n"})
+    Wc("event log full", ["--", "x"], {"st/events.jsonl@": "/dev/full"})
+    Wc("prefix is a link", ["--", "x"], {pfx + "default@": "{W}/data"})
+    Wc("prefix root is a file", ["--", "x"], {"home/.local/share/limbo/wine": "x"})
+    Wc("cache is a link", ["--", "x"], {"home/.cache/limbo/wine@": "{W}/data"})
+    Wc("run folders pruned", ["--", "x"], {**made, **{f"st/wine-runs/2026010{i}T000000Z-0000000{i}/run.json": "{}" for i in range(3)}})
+    return cs
+
+
+_held = []
+
+
+def hold_lock(rel, body):
+    """A prep that holds the prefix's lock as another limbo wine would (flock, its pid written), for both runs."""
+    def prep(work):
+        import fcntl
+        p = os.path.join(work, rel)
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        f = open(p, "wb")
+        f.write(body)
+        f.flush()
+        fcntl.flock(f, fcntl.LOCK_EX)
+        while _held:
+            _held.pop().close()
+        _held.append(f)
+    return prep
+
+
 class Server:
     """The scripted socket: records requests, answers from the case's list in order."""
 
@@ -1352,12 +1655,17 @@ class Server:
 
 def make_files(work, files):
     for name, content in files.items():
-        p = os.path.join(work, name.rstrip("/@*"))
+        p = os.path.join(work, name.rstrip("/@*="))
         os.makedirs(os.path.dirname(p), exist_ok=True)
         if name.endswith("/"):
             os.makedirs(p, exist_ok=True)
         elif name.endswith("@"):
-            os.symlink(content, p)
+            os.symlink(content.replace("{W}", work), p)
+        elif name.endswith("="):
+            # a unix socket nobody listens on (Probe only looks at the file's type)
+            sk = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            sk.bind(p)
+            sk.close()
         elif isinstance(content, bytes):
             with open(p, "wb") as f:
                 f.write(content)
@@ -1381,11 +1689,15 @@ def snapshot(work, norm=()):
         for n in sorted(dirs + fnames):
             p = os.path.join(root, n)
             rel = os.path.relpath(p, work)
+            if norm:
+                rel = normalize(rel.encode(), norm).decode()
             st = os.lstat(p)
             if os.path.islink(p):
                 out[rel] = "link -> " + os.readlink(p)
             elif os.path.isdir(p):
                 out[rel] = "dir %o" % (st.st_mode & 0o7777)
+            elif stat.S_ISSOCK(st.st_mode):
+                out[rel] = "socket"
             else:
                 with open(p, "rb") as f:
                     out[rel] = "file %o %s" % (st.st_mode & 0o7777, hashlib.sha256(normalize(f.read(), norm)).hexdigest()[:16])
@@ -1459,7 +1771,8 @@ def main():
     if len(os.path.join(base, "s")) >= 100:
         sys.exit(f"{base}: too long for a socket path")
     os.umask(0o022)
-    cs = [c for c in cases() + local_cases() + analyze_cases() + image_cases() + setup_cases() + act_cases() + passthrough_cases() if a.only in c["name"]]
+    cs = [c for c in cases() + local_cases() + analyze_cases() + image_cases() + setup_cases() + act_cases() + passthrough_cases()
+          + wine_cases() if a.only in c["name"]]
     bad = 0
     comparisons = 0
     for c in cs:
