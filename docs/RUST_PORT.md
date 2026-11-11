@@ -277,6 +277,8 @@ From 2026-11-10 my PC ran the Rust daemon through the drop-in of step 4 above. S
   sudo rm /etc/systemd/system/limbo.service.d/rust.conf && sudo rmdir --ignore-fail-on-non-empty /etc/systemd/system/limbo.service.d
   sudo systemctl daemon-reload
   systemctl show -p ExecStart --value limbo.service      # /usr/bin/limbo serve ...
+  sudo ls -A /var/lib/limbo/state/runs                     # empty: no validation run for the restart to destroy
+  test -e /run/limbo/passthrough.blocked && echo "reboot instead: a restart empties /run/limbo and this marker with it"
   sudo systemctl restart limbo.service                     # not during a validation run (the startup reap)
   sudo rm /usr/lib/limbo/limbo-rs                          # the hand-installed daemon, named nowhere now
   limbo rs-version; limbo version; limbo doctor; systemctl is-active limbo.service
@@ -345,9 +347,15 @@ Next, in order:
    failures were leftover test heimdallds, fixed in 8531da0). Switched by hand (drop-in) on 2026-11-10: the Rust daemon
    has run since with no restart. Packaging done 2026-11-11 ("Packaging"): the branch `package-rust-daemon` rebased
    onto main and merged, the dispatch's non-UTF-8 panic fixed (`tests/dispatch.rs`), Labyrinth's limbo-git mirrored,
-   a package built from main without root (nothing installed). Left for me (root): install it on my PC with the steps
-   for a host that switched by hand (`--overwrite /usr/lib/limbo/limbo-go`, the drop-in removed after, one restart
-   when no validation run is active), then the Rust daemon's figures (`VmRSS`, `Threads`) as in step 4.
+   a package built from main without root (nothing installed). The CLI differential's first CI run after the merge
+   differed on one case (`wine run folders pruned`): the snapshot descended folders in readdir order, which on ext4
+   follows a hash of the name, and four run folders folded into one `RUNID` path, so a random one won. It now descends
+   sorted and the old run folders keep their names (the 126 wine cases: no difference). Left for me (root): install it
+   on my PC with the steps for a host that switched by hand (`--overwrite /usr/lib/limbo/limbo-go`, the drop-in removed after, one restart
+   when no validation run is active), then the Rust daemon's figures (`VmRSS`, `Threads`) as in step 4. Found, not
+   changed (Go and Rust alike): `RuntimeDirectory=limbo` makes systemd empty /run/limbo at every stop, so a restart
+   also removes `passthrough.blocked`, the marker that keeps passthrough off until a reboot after a device failed to
+   return; `RuntimeDirectoryPreserve=restart` in limbo.service, or the marker elsewhere, is my decision to make.
 2. (hostpolicy done: `hostpolicy.json`.) Carry over the runs tests that use a fake clock and executor (`internal/runs/*_test.go`) as fixtures; today the differential run covers runs end to end, not each branch.
    Plan: `internal/runs/parity_test.go` with a runner that fails by line prefix as `engine/parity_test.go` words it
    (`<line>: exit status 1: <stderr>`; the Rust side builds `CmdErr` with the same text, `not_found` for

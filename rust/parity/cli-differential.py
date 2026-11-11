@@ -1550,7 +1550,9 @@ def wine_cases():
     Wc("prefix is a link", ["--", "x"], {pfx + "default@": "{W}/data"})
     Wc("prefix root is a file", ["--", "x"], {"home/.local/share/limbo/wine": "x"})
     Wc("cache is a link", ["--", "x"], {"home/.cache/limbo/wine@": "{W}/data"})
-    Wc("run folders pruned", ["--", "x"], {**made, **{f"st/wine-runs/2026010{i}T000000Z-0000000{i}/run.json": "{}" for i in range(3)}})
+    # older run folders, named as runs are (pruneRuns takes them) but with a suffix the RUNID normalisation leaves alone, so
+    # each one is compared by name rather than folded into the new run's RUNID
+    Wc("run folders pruned", ["--", "x"], {**made, **{f"st/wine-runs/2026010{i}T000000Z-old0000{i}/run.json": "{}" for i in range(3)}})
     return cs
 
 
@@ -1687,6 +1689,10 @@ def normalize(data, norm):
 def snapshot(work, norm=()):
     out = {}
     for root, dirs, fnames in os.walk(work):
+        # os.walk descends in readdir order, which on ext4 (the CI runner) follows a hash of the name: two folders whose
+        # normalised paths are equal (run folders, RUNID) would then win in a random order. Sorted, it is the same order
+        # for both binaries on any filesystem.
+        dirs.sort()
         for n in sorted(dirs + fnames):
             p = os.path.join(root, n)
             rel = os.path.relpath(p, work)
