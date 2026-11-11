@@ -15,6 +15,10 @@ from /proc for both.
 
     python3 -I rust/parity/daemon-differential.py --go GO_LIMBO --rs LIMBO_RS --out DIR [--idle 60]
 
+Then the passthrough phase (not with --from-host): the reboot-needed marker across restarts of the daemon, on a made-up
+host (os-release, one PCI device in a sysfs folder of the test's own, the boot id: each bound over the real one inside
+the namespace; nothing of this computer's hardware is seen or touched; the fake virsh moves the device's driver link).
+
 Exit status 0 when the two agree.
 """
 
@@ -49,8 +53,12 @@ case "$me" in
     mkdir -p "$R/virsh/defined" "$R/virsh/running"
     case "$1" in
       define) n=$(sed -n 's:.*<name>\(.*\)</name>.*:\1:p' "$2" | head -1); touch "$R/virsh/defined/$n" ;;
-      start) [ -e "$R/virsh/defined/$2" ] || { echo "error: failed to get domain '$2'" >&2; exit 1; }; touch "$R/virsh/running/$2" ;;
-      destroy) [ -e "$R/virsh/running/$2" ] || { echo "error: domain is not running" >&2; exit 1; }; rm -f "$R/virsh/running/$2" ;;
+      start) [ -e "$R/virsh/defined/$2" ] || { echo "error: failed to get domain '$2'" >&2; exit 1; }; touch "$R/virsh/running/$2"
+        # the passthrough phase's device: libvirt (managed='yes') moves it to vfio-pci for the guest
+        [ -L "$R/hw/pci/0000:03:00.0/driver" ] && ln -sfn vfio-pci "$R/hw/pci/0000:03:00.0/driver" ;;
+      destroy) [ -e "$R/virsh/running/$2" ] || { echo "error: domain is not running" >&2; exit 1; }; rm -f "$R/virsh/running/$2"
+        # ... and gives it back to its driver, unless the phase says the card did not come back
+        [ -L "$R/hw/pci/0000:03:00.0/driver" ] && [ ! -e "$R/hw/stuck" ] && ln -sfn nouveau "$R/hw/pci/0000:03:00.0/driver" ;;
       undefine) [ -e "$R/virsh/defined/$2" ] || { echo "error: failed to get domain '$2'" >&2; exit 1; }; rm -f "$R/virsh/defined/$2" ;;
       dominfo) [ -e "$R/virsh/defined/$2" ] || { echo "error: failed to get domain '$2'" >&2; exit 1; } ;;
       list) ls "$R/virsh/running" ;;
@@ -364,6 +372,118 @@ def proc_figures(pid):
     return out
 
 
+GPU = "0000:03:00.0"
+BOOT_ID = "/proc/sys/kernel/random/boot_id"
+BOOT_A, BOOT_B = "6f1c0a52-3c1e-4b8e-9d0a-2b7f4e5c8a11", "0b9e7d24-81f3-4c55-a6e2-93d1c4f7b260"
+
+
+def start_daemon(cmd, env, root, socks):
+    err = open(os.path.join(root, "daemon.err"), "ab")
+    t0 = time.time()
+    p = subprocess.Popen(cmd, env=env, cwd=root, stdout=err, stderr=err)
+    while not all(os.path.exists(s) for s in socks.values()):
+        if p.poll() is not None or time.time() - t0 > 20:
+            err.close()
+            print(open(os.path.join(root, "daemon.err")).read(), file=sys.stderr)
+            sys.exit("the daemon did not start")
+        time.sleep(0.02)
+    err.close()
+    return p
+
+
+def stop_daemon(p):
+    p.send_signal(signal.SIGTERM)
+    try:
+        return p.wait(10)
+    except subprocess.TimeoutExpired:
+        p.kill()
+        return "killed"
+
+
+def passthrough_phase(cmd, env, root, socks, runs):
+    """A device that does not come back after a run blocks passthrough until the host reboots. systemd empties the run
+    folder at every stop of limbo.service (RuntimeDirectory=), so the block must outlast a restart of the daemon and
+    end with a new boot id: one run whose device stays on vfio-pci, a refused run, a restart (the run folder emptied),
+    refused again, a reboot (new boot id, the device back on its driver), a run that is allowed."""
+    hw = os.path.join(root, "hw")
+    dev = os.path.join(hw, "pci", GPU)
+    os.makedirs(os.path.join(dev, "iommu_group", "devices", GPU))
+    write(os.path.join(dev, "class"), "0x030000\n")
+    write(os.path.join(dev, "boot_vga"), "0\n")
+    os.symlink("nouveau", os.path.join(dev, "driver"))
+    write(os.path.join(hw, "os-release"), 'NAME="Labyrinth OS"\nID=labyrinth\n')
+    write(os.path.join(hw, "boot-a"), BOOT_A + "\n")
+    write(os.path.join(hw, "boot-b"), BOOT_B + "\n")
+    for src, dst in (("os-release", "/etc/os-release"), ("pci", "/sys/bus/pci/devices"), ("boot-a", BOOT_ID)):
+        subprocess.run(["mount", "--bind", os.path.join(hw, src), dst], check=True)
+    write(os.path.join(root, "etc-limbo", "host-policy.json"), json.dumps({"pci_allow": [GPU]}), 0o644)
+    write(os.path.join(root, "state", "passthrough-approval.json"),
+          json.dumps({"devices": [GPU], "expires": "2099-01-01T00:00:00Z", "by": "difftest"}), 0o600)
+    prof = json.load(open(os.path.join(root, "profiles", "arch-update.json")))
+    prof["manifest"]["devices"] = {"pci": [GPU]}
+    write(os.path.join(root, "profiles", "gpu.json"), json.dumps(prof), 0o644)
+    events = os.path.join(root, "state", "events.jsonl")
+    seen = os.path.getsize(events)
+    out = []
+
+    def ask(label, who, method, path, body):
+        st, hd, pl = http(socks[who], method, path, body)
+        text = pl.decode("utf-8", "replace")
+        r = {"step": label, "who": who, "method": method, "path": path, "status": st, "body": text}
+        if method == "POST" and path == "/v1/runs" and st == 202:
+            runs.append(json.loads(text)["id"])
+            route = "/v1/runs/" + runs[-1]
+            for _ in range(600):
+                st, hd, pl = http(socks[who], "GET", route, "")
+                if st != 200 or json.loads(pl).get("status") != "running":
+                    break
+                time.sleep(0.05)
+            r["finished"] = {"status": st, "body": pl.decode("utf-8", "replace")}
+        out.append(r)
+
+    def state(label):
+        def text(path):
+            return open(path, errors="replace").read() if os.path.lexists(path) else "<none>"
+        out.append({"step": label, "state_marker": text(os.path.join(root, "state", "passthrough.blocked")),
+                    "run_marker": text(os.path.join(root, "run", "passthrough.blocked")),
+                    "driver": os.readlink(os.path.join(dev, "driver")), "run_folder": sorted(os.listdir(os.path.join(root, "run")))})
+
+    def restart(label):
+        out.append({"step": label, "exit": stop_daemon(p)})
+        state(label + ": stopped")
+        # what systemd does to /run/limbo at every stop of limbo.service (RuntimeDirectory=limbo)
+        for n in os.listdir(os.path.join(root, "run")):
+            os.unlink(os.path.join(root, "run", n))
+        return start_daemon(cmd, env, root, socks)
+
+    run = '{"profile":"gpu","command":"true"}'
+    p = start_daemon(cmd, env, root, socks)
+    ask("profiles", "agent", "GET", "/v1/profiles", "")
+    open(os.path.join(hw, "stuck"), "w").close()
+    ask("the device does not come back", "agent", "POST", "/v1/runs", run)
+    state("after the run")
+    ask("refused until a reboot", "agent", "POST", "/v1/runs", run)
+    p = restart("restart")
+    ask("still refused after a restart", "agent", "POST", "/v1/runs", run)
+    p = restart("restart again")
+    ask("still refused after a second restart", "agent", "POST", "/v1/runs", run)
+    out.append({"step": "reboot", "exit": stop_daemon(p)})
+    for n in os.listdir(os.path.join(root, "run")):
+        os.unlink(os.path.join(root, "run", n))
+    os.unlink(os.path.join(hw, "stuck"))
+    os.unlink(os.path.join(dev, "driver"))
+    os.symlink("nouveau", os.path.join(dev, "driver"))
+    subprocess.run(["mount", "--bind", os.path.join(hw, "boot-b"), BOOT_ID], check=True)
+    p = start_daemon(cmd, env, root, socks)
+    ask("allowed after a reboot", "agent", "POST", "/v1/runs", run)
+    state("after the reboot's run")
+    out.append({"step": "end", "exit": stop_daemon(p)})
+    with open(events, errors="replace") as f:
+        f.seek(seen)
+        ev = [l for l in f.read().split("\n") if l]
+    return {"steps": out, "events": ev}
+
+
 def inner(args):
     """Inside the namespaces: start the daemon, run the script, collect everything."""
     root, images = args.root, args.images
@@ -484,6 +604,8 @@ def inner(args):
               "tools": open(os.path.join(root, "tools.log"), errors="replace").read() if os.path.exists(os.path.join(root, "tools.log")) else "",
               "events": open(os.path.join(root, "state", "events.jsonl"), errors="replace").read(),
               "files": files, "qids": qids, "lics": lics, "runs": runs}
+    if not args.from_host:
+        report["passthrough"] = passthrough_phase(cmd, env, root, socks, runs)
     json.dump(report, open(args.report, "w"), indent=1)
 
 
@@ -527,6 +649,34 @@ def nflog_traffic():
     s.close()
 
 
+# What the passthrough phase must show, whatever the two daemons agree on: step -> (status, code in the answer).
+PASSTHROUGH_EXPECT = {
+    "the device does not come back": (202, None),
+    "refused until a reboot": (400, "reboot_required"),
+    "still refused after a restart": (400, "reboot_required"),
+    "still refused after a second restart": (400, "reboot_required"),
+    "allowed after a reboot": (202, None),
+}
+
+
+def passthrough_failures(rep):
+    """The passthrough phase's steps that did not answer as they must (a regression both daemons share)."""
+    bad = []
+    steps = {s["step"]: s for s in rep.get("passthrough", {}).get("steps", [])}
+    for step, (status, code) in PASSTHROUGH_EXPECT.items():
+        s = steps.get(step)
+        if s is None:
+            bad.append("%s: missing" % step)
+        elif s["status"] != status or (code and json.loads(s["body"]).get("code") != code):
+            bad.append("%s: %s %s" % (step, s["status"], s["body"][:200]))
+        elif status == 202 and '"status":"done"' not in s["finished"]["body"]:
+            bad.append("%s: the run did not finish: %s" % (step, s["finished"]["body"][:200]))
+    stopped = steps.get("restart: stopped", {})
+    if not stopped.get("state_marker", "").startswith("boot_id " + BOOT_A + "\n"):
+        bad.append("the state folder's marker does not name the boot: %r" % stopped.get("state_marker"))
+    return bad
+
+
 def normalise(rep, root, images):
     """Everything that may differ between two correct runs, made equal: the scratch folder, times, ids, pids."""
     ids = {}
@@ -564,7 +714,8 @@ def normalise(rep, root, images):
             return [walk(v) for v in x]
         return n(x)
 
-    out = walk({k: rep[k] for k in ("results", "socket_modes", "exit", "sockets_left", "stderr", "tools", "events", "files")})
+    out = walk({k: rep[k] for k in ("results", "socket_modes", "exit", "sockets_left", "stderr", "tools", "events", "files",
+                                    "passthrough") if k in rep})
     # the events log as one line per event, its keys parsed (Go and Rust both write sorted detail keys)
     out["events"] = [l for l in out["events"].split("\n") if l]
     out["tools"] = out["tools"].split("\n")
@@ -645,6 +796,10 @@ def main():
             diffs.append((path, x, y))
 
     cmp("", a, b)
+    expected = []
+    if not args.from_host:
+        for name in ("go", "rs"):
+            expected += ["%s: %s" % (name, f) for f in passthrough_failures(reps[name])]
     json.dump({"go": a, "rs": b, "diffs": [{"at": p, "go": x, "rs": y} for p, x, y in diffs]}, open(os.path.join(out, "differential.json"), "w"), indent=1)
     fig = {k: reps[k]["figures"] for k in ("go", "rs")}
     json.dump(fig, open(os.path.join(out, "figures.json"), "w"), indent=1)
@@ -655,12 +810,17 @@ def main():
         print("%s: start %.2fs; after start %s PSS %s, threads %s; after the script %s PSS %s; idle %ss: %d CPU ticks, %d context switches" % (
             k, f["start_seconds"], f["after_start"].get("VmRSS"), f["after_start"].get("Pss"), f["after_start"].get("Threads"),
             f["after_script"].get("VmRSS"), f["after_script"].get("Pss"), f["idle_seconds"], f["idle_cpu_ticks"], f["idle_ctx_switches"]))
+    for f in expected:
+        print("PASSTHROUGH PHASE: " + f)
     if diffs:
         print("%d DIFFERENCES (details in %s):" % (len(diffs), os.path.join(out, "differential.json")))
         for p, x, y in diffs[:40]:
             print("  %s\n    go: %r\n    rs: %r" % (p, str(x)[:300], str(y)[:300]))
         sys.exit(1)
-    print("NO DIFFERENCE: answers, events, host commands and state files are identical once normalised")
+    if expected:
+        sys.exit(1)
+    print("NO DIFFERENCE: answers, events, host commands and state files are identical once normalised" +
+          ("" if args.from_host else "; the passthrough block outlasted two restarts and ended with the reboot"))
 
 
 if __name__ == "__main__":

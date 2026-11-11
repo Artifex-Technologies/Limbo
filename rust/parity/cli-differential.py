@@ -1000,6 +1000,7 @@ if [ -d /var/lib/limbo ]; then /usr/bin/mount --bind "$NS_VAR" /var/lib/limbo ||
 if [ -n "$NS_OSREL" ]; then /usr/bin/mount --bind "$NS_OSREL" /etc/os-release || exit 97; fi
 if [ -n "$NS_SYSUSB" ]; then /usr/bin/mount --bind "$NS_SYSUSB" /sys/bus/usb/devices || exit 97; fi
 if [ -n "$NS_SYSPCI" ]; then /usr/bin/mount --bind "$NS_SYSPCI" /sys/bus/pci/devices || exit 97; fi
+if [ -n "$NS_BOOTID" ]; then /usr/bin/mount --bind "$NS_BOOTID" /proc/sys/kernel/random/boot_id || exit 97; fi
 /usr/bin/mount -t tmpfs -o mode=755 tmpfs /run || exit 97
 /usr/bin/mkdir /run/limbo && /usr/bin/ln -s "$NS_SOCK" /run/limbo/user.sock || exit 97
 if [ -n "$NS_USER" ]; then exec /usr/bin/unshare -U --map-user="$NS_USER" --map-group="$NS_USER" -- "$@"; fi
@@ -1175,7 +1176,8 @@ def act_cases():
 
 def passthrough_cases():
     """limbo passthrough status | approve | revoke | clear, as uid 0 in the act namespace with /etc/os-release, the
-    host policy and the sysfs device folders (/sys/bus/usb/devices, /sys/bus/pci/devices) bound over by the case's own:
+    host policy, the sysfs device folders (/sys/bus/usb/devices, /sys/bus/pci/devices) and the kernel's boot id
+    (/proc/sys/kernel/random/boot_id, for the reboot-needed marker in the state folder) bound over by the case's own:
     neither binary sees a device of this computer. The typed answer comes from a pty (stdin must be a terminal)."""
     cs = []
     usb = {"sysusb/1-1/idVendor": "1234\n", "sysusb/1-1/idProduct": "ABCD\n", "sysusb/1-1/busnum": "77\n",
@@ -1193,8 +1195,9 @@ def passthrough_cases():
            "syspci/0000:7a:00.0/vendor": "0x1002\n"}
     policy = {"pci_allow": ["0000:77:00.0", "0000:77:00.1", "0000:78:00.0", "0000:79:00.0", "0000:7A:00.0"],
               "usb_allow": ["1234:abcd", "5059:4040", "1d6b:0002"], "usb_standing": ["5059:4040", "dead:beef", "XYZ"]}
+    boot, earlier = "6f1c0a52-3c1e-4b8e-9d0a-2b7f4e5c8a11", "0b9e7d24-81f3-4c55-a6e2-93d1c4f7b260"
     base = {"nsrun": NSRUN_ACT, "etc/": "", "var/": "", "osrel": 'NAME="Labyrinth OS"\nID=labyrinth\n', **usb, **pci,
-            "etc/host-policy.json": json.dumps(policy), "run/": ""}
+            "etc/host-policy.json": json.dumps(policy), "run/": "", "bootid": boot + "\n"}
     later = "2099-01-02T03:04:05.123456789Z"
     approval = json.dumps({"devices": ["1234:abcd", "0000:77:00.0"], "expires": later, "by": "alice"})
     norm = [(r'"time":"[^"]*"', '"time":"T"'), (r'"expires":"[^"]*"', '"expires":"T"'),
@@ -1202,7 +1205,8 @@ def passthrough_cases():
 
     def P(name, args, files=None, env=None, stdin=b"", state=True, user=False):
         e = {"PATH": "{W}/bin", "NS_ETC": "{W}/etc", "NS_VAR": "{W}/var", "NS_SOCK": "{S}", "NS_OSREL": "{W}/osrel",
-             "NS_SYSUSB": "{W}/sysusb", "NS_SYSPCI": "{W}/syspci", "SUDO_USER": "", "USER": "tester", "TZ": "UTC"}
+             "NS_SYSUSB": "{W}/sysusb", "NS_SYSPCI": "{W}/syspci", "NS_BOOTID": "{W}/bootid", "SUDO_USER": "", "USER": "tester",
+             "TZ": "UTC"}
         if user:
             e["NS_USER"] = "1000"
         e.update(env or {})
@@ -1242,6 +1246,26 @@ def passthrough_cases():
     P("clear", ["clear"], {"run/passthrough.blocked": "x"})
     P("clear none", ["clear"])
     P("clear full folder", ["clear"], {"run/passthrough.blocked/x": "y"})
+    # the state folder's marker: it counts in the boot it names (or when that cannot be proven otherwise)
+    this = "boot_id %s\ndevice 0000:77:00.0 is bound to \"vfio-pci\" after teardown\n" % boot
+    for name, body, bootid in [("this boot", this, None), ("earlier boot", this.replace(boot, earlier), None),
+                               ("no boot named", "boot_id unknown\nx\n", None), ("old form", "x\n", None),
+                               ("empty", "", None), ("boot id empty", this.replace(boot, earlier), ""),
+                               ("boot id damaged", this.replace(boot, earlier), "not-a-boot-id\n"),
+                               ("upper case", this.replace(boot, earlier.upper()), None)]:
+        f = {"st/passthrough.blocked": body}
+        if bootid is not None:
+            f["bootid"] = bootid
+        P("status state marker " + name, ["status"], f)
+        P("approve state marker " + name, ["approve", "1234:abcd"], f, stdin=yes)
+    P("status state marker folder", ["status"], {"st/passthrough.blocked/": ""})
+    P("status both markers", ["status"], {"st/passthrough.blocked": this, "run/passthrough.blocked": "x\n"})
+    P("clear state marker", ["clear"], {"st/passthrough.blocked": this})
+    P("clear both markers", ["clear"], {"st/passthrough.blocked": this, "run/passthrough.blocked": "x\n"})
+    P("clear state full folder", ["clear"], {"st/passthrough.blocked/x": "y", "run/passthrough.blocked": "x\n"})
+    P("clear both full folders", ["clear"], {"st/passthrough.blocked/x": "y", "run/passthrough.blocked/x": "y"})
+    P("clear no state", ["--state-dir", "", "--i-know", "--run-dir", "{W}/run", "clear"], {"run/passthrough.blocked": "x\n"},
+      state=False)
     P("approve nothing", ["approve"], stdin=yes)
     P("approve not a terminal", ["approve", "1234:abcd"], stdin=b"yes\n")
     P("approve dev null", ["approve", "1234:abcd"], stdin=None)
