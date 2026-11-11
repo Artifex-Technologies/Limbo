@@ -64,3 +64,63 @@ pub fn lookup_id(uid: &str) -> Option<(String, String, String)> {
     }
     None
 }
+
+/// One account as Go's os/user (CGO_ENABLED=0) reads it.
+pub struct User {
+    pub username: String,
+    pub home_dir: String,
+}
+
+/// The lines of an /etc/passwd or /etc/group file as readColonFile hands them on: without the line end, white space
+/// trimmed, blank lines and comments skipped.
+fn colon_lines(file: &str) -> Vec<String> {
+    let Ok(b) = std::fs::read(file) else { return vec![] };
+    b.split(|&c| c == b'\n')
+        .map(|l| crate::gotext::lossy(l.strip_suffix(b"\r").unwrap_or(l)))
+        .map(|l| crate::gotext::trim_space(&l).to_string())
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .collect()
+}
+
+/// user.Current() with CGO_ENABLED=0: the /etc/passwd entry of `uid` (matchUserIndexValue), else $USER and $HOME when
+/// both are set; None when Go returns an error.
+pub fn current(uid: u32, user_env: &str, home_env: &str) -> Option<User> {
+    let id = uid.to_string();
+    let sub = format!(":{id}:");
+    for line in colon_lines("/etc/passwd") {
+        if !line.contains(&sub) || line.matches(':').count() < 6 {
+            continue;
+        }
+        let parts: Vec<&str> = line.splitn(7, ':').collect();
+        if parts.len() < 6 || parts[2] != id || parts[0].is_empty() || parts[0].starts_with(['+', '-']) {
+            continue;
+        }
+        if crate::gotext::atoi(parts[2]).is_none() || crate::gotext::atoi(parts[3]).is_none() {
+            continue;
+        }
+        return Some(User { username: parts[0].into(), home_dir: parts[5].into() });
+    }
+    if !user_env.is_empty() && !home_env.is_empty() {
+        return Some(User { username: user_env.into(), home_dir: home_env.into() });
+    }
+    None
+}
+
+/// user.LookupGroupId(gid).Name with CGO_ENABLED=0 (matchGroupIndexValue).
+pub fn lookup_group_id(gid: &str) -> Option<String> {
+    let sub = format!(":{gid}:");
+    for line in colon_lines("/etc/group") {
+        if !line.contains(&sub) || line.matches(':').count() < 3 {
+            continue;
+        }
+        let parts: Vec<&str> = line.splitn(4, ':').collect();
+        if parts.len() < 4 || parts[0].is_empty() || parts[2] != gid || parts[0].starts_with(['+', '-']) {
+            continue;
+        }
+        if crate::gotext::atoi(parts[2]).is_none() {
+            continue;
+        }
+        return Some(parts[0].into());
+    }
+    None
+}

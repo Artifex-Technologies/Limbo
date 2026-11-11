@@ -9,6 +9,8 @@ pub enum Kind {
     Str,
     Bool,
     Int,
+    /// a repeatable string flag (a flag.Value whose Set appends; its usage names its argument "value")
+    List,
 }
 
 struct Flag {
@@ -17,11 +19,14 @@ struct Flag {
     usage: &'static str,
     default: String,
     value: String,
+    values: Vec<String>,
 }
 
 pub struct FlagSet {
     name: &'static str,
     flags: Vec<Flag>,
+    /// the first line of the usage when the Go flag set has its own Usage function (then PrintDefaults)
+    header: Option<&'static str>,
 }
 
 /// What a parse failed with: Go's error text. The usage has already gone to `stderr`.
@@ -29,20 +34,35 @@ pub const HELP: &str = "flag: help requested";
 
 impl FlagSet {
     pub fn new(name: &'static str) -> FlagSet {
-        FlagSet { name, flags: vec![] }
+        FlagSet { name, flags: vec![], header: None }
+    }
+
+    /// A Usage function of the set's own: `header` on its own line, then the flags.
+    pub fn usage_header(&mut self, header: &'static str) {
+        self.header = Some(header);
     }
 
     pub fn string(&mut self, name: &'static str, default: &str, usage: &'static str) {
-        self.flags.push(Flag { name, kind: Kind::Str, usage, default: default.into(), value: default.into() });
+        self.flags.push(Flag { name, kind: Kind::Str, usage, default: default.into(), value: default.into(), values: vec![] });
     }
 
     pub fn bool(&mut self, name: &'static str, default: bool, usage: &'static str) {
         let d = if default { "true" } else { "false" };
-        self.flags.push(Flag { name, kind: Kind::Bool, usage, default: d.into(), value: d.into() });
+        self.flags.push(Flag { name, kind: Kind::Bool, usage, default: d.into(), value: d.into(), values: vec![] });
     }
 
     pub fn int(&mut self, name: &'static str, default: i64, usage: &'static str) {
-        self.flags.push(Flag { name, kind: Kind::Int, usage, default: default.to_string(), value: default.to_string() });
+        let d = default.to_string();
+        self.flags.push(Flag { name, kind: Kind::Int, usage, default: d.clone(), value: d, values: vec![] });
+    }
+
+    pub fn list(&mut self, name: &'static str, usage: &'static str) {
+        self.flags.push(Flag { name, kind: Kind::List, usage, default: String::new(), value: String::new(), values: vec![] });
+    }
+
+    /// Every value a repeatable flag was given, in order.
+    pub fn strs(&self, name: &str) -> Vec<String> {
+        self.get(name).values.clone()
     }
 
     fn get(&self, name: &str) -> &Flag {
@@ -63,7 +83,10 @@ impl FlagSet {
 
     /// Go's `defaultUsage`: "Usage of NAME:" ("Usage:" for a set without a name) and `PrintDefaults`, flags sorted by name.
     pub fn usage(&self, out: &mut Vec<u8>) {
-        if self.name.is_empty() {
+        if let Some(h) = self.header {
+            out.extend_from_slice(h.as_bytes());
+            out.push(b'\n');
+        } else if self.name.is_empty() {
             out.extend_from_slice(b"Usage:\n");
         } else {
             out.extend_from_slice(format!("Usage of {}:\n", self.name).as_bytes());
@@ -75,6 +98,7 @@ impl FlagSet {
             match f.kind {
                 Kind::Str => b.push_str(" string"),
                 Kind::Int => b.push_str(" int"),
+                Kind::List => b.push_str(" value"),
                 Kind::Bool => {}
             }
             // a one-letter flag without a type name stays on one line
@@ -85,7 +109,7 @@ impl FlagSet {
             }
             b.push_str(&f.usage.replace('\n', "\n    \t"));
             let zero = match f.kind {
-                Kind::Str => "",
+                Kind::Str | Kind::List => "",
                 Kind::Bool => "false",
                 Kind::Int => "0",
             };
@@ -167,6 +191,8 @@ impl FlagSet {
                                 return Err(self.fail(format!("invalid value {} for flag -{name}: {why}", quote(&v)), stderr));
                             }
                         }
+                    } else if kind == Kind::List {
+                        self.flags[i].values.push(v);
                     } else {
                         self.flags[i].value = v;
                     }

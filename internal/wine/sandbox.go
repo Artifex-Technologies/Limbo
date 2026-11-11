@@ -274,11 +274,11 @@ func Build(o Options, h Host, d Dirs) (*Sandbox, error) {
 	s.Chdir = h.Home
 	a("--chdir", s.Chdir)
 
-	for k, v := range o.Env {
+	for _, k := range sortedKeys(o.Env) { // sorted: with two bad names, the same one is named every time
 		if err := ValidEnvName(k); err != nil {
 			return nil, err
 		}
-		env[k] = v
+		env[k] = o.Env[k]
 	}
 	env["PATH"] = "/usr/bin"
 	env["HOME"] = h.Home

@@ -362,6 +362,16 @@ pub fn parse_first(b: &[u8]) -> Result<Value, Error> {
     }
 }
 
+/// Where the first value of a stream ends (the index just past it), or the length of `b` when it does not read.
+pub fn first_value_end(b: &[u8]) -> usize {
+    let mut p = Parser { b, i: 0, depth: 0 };
+    p.ws();
+    match p.value() {
+        Ok(_) => p.i,
+        Err(_) => b.len(),
+    }
+}
+
 /// Reads the first value of a stream and says whether more than white space follows it (Decoder.More).
 pub fn parse_first_more(b: &[u8]) -> Result<(Value, bool), Error> {
     let mut p = Parser { b, i: 0, depth: 0 };

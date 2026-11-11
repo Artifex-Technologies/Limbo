@@ -97,7 +97,7 @@ func ParseProfile(b []byte) (*Profile, error) {
 			return nil, err
 		}
 	}
-	for k := range p.Env {
+	for _, k := range sortedKeys(p.Env) { // sorted: with two bad names, the same one is named every time
 		if err := ValidEnvName(k); err != nil {
 			return nil, err
 		}

@@ -17,3 +17,4 @@ pub mod setup;
 pub mod tabw;
 pub mod text;
 pub mod url;
+pub mod wine;

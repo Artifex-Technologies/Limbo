@@ -31,6 +31,7 @@ pub mod license;
 pub mod runs;
 
 pub mod flows;
+pub mod wine;
 
 pub mod api;
 pub mod cli;

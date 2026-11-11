@@ -65,6 +65,7 @@ fn cli_command(args: &[std::ffi::OsString]) -> Option<i32> {
     Some(match r {
         Ok(()) => 0,
         Err(limbo::cli::commands::Fail::Silent) => 1,
+        Err(limbo::cli::commands::Fail::Exit(code)) => code,
         Err(limbo::cli::commands::Fail::Msg(m)) => {
             let _ = writeln!(stderr, "limbo: {m}");
             1

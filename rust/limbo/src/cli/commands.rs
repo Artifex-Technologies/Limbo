@@ -18,6 +18,8 @@ pub const USER_SOCK: &str = "/run/limbo/user.sock";
 pub enum Fail {
     Msg(String),
     Silent,
+    /// a program's own exit status, which limbo exits with unchanged (Go's exitStatus: `limbo wine`)
+    Exit(i32),
 }
 
 impl From<String> for Fail {
