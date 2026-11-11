@@ -254,8 +254,10 @@ fixtures current, fmt, clippy, tests, the differential run with the real nft for
 change; green since run 42950117164); the owner's first run read and every failure traced to the scripts (table above).
 Next, in order:
 
-1. The owner reruns `scripts/rust-checks.sh` (both daemons): only checks in summary.txt marked DIFFERS count against
-   the port. Then the switch, and the Rust daemon's figures after it.
+1. Rerun done 2026-11-11 (rehearsal NO DIFFERENCE, quarantine 71/71 and sarina 15/15 with both daemons; chain's Go-only
+   failures were leftover test heimdallds, fixed in 8531da0): integration-chain.sh once more with both daemons, then the
+   switch (drop-in) and the Rust daemon's figures after it. The packages' side is on branch `package-rust-daemon`
+   ("Packaging"): merge it, mirror it in Labyrinth's limbo-git, and follow the steps for a host that switched by hand.
 2. (hostpolicy done: `hostpolicy.json`.) Carry over the runs tests that use a fake clock and executor (`internal/runs/*_test.go`) as fixtures; today the differential run covers runs end to end, not each branch.
    Plan: `internal/runs/parity_test.go` with a runner that fails by line prefix as `engine/parity_test.go` words it
    (`<line>: exit status 1: <stderr>`; the Rust side builds `CmdErr` with the same text, `not_found` for

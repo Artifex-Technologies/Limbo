@@ -191,8 +191,15 @@ From Heimdall's CLAUDE.md Coordination Log.
   Table and fixes: docs/RUST_PORT.md "The owner's first run".
 - `scripts/rust-checks.sh`: rehearsal, then each script with the Go daemon and with limbo-rs; only checks that differ
   count against the port. `scripts/it-common.sh`: Sarina's Go binary by default, own ports, a stop if a port is taken.
-- **For Heimdall (not edited from here):** integration-chain.sh now gives the test heimdalld every state path in its own
-  folder (keys from `internal/config/config.go`); a new default path there should be added to that script too.
+- Rerun with both daemons: rehearsal NO DIFFERENCE, quarantine 71/71 and sarina 15/15 for Go and Rust; chain 32/32
+  Rust, 27/32 Go. The Go-only failures: test heimdallds left running by earlier runs (started in a subshell that the
+  exit kill did not reach) answered first with an old configuration. Fixed: `exec runuser`, `stop_test_heimdalld`
+  before and after. Packaging for limbo-rs as /usr/bin/limbo: branch `package-rust-daemon` (docs/RUST_PORT.md).
+- **For Heimdall (not edited from here):** the test heimdallds get every state path in their own folder
+  (`heimdall_isolation` in scripts/it-common.sh, keys from `internal/config/config.go`); a new default path there
+  should be added to that function too.
+- **For Labyrinth_OS (not edited from here):** limbo-git should build limbo-rs as /usr/bin/limbo and the Go build as
+  /usr/lib/limbo/limbo-go once the branch is merged: docs/RUST_PORT.md "Packaging" (on the branch) has the exact lines.
 — Signed: Limbo / Claude Opus 5.5
 
 ### 2026-11-10 — `limbo serve` ported to Rust (not switched yet)
