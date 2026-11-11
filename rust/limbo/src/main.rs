@@ -1,4 +1,5 @@
-//! limbo-rs: `limbo serve` in Rust. Every other command is handed, unchanged, to the Go limbo binary (docs/RUST_PORT.md).
+//! limbo-rs: `limbo serve` and the socket-client commands (quarantine, settings, instance, license, exchange) in Rust.
+//! Every other command is handed, unchanged, to the Go limbo binary (docs/RUST_PORT.md).
 
 use std::os::unix::process::CommandExt;
 
@@ -24,7 +25,49 @@ fn go_binary() -> Option<String> {
     })
 }
 
+/// The socket-client commands in Rust (src/cli/commands.rs), when their arguments and the environment they read are
+/// UTF-8 (otherwise the Go limbo runs them, as it did before: it takes any bytes).
+fn cli_command(args: &[std::ffi::OsString]) -> Option<i32> {
+    const VARS: [&str; 5] = ["SUDO_USER", "USER", "PKEXEC_UID", "SUDO_UID", "SUDO_GID"];
+    let cmd = args.get(1)?.to_str()?;
+    if !matches!(cmd, "quarantine" | "settings" | "instance" | "license" | "exchange") {
+        return None;
+    }
+    let rest: Vec<String> = args[2..].iter().map(|a| a.to_str().map(String::from)).collect::<Option<_>>()?;
+    if VARS.iter().any(|v| std::env::var_os(v).is_some_and(|x| x.to_str().is_none())) {
+        return None;
+    }
+    let env = |k: &str| std::env::var(k).unwrap_or_default();
+    let stdin_is_char_device = rustix::fs::fstat(std::io::stdin())
+        .is_ok_and(|st| rustix::fs::FileType::from_raw_mode(st.st_mode) == rustix::fs::FileType::CharacterDevice);
+    let (mut stdin, stdout, mut stderr) = (std::io::stdin().lock(), std::io::stdout(), std::io::stderr().lock());
+    let mut out = stdout.lock();
+    let mut io = limbo::cli::commands::Io {
+        env: &env,
+        euid: rustix::process::geteuid().as_raw(),
+        stdin: &mut stdin,
+        stdin_is_char_device,
+        out: &mut out,
+        err: &mut stderr,
+    };
+    let r = limbo::cli::commands::run(cmd, &rest, &mut io)?;
+    use std::io::Write;
+    let _ = out.flush();
+    Some(match r {
+        Ok(()) => 0,
+        Err(limbo::cli::commands::Fail::Silent) => 1,
+        Err(limbo::cli::commands::Fail::Msg(m)) => {
+            let _ = writeln!(stderr, "limbo: {m}");
+            1
+        }
+    })
+}
+
 fn main() {
+    let os_args: Vec<std::ffi::OsString> = std::env::args_os().collect();
+    if let Some(code) = cli_command(&os_args) {
+        std::process::exit(code);
+    }
     let args: Vec<String> = std::env::args().collect();
     if args.get(1).map(String::as_str) == Some("serve") {
         if let Err(e) = limbo::serve::run(&args[2..]) {
@@ -34,7 +77,10 @@ fn main() {
         return;
     }
     if args.get(1).map(String::as_str) == Some("rs-version") {
-        println!("limbo-rs {} (serve in Rust; every other command runs the Go limbo)", env!("CARGO_PKG_VERSION"));
+        println!(
+            "limbo-rs {} (serve, quarantine, settings, instance, license and exchange in Rust; every other command runs the Go limbo)",
+            env!("CARGO_PKG_VERSION")
+        );
         return;
     }
     match go_binary() {
@@ -44,7 +90,7 @@ fn main() {
             std::process::exit(1);
         }
         None => {
-            eprintln!("limbo: only 'serve' is built into limbo-rs, and no Go limbo was found (set LIMBO_GO_BINARY)");
+            eprintln!("limbo: this command runs the Go limbo, and none was found (set LIMBO_GO_BINARY)");
             std::process::exit(2);
         }
     }

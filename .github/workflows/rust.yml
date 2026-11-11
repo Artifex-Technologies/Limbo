@@ -1,5 +1,5 @@
-# The Rust port of limbo serve (rust/): the Go fixtures current, build, tests (the fixtures included), lints, the
-# daemon differential run, and a dependency audit. docs/RUST_PORT.md.
+# The Rust port of limbo serve and the socket-client commands (rust/): the Go fixtures current, build, tests (the
+# fixtures included), lints, the daemon and CLI differential runs, and a dependency audit. docs/RUST_PORT.md.
 name: rust
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
         with:
           go-version: "1.27"
       - name: the Go fixtures are current
-        run: go test ./internal/... -run Parity
+        run: go test ./internal/... ./cmd/limbo -run Parity
       - run: rustup toolchain install stable --profile minimal --component clippy,rustfmt
       - working-directory: rust
         run: cargo fmt --all --check
@@ -39,6 +39,8 @@ jobs:
           python3 -I rust/parity/daemon-differential.py --go /tmp/limbo-go --rs rust/target/release/limbo-rs --out /tmp/ld --idle 5
           # the NFLOG part ran: both daemons wrote flow events
           grep -q '"kind":"net.flow"' /tmp/ld/go/state/events.jsonl
+      - name: both CLIs on the same scripted socket
+        run: python3 -I rust/parity/cli-differential.py --go /tmp/limbo-go --rs rust/target/release/limbo-rs --out /tmp/lcd
   audit:
     runs-on: ubuntu-latest
     steps:
