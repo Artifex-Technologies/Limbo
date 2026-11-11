@@ -1296,8 +1296,7 @@ if [ -d /opt ]; then /usr/bin/mount --rbind "$W/opt" /opt || exit 97; fi
 /usr/bin/mkdir -p "$B" /tmp/.X11-unix || exit 97
 /usr/bin/mount --rbind /mnt "$B" || exit 97
 /usr/bin/mount --bind "$W/x11" /tmp/.X11-unix || exit 97
-/usr/bin/mount -t tmpfs -o mode=755 tmpfs /etc || exit 97
-/usr/bin/cp -a "$W/etc/." /etc/ || exit 97
+/usr/bin/mount --rbind "$W/etc" /etc || exit 97
 cd "$W/$NS_CWD" || exit 97
 if [ -n "$NS_PWD" ]; then export PWD="$NS_PWD"; fi
 if [ -n "$NS_USER" ]; then exec /usr/bin/unshare -U --map-user="$NS_USER" --map-group="$NS_USER" -- "$@"; fi
@@ -1382,6 +1381,8 @@ def wine_cases():
         drm + "card1/": "", drm + "renderD128/": "", "sys/devices/system/cpu/": "", "sys/dev/char/": "",
         "sys/module/nvidia/": "", "sys/module/nvidia_drm/": "", "opt/fakegpu/lib/": "",
         "etc/passwd": pw, "etc/group": gr, "etc/ld.so.cache@": "{W}/realetc/ld.so.cache",
+        # the host's alternatives (Debian's /usr/bin links through them), for the fakes' own commands
+        "etc/alternatives@": "{W}/realetc/alternatives",
         "etc/localtime@": "/usr/share/zoneinfo/UTC", "etc/fonts/": "", "etc/ssl/": "", "etc/nsswitch.conf": "", "etc/pulse/": "",
         "etc/alsa/": "", "etc/vulkan/icd.d/fake.json": json.dumps({"ICD": {"library_path": "/opt/fakegpu/lib/libfake.so"}}),
         "etc/vulkan/icd.d/other.json": '{"ICD":{"library_path":"libnvidia.so.0"}}', "etc/resolv.conf": "", "etc/hosts": "",
@@ -1778,6 +1779,11 @@ def main():
     for c in cs:
         g = run_one(go, c, base)
         r = run_one(rs, c, base)
+        if c.get("nsrun") and 97 in (g["exit"], r["exit"]):
+            # nsrun's own failure: the namespace was not made, so nothing was compared
+            bad += 1
+            print(f"NAMESPACE FAILED {c['name']}: go {g['stderr'][-300:]!r} rs {r['stderr'][-300:]!r}")
+            continue
         diffs = [k for k in ("stdout", "stderr", "exit", "requests", "files") if g[k] != r[k]]
         comparisons += 5
         if a.show:

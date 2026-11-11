@@ -567,7 +567,7 @@ func TestParityWine(t *testing.T) {
 	programs := []string{"notepad", `C:\Program Files\App\app.exe`, `c:\Program Files\App\app.exe`, `C:\out.exe`, `C:\in.exe`, `C:\missing.exe`,
 		`C:\..\..\..\prog.exe`, `C:\`, `C:x.exe`, `D:\x.exe`, "{R}/prog.exe", "{R}/ro/x.exe", "./prog.exe", "prog.exe", "ro/../prog.exe",
 		"{R}/home/.local/share/limbo/wine/game/drive_c/Program Files/App/app.exe", "{R}/home/.local/share/limbo/wine/game/drive_c/out.exe",
-		"{R}/link/x.exe", "/usr/bin/true", ""}
+		"{R}/link/x.exe", "/usr/limbo-parity-missing.exe", ""}
 	runFlags := []Flags{{}, {Share: []string{"{R}/ro"}}, {Share: []string{"{R}"}}, {Trace: true, Windows: "win81"}, {Arch: "win32"},
 		{Headless: true, Network: true}, {Windows: "bogus"}, {ShareRW: []string{"{R}/home/.ssh"}}, {Share: []string{"{R}/home/Games"}, ShareRW: []string{"{R}/x,y%z"}}}
 	for _, prefix := range []string{"game", "new", "half", "w32", "regdir", "absent", "Bad"} {
