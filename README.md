@@ -114,6 +114,10 @@ MPL-2.0, so nothing may be copied from them). What is adopted is recorded here.
 Reference claims in the docs come from prior knowledge until Milestone 0
 verifies them against current source.
 
+## Version
+
+`VERSION` is Limbo's own version (1.0.0 since 2026-11-11, its first numbered release); its package is `limbo-git` `VERSION-<build number>`. How the numbers work and how to make a release: [Labyrinth_OS docs/VERSIONING.md](https://github.com/Artifex-Technologies/Labyrinth_OS/blob/main/docs/VERSIONING.md).
+
 ## License
 
 MPL 2.0. See [`LICENSE`](LICENSE).
