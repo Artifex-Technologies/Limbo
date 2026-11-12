@@ -167,7 +167,11 @@ impl FlagSet {
                     let v = value.unwrap_or_else(|| "true".into());
                     match parse_bool(&v) {
                         Some(x) => self.flags[i].value = x.to_string(),
-                        None => return Err(self.fail(format!("invalid boolean value {} for -{name}: parse error", quote(&v)), stderr)),
+                        None => {
+                            // Go's boolValue.Set stores ParseBool's false before it reports the error
+                            self.flags[i].value = "false".into();
+                            return Err(self.fail(format!("invalid boolean value {} for -{name}: parse error", quote(&v)), stderr));
+                        }
                     }
                 }
                 kind => {
