@@ -49,6 +49,7 @@ import (
 	"syscall"
 	"time"
 
+	limbo "github.com/Artifex-Technologies/Limbo"
 	"github.com/Artifex-Technologies/Limbo/internal/api"
 	"github.com/Artifex-Technologies/Limbo/internal/engine"
 	"github.com/Artifex-Technologies/Limbo/internal/events"
@@ -67,10 +68,8 @@ import (
 	"github.com/Artifex-Technologies/Limbo/internal/virt"
 )
 
-const version = "0.1.0-dev"
-
 func main() {
-	api.Version = version
+	api.Version = limbo.Version
 	if err := run(os.Args[1:]); err != nil {
 		var status exitStatus
 		if errors.As(err, &status) {
@@ -96,7 +95,7 @@ func run(args []string) error {
 	cmd, rest := args[0], args[1:]
 	switch cmd {
 	case "version":
-		fmt.Println(version)
+		fmt.Println(limbo.Version)
 		return nil
 	case "serve":
 		return serve(rest)

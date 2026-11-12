@@ -92,7 +92,7 @@ fn main() {
     if first == Some("rs-version") {
         println!(
             "limbo-rs {} (serve, quarantine, settings, instance, license, exchange, version, validate, plan, seed, address, report, analyze, image, doctor, setup, up, down, launch, export, screenshot, passthrough and wine in Rust; every other command runs the Go limbo)",
-            env!("CARGO_PKG_VERSION")
+            limbo::api::VERSION
         );
         return;
     }

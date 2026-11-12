@@ -3,9 +3,9 @@
 name: rust
 on:
   push:
-    paths: ["rust/**", "internal/**", "testdata/**", "cmd/**", ".github/workflows/rust.yml"]
+    paths: ["rust/**", "internal/**", "testdata/**", "cmd/**", "VERSION", "version.go", ".github/workflows/rust.yml"]
   pull_request:
-    paths: ["rust/**", "internal/**", "testdata/**", "cmd/**", ".github/workflows/rust.yml"]
+    paths: ["rust/**", "internal/**", "testdata/**", "cmd/**", "VERSION", "version.go", ".github/workflows/rust.yml"]
   schedule:
     - cron: "23 5 * * 1" # the audit weekly, for advisories published after the last change
 permissions:

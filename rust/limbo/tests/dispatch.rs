@@ -66,6 +66,6 @@ fn no_go_stops_instead_of_running_go() {
     }
     let out = limbo(&go, &[b"rs-version"], false);
     assert_eq!(out.status.code(), Some(0));
-    assert!(out.stdout.starts_with(b"limbo-rs "));
+    assert!(out.stdout.starts_with(format!("limbo-rs {} (", limbo::api::VERSION).as_bytes()), "Limbo's VERSION");
     std::fs::remove_dir_all(go.parent().unwrap()).unwrap();
 }

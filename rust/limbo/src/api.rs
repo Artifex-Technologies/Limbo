@@ -18,8 +18,9 @@ use crate::{detail, go_struct, gotext, sys, Detail, Refusal};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-/// Reported by GET /v1/status; the Go limbo's version string, so the Settings page sees the same daemon contract.
-pub const VERSION: &str = "0.1.0-dev";
+/// Limbo's version: the VERSION file at the top of the repository, read when this is built (Labyrinth_OS's
+/// docs/VERSIONING.md), as the Go limbo embeds it. Reported by GET /v1/status and printed by `limbo version` and `limbo rs-version`.
+pub const VERSION: &str = include_str!("../../../VERSION").trim_ascii();
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Principal {

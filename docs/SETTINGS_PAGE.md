@@ -165,7 +165,7 @@ Every failure is a JSON object, with an HTTP status:
 `GET /v1/status` (`limbo settings show --json` returns this as `status`, together with `instances` and `licenses`):
 
 ```json
-{"version": "0.1.0-dev", "running": true, "kvm": true, "ask_password": true,
+{"version": "1.0.0", "running": true, "kvm": true, "ask_password": true,
  "space": {"total_bytes": 21474836480, "images_bytes": 8589934592, "guests_bytes": 1073741824,
            "evidence_bytes": 0, "exchange_bytes": 4096},
  "instances": {"total": 3, "running": 1, "held": 0}}
