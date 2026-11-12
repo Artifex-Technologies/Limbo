@@ -41,7 +41,9 @@ const parityHome = "home"
 
 func parityTree() []treeEntry {
 	d := func(p string, mode int) treeEntry { return treeEntry{Path: p, Kind: "dir", Mode: mode} }
-	f := func(p, body string, mode int) treeEntry { return treeEntry{Path: p, Kind: "file", Body: body, Mode: mode} }
+	f := func(p, body string, mode int) treeEntry {
+		return treeEntry{Path: p, Kind: "file", Body: body, Mode: mode}
+	}
 	l := func(p, target string) treeEntry { return treeEntry{Path: p, Kind: "link", Body: target} }
 	w := "home/.local/share/limbo/wine/"
 	return []treeEntry{
@@ -214,7 +216,7 @@ func genHost(r *rand.Rand) Host {
 	}
 	h := Host{UID: r.Intn(70000), GID: r.Intn(70000), User: one("ada", "bob", "", "a b", "x:y"), Group: one("ada", "users", ""),
 		Home: one("/home/ada", "/home/ada", "/", "", "rel/home", "/home/ada/", "/srv/x y", "/home/ada/../bob"),
-		Env: map[string]string{}, RootLinks: map[string]string{}, Etc: map[string]bool{}}
+		Env:  map[string]string{}, RootLinks: map[string]string{}, Etc: map[string]bool{}}
 	if h.User == "" && pick(0.7) {
 		h.User = "carol"
 	}
@@ -604,7 +606,7 @@ func TestParityWine(t *testing.T) {
 			Args: []string{"-x", "é\u2028"}, ProgramPath: "/r/a.exe", ProgramSHA256: "cd", ProgramSize: 5, Cwd: "/c", Arch: "win64", Windows: "win10",
 			Started: t1, Ended: &t2, Status: "exited", ExitCode: &code3, Stopped: "interrupt",
 			Allowed: allowed(optSets[8], &Sandbox{GPU: true, Display: []string{"wayland", "x11"}, Audio: "pulse"}),
-			Trace: &Trace{File: "/t/trace.log", Channels: TraceChannels, Bytes: 12, Limit: TraceLimit, Truncated: true}},
+			Trace:   &Trace{File: "/t/trace.log", Channels: TraceChannels, Bytes: 12, Limit: TraceLimit, Truncated: true}},
 		{Args: []string{}, Started: time.Time{}, Ended: &t1, ExitCode: &code0, Allowed: allowed(Options{}, &Sandbox{})},
 	}
 	for _, rec := range recs {
