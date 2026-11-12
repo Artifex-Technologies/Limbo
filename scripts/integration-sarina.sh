@@ -11,8 +11,8 @@
 # would in production.
 #   sudo scripts/integration-sarina.sh   (Sarina's Go binary, /usr/bin/sarina, as installed)
 #   sudo SARINA_BIN=/path/to/sarina scripts/integration-sarina.sh   (another build of it)
-# Sarina is Go since 2026-11: the old Python service (python3 -m sarina.service from the Sarina repo) is used only when
-# no Go binary is found.
+# With neither it stops (scripts/it-common.sh): the old fallback, `python3 -m sarina.service` from the Sarina repo, ran a
+# module Sarina deleted on 2026-10-05.
 set -u
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -68,18 +68,12 @@ start_stack() { # start_stack <script.json>: fresh fake model + Sarina service f
   [ -n "$MODEL$SERVICE" ] && wait $MODEL $SERVICE 2>/dev/null
   : >"$WORK/model.jsonl"
   python3 "$REPO/scripts/fake_model.py" 8997 "$WORK/model.jsonl" "$1" & MODEL=$!
-  # SARINA_BIN is Sarina's Go binary ("sarina service", set by pick_sarina); empty only when none is installed.
+  # SARINA_BIN is Sarina's Go binary ("sarina service", set by pick_sarina).
   # Discovery off: the Go agent otherwise probes the model server for its context window, and this
   # scripted fake model would count that probe as one of its steps.
-  if [ -n "${SARINA_BIN:-}" ]; then
-    ( cd / && exec runuser -u its-sarina -- env SARINA_LIMBO_SOCKET="$RUN/agent.sock" HOME="$WORK/sarina" SARINA_CONTEXT_DISCOVERY=0 \
-        "$SARINA_BIN" service --port 8898 --token t --base-url http://127.0.0.1:8997/v1 \
-        --model fake --api-key x --session-dir "$WORK/sarina/sessions" --scratchpad-root "$WORK/sarina/scratch" ) >"$WORK/service.log" 2>&1 &
-  else
-  ( cd "$SARINA_REPO" && exec runuser -u its-sarina -- env SARINA_LIMBO_SOCKET="$RUN/agent.sock" HOME="$WORK/sarina" \
-      PYTHONPATH="$SARINA_REPO" python3 -m sarina.service --port 8898 --token t --base-url http://127.0.0.1:8997/v1 \
+  ( cd / && exec runuser -u its-sarina -- env SARINA_LIMBO_SOCKET="$RUN/agent.sock" HOME="$WORK/sarina" SARINA_CONTEXT_DISCOVERY=0 \
+      "$SARINA_BIN" service --port 8898 --token t --base-url http://127.0.0.1:8997/v1 \
       --model fake --api-key x --session-dir "$WORK/sarina/sessions" --scratchpad-root "$WORK/sarina/scratch" ) >"$WORK/service.log" 2>&1 &
-  fi
   SERVICE=$!; PIDS="$PIDS $MODEL $SERVICE"
   # healthy, and it is the service started here (not another program on the port)
   waitfor 30 curl -s -o /dev/null http://127.0.0.1:8898/healthz && kill -0 "$SERVICE" 2>/dev/null

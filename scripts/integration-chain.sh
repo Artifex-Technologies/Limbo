@@ -75,16 +75,10 @@ trap cleanup EXIT
 
 # --- Sarina's real service, with a fake model behind it --------------------------
 python3 "$REPO/scripts/fake_model.py" $MPORT "$WORK/model.jsonl" & PIDS="$PIDS $!"
-if [ -n "${SARINA_BIN:-}" ]; then
-  # Sarina's Go binary; discovery off so the scripted fake model does not count the probe as a step.
-  ( cd / && exec env SARINA_CONTEXT_DISCOVERY=0 "$SARINA_BIN" service --port $SPORT --token chain-token \
-      --base-url http://127.0.0.1:$MPORT/v1 --model fake --api-key x \
-      --session-dir "$WORK/sarina-sessions" --scratchpad-root "$WORK/sarina-scratch" ) >"$WORK/sarina.log" 2>&1 &
-else
-( cd "$SARINA_REPO" && exec python3 -m sarina.service --port $SPORT --token chain-token \
+# Sarina's Go binary (pick_sarina); discovery off so the scripted fake model does not count the probe as a step.
+( cd / && exec env SARINA_CONTEXT_DISCOVERY=0 "$SARINA_BIN" service --port $SPORT --token chain-token \
     --base-url http://127.0.0.1:$MPORT/v1 --model fake --api-key x \
     --session-dir "$WORK/sarina-sessions" --scratchpad-root "$WORK/sarina-scratch" ) >"$WORK/sarina.log" 2>&1 &
-fi
 SARINA=$!; PIDS="$PIDS $SARINA"
 
 # --- Limbo ----------------------------------------------------------------------

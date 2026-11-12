@@ -1,17 +1,19 @@
 # shellcheck shell=bash
-# Sourced by the real-guest scripts that need Sarina or local ports (integration-chain.sh, integration-sarina.sh).
+# Sourced by the real-guest scripts that need Sarina or local ports (integration-chain.sh, integration-sarina.sh,
+# integration-real-model.sh).
 
-# pick_sarina sets SARINA_BIN to Sarina's Go binary: the one given, else the installed /usr/bin/sarina. Sarina is Go
-# since 2026-11; when neither exists SARINA_BIN stays empty and the scripts fall back to the old Python service, which
-# needs the Sarina repo's Python package (gone from the repo, so that path fails loudly rather than quietly).
+# pick_sarina sets SARINA_BIN to Sarina's Go binary, whose `service` command is Sarina's integration service (the
+# `sarina-service` the sarina-git package installs is a link to it): the one given, else the installed /usr/bin/sarina.
+# With neither it stops: the scripts used to fall back to `python3 -m sarina.service` from the Sarina repo, a module
+# Sarina deleted on 2026-10-05, so that path could never start.
 pick_sarina() {
   if [ -z "${SARINA_BIN:-}" ] && [ -x /usr/bin/sarina ]; then SARINA_BIN=/usr/bin/sarina; fi
-  if [ -n "${SARINA_BIN:-}" ]; then
-    [ -x "$SARINA_BIN" ] || { echo "SARINA_BIN=$SARINA_BIN is not an executable"; exit 2; }
-    echo "== Sarina: $SARINA_BIN service"
-  else
-    echo "== Sarina: no Go binary (set SARINA_BIN); trying the old Python service from $SARINA_REPO"
+  if [ -z "${SARINA_BIN:-}" ]; then
+    echo "no Sarina binary: install sarina-git, or build one (cd \"$SARINA_REPO/go\" && go build -o /some/dir/sarina ./cmd/sarina) and set SARINA_BIN to it"
+    exit 2
   fi
+  [ -x "$SARINA_BIN" ] || { echo "SARINA_BIN=$SARINA_BIN is not an executable"; exit 2; }
+  echo "== Sarina: $SARINA_BIN service"
 }
 
 # need_free_ports stops the script when a port it is about to use for its own services is taken: a program already

@@ -376,6 +376,17 @@ heimdalld of the test user is stopped before and after (`stop_test_heimdalld`); 
 the advisory wait is 60 s and a failure shows this run's heimdalld and Sarina lines and the model's request count.
 `integration-real-model.sh` had the same leak and default paths: fixed the same way (`heimdall_isolation`).
 
+**The Sarina parts of these scripts could not have worked from 2026-10-05 until 2026-11-11** unless `SARINA_BIN` was
+set by hand. Without it, `integration-chain.sh`, `integration-sarina.sh` and `integration-real-model.sh` started
+`python3 -m sarina.service` from the Sarina repo, and Sarina deleted that module (`sarina/service/`) on 2026-10-05 when
+it moved to Go. The service never came up, so every check after "Sarina's service is up" in those runs is about a
+service that was not there (or, for chain, the installed one on 8899). `it-common.sh` defaulted to `/usr/bin/sarina` from
+2026-11-10 (chain and sarina); `integration-real-model.sh` kept the Python default until 2026-11-11. Since 2026-11-11
+none of them has a Python path: all three run `"$SARINA_BIN" service` with the same arguments (`--port`, `--token`,
+`--base-url`, `--model`, `--api-key`, `--session-dir`, `--scratchpad-root`, all flags of Sarina's
+`go/service/command.go`), `SARINA_BIN` being the one given or the installed `/usr/bin/sarina` (the binary that
+`sarina-service` links to), and `pick_sarina` stops the script when there is neither.
+
 `scripts/rust-checks.sh` runs every script with the Go daemon and with limbo-rs and lists the checks that differ, so a
 failure of the script or the computer is told apart from one of the port.
 

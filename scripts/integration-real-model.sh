@@ -6,7 +6,7 @@
 # torn down) and PRINTS what the model said so a person can judge its quality.
 #
 #   REAL_MODEL_URL=http://HOST:PORT/v1 [REAL_MODEL=qwen3] sudo -E scripts/integration-real-model.sh
-#   (add SARINA_BIN=/path/to/sarina to run Sarina's Go binary instead of the Python service)
+#   (Sarina's Go binary, /usr/bin/sarina, as installed; add SARINA_BIN=/path/to/sarina for another build of it)
 #
 # Under WSL's NAT networking a Windows-hosted Ollama needs a relay bound to the WSL
 # gateway address; see the notes in docs/ARCHITECTURE.md.
@@ -20,6 +20,7 @@ HEIMDALL_REPO="${HEIMDALL_REPO:-$GH/Heimdall}"
 SARINA_REPO="${SARINA_REPO:-$GH/Sarina}"
 REAL_URL="${REAL_MODEL_URL:?set REAL_MODEL_URL, e.g. http://127.0.0.1:11434/v1}"
 REAL_MODEL="${REAL_MODEL:-qwen3}"
+pick_sarina
 WORK="${LIMBO_IT_DIR:-/var/lib/limbo/itr}"
 BASE="${LIMBO_IT_IMAGE:-/var/lib/limbo/images/arch-cloudimg.qcow2}"
 export LIMBO_STATE_DIR="$WORK/state"
@@ -64,16 +65,10 @@ curl -s -m 15 "$REAL_URL/models" | grep -q "$REAL_MODEL" && ok "the model backen
 mkdir -p "$RUN"; chmod 755 "$RUN"
 "$LIMBO" serve --run-dir "$RUN" --state-dir "$LIMBO_STATE_DIR" --profile-dir "$WORK/profiles" >"$WORK/serve.log" 2>&1 & PIDS="$PIDS $!"
 waitfor 20 test -S "$RUN/control.sock" || { echo "limbo serve failed"; cat "$WORK/serve.log"; exit 2; }
-if [ -n "${SARINA_BIN:-}" ]; then
-  # Sarina's Go binary (SARINA_BIN=/path/to/sarina) instead of the Python service.
-  ( cd / && exec runuser -u its-sarina -- env SARINA_LIMBO_SOCKET="$RUN/agent.sock" HOME="$WORK/sarina" \
-      "$SARINA_BIN" service --port 8896 --token real-token --base-url "$REAL_URL" --model "$REAL_MODEL" --api-key x \
-      --session-dir "$WORK/sarina/sessions" --scratchpad-root "$WORK/sarina/scratch" ) >"$WORK/service.log" 2>&1 & PIDS="$PIDS $!"
-else
-( cd "$SARINA_REPO" && exec runuser -u its-sarina -- env SARINA_LIMBO_SOCKET="$RUN/agent.sock" HOME="$WORK/sarina" PYTHONPATH="$SARINA_REPO" \
-    python3 -m sarina.service --port 8896 --token real-token --base-url "$REAL_URL" --model "$REAL_MODEL" --api-key x \
+# Sarina's Go binary (pick_sarina), as its unprivileged user in limbo-agent.
+( cd / && exec runuser -u its-sarina -- env SARINA_LIMBO_SOCKET="$RUN/agent.sock" HOME="$WORK/sarina" \
+    "$SARINA_BIN" service --port 8896 --token real-token --base-url "$REAL_URL" --model "$REAL_MODEL" --api-key x \
     --session-dir "$WORK/sarina/sessions" --scratchpad-root "$WORK/sarina/scratch" ) >"$WORK/service.log" 2>&1 & PIDS="$PIDS $!"
-fi
 waitfor 30 curl -s -o /dev/null http://127.0.0.1:8896/healthz && ok "Sarina's real service is up on the real model" || bad "sarina-service: $(tail -3 "$WORK/service.log")"
 
 # ============================================================== Part A: the advisory
