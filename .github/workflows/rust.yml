@@ -3,9 +3,9 @@
 name: rust
 on:
   push:
-    paths: ["rust/**", "internal/**", "testdata/**", "cmd/**", "VERSION", "version.go", ".github/workflows/rust.yml"]
+    paths: ["rust/**", "internal/**", "testdata/**", "cmd/**", "VERSION", "*.go", ".github/workflows/rust.yml"]
   pull_request:
-    paths: ["rust/**", "internal/**", "testdata/**", "cmd/**", "VERSION", "version.go", ".github/workflows/rust.yml"]
+    paths: ["rust/**", "internal/**", "testdata/**", "cmd/**", "VERSION", "*.go", ".github/workflows/rust.yml"]
   schedule:
     - cron: "23 5 * * 1" # the audit weekly, for advisories published after the last change
 permissions:
@@ -18,6 +18,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.27"
+      - name: every Go file is gofmt-formatted
+        run: |
+          unformatted=$(gofmt -l .)
+          [ -z "$unformatted" ] || { echo "run gofmt -w on:"; echo "$unformatted"; exit 1; }
       - name: the Go fixtures are current
         run: go test ./internal/... ./cmd/limbo -run Parity
       - run: rustup toolchain install stable --profile minimal --component clippy,rustfmt
