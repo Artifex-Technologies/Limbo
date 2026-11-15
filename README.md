@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/icon.png" width="128" alt="Limbo icon"></p>
+
 # Limbo
 
 Run Windows and Linux guest applications on a Linux host as seamless,
