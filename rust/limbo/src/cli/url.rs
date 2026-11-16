@@ -35,10 +35,7 @@ fn should_escape(c: u8, mode: Mode) -> bool {
         },
         _ => {}
     }
-    if mode == Mode::Fragment && matches!(c, b'!' | b'(' | b')' | b'*') {
-        return false;
-    }
-    true
+    !(mode == Mode::Fragment && matches!(c, b'!' | b'(' | b')' | b'*'))
 }
 
 fn unhex(c: u8) -> u8 {

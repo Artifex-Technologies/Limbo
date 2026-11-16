@@ -1,48 +1,13 @@
-//! limbo-rs: `limbo serve`, the socket-client commands (quarantine, settings, instance, license, exchange), the
-//! manifest and file commands (version, validate, plan, seed, address, report), analyze, image, doctor, setup and the
-//! guest commands (up, down, launch, export, screenshot), passthrough and wine in Rust.
-//! Every other command is handed, unchanged, to the Go limbo binary (docs/RUST_PORT.md).
+//! limbo-rs, installed as /usr/bin/limbo: `limbo serve` and every command of the CLI, in Rust. The Go limbo it was
+//! ported from left the repository on 2026-11-15; rust/parity compares the two against the Go build of a pinned commit
+//! (docs/RUST_PORT.md "The Go side").
 
-use std::os::unix::process::CommandExt;
+/// The variables the commands read through `Io::env`. One that is not UTF-8 is refused: the Go limbo took any bytes,
+/// and reading it as "" or with U+FFFD would act on something other than what was given.
+const VARS: [&str; 9] = ["SUDO_USER", "USER", "PKEXEC_UID", "SUDO_UID", "SUDO_GID", "HOME", "LIMBO_STATE_DIR", "TMPDIR", "WAYLAND_DISPLAY"];
 
-/// Where the Go binary is: $LIMBO_GO_BINARY, then `limbo-go` beside this binary (the integration scripts), then
-/// /usr/lib/limbo/limbo-go (where a package puts it once limbo-rs becomes /usr/bin/limbo), then /usr/bin/limbo while
-/// that is still the Go one.
-fn go_binary() -> Option<String> {
-    let me = std::env::current_exe().ok().and_then(|p| std::fs::canonicalize(p).ok());
-    let mut cands = vec![];
-    if let Ok(p) = std::env::var("LIMBO_GO_BINARY") {
-        if !p.is_empty() {
-            cands.push(p);
-        }
-    }
-    if let Some(dir) = me.as_ref().and_then(|p| p.parent()) {
-        cands.push(dir.join("limbo-go").to_string_lossy().into_owned());
-    }
-    cands.push("/usr/lib/limbo/limbo-go".into());
-    cands.push("/usr/bin/limbo".into());
-    cands.into_iter().find(|c| {
-        let canon = std::fs::canonicalize(c).ok();
-        canon.is_some() && canon != me
-    })
-}
-
-/// The commands ported so far (src/cli/commands.rs, src/cli/local.rs), when their arguments and the environment they read are
-/// UTF-8 (otherwise the Go limbo runs them, as it did before: it takes any bytes).
-fn cli_command(args: &[std::ffi::OsString]) -> Option<i32> {
-    const VARS: [&str; 9] =
-        ["SUDO_USER", "USER", "PKEXEC_UID", "SUDO_UID", "SUDO_GID", "HOME", "LIMBO_STATE_DIR", "TMPDIR", "WAYLAND_DISPLAY"];
-    let cmd = match args.get(1) {
-        Some(c) => Some(c.to_str()?),
-        None => None,
-    };
-    if cmd == Some("rs-version") {
-        return None;
-    }
-    let rest: Vec<String> = args.get(2..).unwrap_or_default().iter().map(|a| a.to_str().map(String::from)).collect::<Option<_>>()?;
-    if VARS.iter().any(|v| std::env::var_os(v).is_some_and(|x| x.to_str().is_none())) {
-        return None;
-    }
+/// Every command but `serve` and `rs-version` (src/cli/commands.rs, src/cli/local.rs), with its exit status.
+fn cli_command(cmd: Option<&str>, rest: &[String]) -> i32 {
     let env = |k: &str| std::env::var(k).unwrap_or_default();
     let stdin_is_char_device = rustix::fs::fstat(std::io::stdin())
         .is_ok_and(|st| rustix::fs::FileType::from_raw_mode(st.st_mode) == rustix::fs::FileType::CharacterDevice);
@@ -56,13 +21,15 @@ fn cli_command(args: &[std::ffi::OsString]) -> Option<i32> {
         out: &mut out,
         err: &mut stderr,
     };
-    let r = match cmd.and_then(|c| limbo::cli::commands::run(c, &rest, &mut io)) {
+    let r = match cmd.and_then(|c| limbo::cli::commands::run(c, rest, &mut io)) {
         Some(r) => r,
-        None => limbo::cli::local::run(cmd, &rest, &mut io)?,
+        // local::run answers every command but serve, which main runs before it
+        None => limbo::cli::local::run(cmd, rest, &mut io)
+            .unwrap_or_else(|| Err(limbo::cli::commands::Fail::Msg(format!("unknown command {:?}", cmd.unwrap_or_default())))),
     };
     use std::io::Write;
     let _ = out.flush();
-    Some(match r {
+    match r {
         Ok(()) => 0,
         Err(limbo::cli::commands::Fail::Silent) => 1,
         Err(limbo::cli::commands::Fail::Exit(code)) => code,
@@ -70,49 +37,36 @@ fn cli_command(args: &[std::ffi::OsString]) -> Option<i32> {
             let _ = writeln!(stderr, "limbo: {m}");
             1
         }
-    })
+    }
 }
 
 fn main() {
+    // std::env::args() would panic on an argument that is not UTF-8; as /usr/bin/limbo that panic would be every
+    // command's, the daemon's included. Such a command line is refused instead (the Go limbo took any bytes).
     let os_args: Vec<std::ffi::OsString> = std::env::args_os().collect();
-    if let Some(code) = cli_command(&os_args) {
-        std::process::exit(code);
-    }
-    // Arguments that are not UTF-8 go to the Go limbo unchanged (it takes any bytes): std::env::args() would panic on
-    // them, and since limbo-rs is /usr/bin/limbo that panic would be every command's.
-    let first = os_args.get(1).and_then(|a| a.to_str());
-    let utf8: Option<Vec<String>> = os_args.iter().map(|a| a.to_str().map(String::from)).collect();
-    if let (Some("serve"), Some(args)) = (first, &utf8) {
-        if let Err(e) = limbo::serve::run(&args[2..]) {
-            eprintln!("limbo: {e}");
-            std::process::exit(1);
+    let Some(args) = os_args.iter().map(|a| a.to_str().map(String::from)).collect::<Option<Vec<String>>>() else {
+        let n = os_args.iter().position(|a| a.to_str().is_none()).unwrap_or(0);
+        eprintln!("limbo: argument {n} is not UTF-8 ({:?}); limbo reads its command line as UTF-8", os_args[n]);
+        std::process::exit(2);
+    };
+    let first = args.get(1).map(String::as_str);
+    match first {
+        Some("serve") => {
+            if let Err(e) = limbo::serve::run(&args[2..]) {
+                eprintln!("limbo: {e}");
+                std::process::exit(1);
+            }
+            return;
         }
-        return;
+        Some("rs-version") => {
+            println!("limbo-rs {} (every command in Rust)", limbo::api::VERSION);
+            return;
+        }
+        _ => {}
     }
-    if first == Some("rs-version") {
-        println!(
-            "limbo-rs {} (serve, quarantine, settings, instance, license, exchange, version, validate, plan, seed, address, report, analyze, image, doctor, setup, up, down, launch, export, screenshot, passthrough and wine in Rust; every other command runs the Go limbo)",
-            limbo::api::VERSION
-        );
-        return;
-    }
-    // the differential runs (rust/parity) set this, so a command that is not ported fails instead of running Go
-    if std::env::var_os("LIMBO_RS_NO_GO").is_some() {
-        eprintln!(
-            "limbo-rs: {} is not ported (LIMBO_RS_NO_GO is set)",
-            os_args.get(1).map_or(std::borrow::Cow::Borrowed(""), |a| a.to_string_lossy())
-        );
+    if let Some(v) = VARS.iter().find(|v| std::env::var_os(v).is_some_and(|x| x.to_str().is_none())) {
+        eprintln!("limbo: ${v} is not UTF-8; limbo reads it");
         std::process::exit(2);
     }
-    match go_binary() {
-        Some(go) => {
-            let err = std::process::Command::new(&go).arg0("limbo").args(os_args.get(1..).unwrap_or_default()).exec();
-            eprintln!("limbo: cannot run the Go limbo ({go}): {err}");
-            std::process::exit(1);
-        }
-        None => {
-            eprintln!("limbo: this command runs the Go limbo, and none was found (set LIMBO_GO_BINARY)");
-            std::process::exit(2);
-        }
-    }
+    std::process::exit(cli_command(first, args.get(2..).unwrap_or_default()));
 }

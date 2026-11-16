@@ -1,71 +1,67 @@
-//! main.rs's dispatch as the package installs it (/usr/bin/limbo is limbo-rs): a command limbo-rs does not run itself
-//! reaches the Go limbo with its arguments unchanged, bytes that are not UTF-8 included (std::env::args() would panic on
-//! them); LIMBO_RS_NO_GO (the differential runs only) stops it instead. The Go limbo here is a fake that prints its
-//! arguments, one per line; nothing real is run.
+//! main.rs's dispatch as the package installs it (/usr/bin/limbo is limbo-rs, and there is no Go limbo to hand a
+//! command to since 2026-11-15): a command line that is not UTF-8, the daemon's included, is refused with exit status 2
+//! and never panics (std::env::args() would); so is a variable the commands read that is not UTF-8. `limbo wine` refuses
+//! only the variables it reads or hands to the sandbox; any other is left out, as it never reached the sandbox.
 
 use std::ffi::OsStr;
 use std::os::unix::ffi::OsStrExt;
-use std::os::unix::fs::PermissionsExt;
 use std::process::{Command, Output};
 
-fn fake_go() -> std::path::PathBuf {
-    let dir = std::env::temp_dir().join(format!("limbo-d-{}-{}", std::process::id(), limbo::sys::rand_hex(6)));
-    std::fs::create_dir_all(&dir).unwrap();
-    let go = dir.join("limbo-go");
-    std::fs::write(&go, "#!/bin/sh\nfor a in \"$@\"; do printf '%s\\n' \"$a\"; done\n").unwrap();
-    std::fs::set_permissions(&go, std::fs::Permissions::from_mode(0o755)).unwrap();
-    go
-}
-
-fn limbo(go: &std::path::Path, args: &[&[u8]], no_go: bool) -> Output {
+fn limbo(args: &[&[u8]], env: &[(&str, &[u8])]) -> Output {
     let mut c = Command::new(env!("CARGO_BIN_EXE_limbo-rs"));
-    c.args(args.iter().map(|a| OsStr::from_bytes(a))).env("LIMBO_GO_BINARY", go).env_remove("LIMBO_RS_NO_GO");
-    if no_go {
-        c.env("LIMBO_RS_NO_GO", "1");
+    c.args(args.iter().map(|a| OsStr::from_bytes(a)));
+    for (k, v) in env {
+        c.env(k, OsStr::from_bytes(v));
     }
     c.output().unwrap()
 }
 
-fn lines(args: &[&[u8]]) -> Vec<u8> {
-    args.iter().flat_map(|a| a.iter().copied().chain(*b"\n")).collect()
-}
-
 #[test]
-fn unported_and_non_utf8_commands_reach_go_unchanged() {
-    let go = fake_go();
-    let cases: [&[&[u8]]; 5] = [
-        &[b"net", b"watch", b"--json"],
+fn non_utf8_command_lines_are_refused_not_a_panic() {
+    let cases: [&[&[u8]]; 6] = [
         &[b"capture", b"--guest", b"g\xff\xfe"],
-        // a ported command whose arguments are not UTF-8 runs in Go, as it did before the port
         &[b"version", b"\xff"],
         &[b"quarantine", b"list", b"\xc3"],
-        // and so does the daemon: never a panic in limbo.service
+        &[b"\xff"],
+        &[b"wine", b"--", b"/tmp/a\xe9.exe"],
+        // the daemon too: never a panic in limbo.service
         &[b"serve", b"--state-dir", b"/var/lib/limbo/\xff"],
     ];
     for args in cases {
-        let out = limbo(&go, args, false);
-        assert_eq!(
-            (out.status.code(), String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr)),
-            (Some(0), String::from_utf8_lossy(&lines(args)), "".into()),
-            "{args:?}"
-        );
-        assert_eq!(out.stdout, lines(args), "{args:?}");
+        let out = limbo(args, &[]);
+        let err = String::from_utf8_lossy(&out.stderr);
+        assert_eq!(out.status.code(), Some(2), "{args:?}: {err}");
+        assert!(out.stdout.is_empty(), "{args:?}");
+        assert!(err.starts_with("limbo: argument ") && err.contains("is not UTF-8"), "{args:?}: {err}");
     }
-    std::fs::remove_dir_all(go.parent().unwrap()).unwrap();
 }
 
 #[test]
-fn no_go_stops_instead_of_running_go() {
-    let go = fake_go();
-    for args in [&[b"net".as_slice(), b"watch"][..], &[b"capture", b"\xff"]] {
-        let out = limbo(&go, args, true);
-        assert_eq!(out.status.code(), Some(2), "{args:?}");
-        assert!(out.stdout.is_empty(), "{args:?}");
-        let err = String::from_utf8_lossy(&out.stderr);
-        assert!(err.starts_with("limbo-rs: ") && err.contains("is not ported (LIMBO_RS_NO_GO is set)"), "{err}");
+fn non_utf8_variables_that_are_read_are_refused() {
+    for v in ["LIMBO_STATE_DIR", "SUDO_USER", "HOME"] {
+        let out = limbo(&[b"version"], &[(v, b"x\xff")]);
+        assert_eq!(out.status.code(), Some(2), "{v}");
+        assert_eq!(String::from_utf8_lossy(&out.stderr), format!("limbo: ${v} is not UTF-8; limbo reads it\n"));
     }
-    let out = limbo(&go, &[b"rs-version"], false);
+    // limbo wine reads the whole environment: a variable it uses is refused, any other left out
+    let out = limbo(&[b"wine", b"--bogus"], &[("DISPLAY", b":0\xff")]);
+    assert_eq!(String::from_utf8_lossy(&out.stderr), "limbo: wine: $DISPLAY is not UTF-8; limbo reads it\n");
+    let out = limbo(&[b"wine", b"--bogus"], &[("SOME_OTHER_THING", b"\xff")]);
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.starts_with("flag provided but not defined: -bogus"), "{err}");
+}
+
+#[test]
+fn ported_commands_and_rs_version_run_here() {
+    let out = limbo(&[b"rs-version"], &[]);
     assert_eq!(out.status.code(), Some(0));
-    assert!(out.stdout.starts_with(format!("limbo-rs {} (", limbo::api::VERSION).as_bytes()), "Limbo's VERSION");
-    std::fs::remove_dir_all(go.parent().unwrap()).unwrap();
+    assert!(out.stdout.starts_with(format!("limbo-rs {} (every command in Rust)", limbo::api::VERSION).as_bytes()));
+    for (args, want) in [
+        (&[b"net".as_slice()][..], "limbo: usage: limbo net watch [--seconds N]"),
+        (&[b"capture"], "limbo: capture: manifest path required"),
+    ] {
+        let out = limbo(args, &[]);
+        assert_eq!(out.status.code(), Some(1), "{args:?}");
+        assert!(String::from_utf8_lossy(&out.stderr).starts_with(want), "{args:?}");
+    }
 }

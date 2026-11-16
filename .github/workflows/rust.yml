@@ -39,12 +39,12 @@ jobs:
           sudo modprobe -a nf_tables nfnetlink_log nft_log || true
           sudo mkdir -p /etc/limbo
           CGO_ENABLED=0 go build -trimpath -o /tmp/limbo-go ./cmd/limbo
-          (cd rust && cargo build --locked --release)
+          (cd rust && cargo build --locked --release --bins --example usbmon_fake)
           python3 -I rust/parity/daemon-differential.py --go /tmp/limbo-go --rs rust/target/release/limbo-rs --out /tmp/ld --idle 5
           # the NFLOG part ran: both daemons wrote flow events
           grep -q '"kind":"net.flow"' /tmp/ld/go/state/events.jsonl
       - name: both CLIs on the same scripted socket
-        run: python3 -I rust/parity/cli-differential.py --go /tmp/limbo-go --rs rust/target/release/limbo-rs --out /tmp/lcd
+        run: python3 -I rust/parity/cli-differential.py --go /tmp/limbo-go --rs rust/target/release/limbo-rs --out /tmp/lcd --require-all
   audit:
     runs-on: ubuntu-latest
     steps:

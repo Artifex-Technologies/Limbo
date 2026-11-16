@@ -9,7 +9,10 @@ xfreerdp3 in such a namespace, /run/limbo/user.sock there being the scripted soc
 (made-up os-release, host policy and sysfs device folders bound over, the answer typed into a pty; passthrough_cases)
 and limbo wine (a made-up host: Limbo's fake bwrap, wine and wineserver over /usr/bin, a /dev, /sys, /opt, /etc and
 /tmp of the case's own with made-up graphics nodes, display and sound sockets and accounts; the dry run, then runs whose
-fake bwrap logs what it is given and acts the sandbox's part, never starting anything; wine_cases).
+fake bwrap logs what it is given and acts the sandbox's part, never starting anything; wine_cases), limbo net watch
+(real NFLOG packets from nft log rules on loopback in a user and network namespace of its own; net_cases) and limbo
+capture (made-up USB devices, a /dev of the namespace's own, and usbmon_fake answering usbmon's one ioctl from a
+script; capture_cases).
 
 A fake server listens on a unix socket in a scratch folder, records every request it gets (method, target, Host,
 Content-Length, Referer, Transfer-Encoding, the other header names, the body) and answers each with the next raw
@@ -1685,6 +1688,203 @@ class Server:
             pass
 
 
+# limbo net watch in a user and network namespace of its own (root there, nobody outside; loopback only): the real nft
+# loads log rules for Limbo's NFLOG group, the command starts, then the case's traffic goes out on loopback and is
+# logged to it with guests' prefixes. Never the host's network or the daemon's group.
+NSRUN_NET = r"""#!/bin/sh
+/usr/bin/ip link set lo up || exit 97
+if [ -n "$NS_RULES" ]; then "$NS_NFT" -f "$NS_RULES" || exit 97; fi
+"$@" &
+pid=$!
+/usr/bin/sleep 1
+if [ -n "$NS_TRAFFIC" ]; then "$NS_PY" -I "$NS_TRAFFIC" || exit 97; fi
+if [ -n "$NS_KILL" ]; then /usr/bin/sleep 0.5; kill -s "$NS_KILL" "$pid" 2>/dev/null || echo "nsrun: ended before the signal" >&2; fi
+wait "$pid"
+"""
+
+NET_RULES = """table inet difftest {
+  chain out {
+    type filter hook output priority 0; policy accept;
+    udp dport 9 log prefix "limbo:office:h" group 7213
+    udp dport 10 log prefix "limbo:office:d" group 7213
+    udp dport 11 log prefix "limbo:web:a" group 7213
+    tcp dport 12 log prefix "limbo:web:d" group 7213
+    udp dport 13 log prefix "other:x:a" group 7213
+    udp dport 14 log prefix "limbo:v6:a" group 7213
+  }
+}
+"""
+
+NET_TRAFFIC = """import socket
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+for port in (9, 10, 11, 13):
+    for host in ("127.0.0.1", "127.0.0.2", "127.0.0.3"):
+        for _ in range(3):
+            s.sendto(b"x", (host, port))
+for host in ("127.0.0.1", "127.0.0.4"):
+    t = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    t.settimeout(0.2)
+    try:
+        t.connect((host, 12))
+    except OSError:
+        pass
+    t.close()
+for i in range(25):
+    s.sendto(b"x", ("127.0.1.%d" % (i + 1), 10))
+s6 = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+s6.sendto(b"x", ("::1", 14))
+"""
+
+
+def net_cases():
+    """limbo net watch: argument errors as anyone; binding the group without the right to (an ordinary user); then in a
+    user and network namespace with real nft rules and loopback traffic: the events, a time limit, SIGTERM and SIGINT,
+    a limit that wraps. Times in the lines are normalised (the time now)."""
+    cs = []
+    nft = next((p for p in ("/usr/bin/nft", "/usr/sbin/nft", "/sbin/nft") if os.access(p, os.X_OK)), None)
+    # nft's log statement needs the nft_log module, which a user namespace cannot load (CI loads it; rust.yml)
+    logs = nft is not None and subprocess.run(["unshare", "-rn", nft, "-f", "-"], input=NET_RULES.encode(),
+                                              capture_output=True).returncode == 0
+    if not logs and REQUIRE_ALL:
+        sys.exit("--require-all: nft cannot load log rules in a user and network namespace (nft_log loaded?)")
+    if not logs:
+        print("nft cannot load log rules here (no nft, or no nft_log module): the net watch cases run with no packets",
+              file=sys.stderr)
+
+    def N(name, args, ns=True, traffic=True, kill="", rules=True):
+        rules, traffic = rules and logs, traffic and logs
+        e = {}
+        files = {}
+        if ns:
+            files = {"nsrun": NSRUN_NET, "rules.nft": NET_RULES, "traffic.py": NET_TRAFFIC}
+            e = {"NS_NFT": nft or "/nonexistent/nft", "NS_PY": sys.executable,
+                 "NS_RULES": "{W}/rules.nft" if rules else "", "NS_TRAFFIC": "{W}/traffic.py" if traffic else "",
+                 "NS_KILL": kill}
+        cs.append({"name": "net " + name, "cmd": "net", "args": list(args), "answers": [], "env": e, "stdin": b"",
+                   "files": files, "netns": ns, "norm": [(r'"time":"[^"]*"', '"time":"T"')]})
+
+    N("no args", [], ns=False)
+    N("unknown", ["frob"], ns=False)
+    N("two words", ["watch", "now"], ns=False)
+    N("bad seconds", ["watch", "--seconds", "x"], ns=False)
+    N("help", ["-h"], ns=False)
+    N("unknown flag", ["--frob", "watch"], ns=False)
+    N("not root", ["watch", "--seconds", "1"], ns=False)
+    N("watch", ["watch", "--seconds", "3"])
+    N("watch seconds first", ["--seconds=3", "watch"])
+    N("watch quiet", ["watch", "--seconds", "2"], traffic=False)
+    N("watch no rules", ["watch", "--seconds", "2"], rules=False)
+    N("watch sigterm", ["watch"], kill="TERM")
+    N("watch sigint", ["watch", "--seconds", "0"], kill="INT")
+    N("watch negative seconds", ["watch", "--seconds", "-5"], kill="TERM")
+    N("watch seconds wrap", ["watch", "--seconds", "9223372036854775807"], kill="TERM")
+    N("watch seconds wrap 2", ["watch", "--seconds", "9300000000"], kill="TERM")
+    return cs
+
+
+# limbo capture: the made-up USB devices bound over /sys/bus/usb/devices, a /dev of the namespace's own (the usual nodes
+# and an empty file at each /dev/usbmonN of NS_USBMON), and usbmon_fake (rust/limbo/examples/usbmon_fake.rs) answering
+# the one ioctl that reads usbmon from the case's script; every other call reaches the kernel. Never a device of this
+# computer, never the real usbmon.
+NSRUN_CAP = r"""#!/bin/sh
+/usr/bin/mount --bind "$NS_SYSUSB" /sys/bus/usb/devices || exit 97
+/usr/bin/mount -t tmpfs -o mode=755 tmpfs /run || exit 97
+/usr/bin/mkdir /run/dev || exit 97
+for n in null zero full random urandom; do /usr/bin/touch /run/dev/$n && /usr/bin/mount --bind /dev/$n /run/dev/$n || exit 97; done
+for n in $NS_USBMON; do /usr/bin/touch /run/dev/usbmon$n || exit 97; done
+/usr/bin/mount --rbind /run/dev /dev || exit 97
+if [ -n "$NS_USER" ]; then exec /usr/bin/unshare -U --map-user="$NS_USER" --map-group="$NS_USER" -- "$@"; fi
+if [ -n "$NS_FAKE" ]; then exec "$NS_FAKE" "$NS_SCRIPT" "$NS_LOG" -- "$@"; fi
+exec "$@"
+"""
+
+USBMON_FAKE = None  # set by main: the usbmon_fake binary
+REQUIRE_ALL = False  # set by main: --require-all
+
+
+def mon_hdr(bus, dev, sec=1700000000, usec=250000, cap=0, urb=None, typ=b"S", ep=0x81, id=0x1234):
+    """struct mon_bin_hdr (64 bytes) as hex."""
+    import struct
+    h = struct.pack("<QcBBBHcc", id, typ, 3, ep, dev, bus, b"-", b"<") + struct.pack("<qiiII", sec, usec, 0, cap if urb is None else urb, cap)
+    h += b"\0" * 8 + struct.pack("<iiII", 0, 0, 0, 0)
+    assert len(h) == 64
+    return h.hex()
+
+
+def capture_cases():
+    """limbo capture: every refusal before a recording (arguments, root, the manifest, the output, --seconds, the device
+    not plugged in or twice, two buses, no usbmon and the modprobe it runs, an output that exists), then recordings from
+    a script: the device's events and another device's on the same bus (never written), empty, short and oversized data,
+    a header claiming more than was captured, times before 1970 and with negative microseconds, EINTR and EAGAIN, an
+    error mid-way, SIGINT and SIGTERM, the hand-over to SUDO_UID. The pcap files are compared byte for byte (hashed)."""
+    cs = []
+    usb = {"sysusb/1-1/idVendor": "1234\n", "sysusb/1-1/idProduct": "ABCD\n", "sysusb/1-1/busnum": "77\n",
+           "sysusb/1-1/devnum": "5\n", "sysusb/1-1:1.0/": "", "sysusb/2-1/idVendor": "5059\n", "sysusb/2-1/idProduct": "4040\n",
+           "sysusb/2-1/busnum": "78\n", "sysusb/2-1/devnum": "9\n", "sysusb/3-1/idVendor": "5059\n",
+           "sysusb/3-1/idProduct": "4041\n", "sysusb/3-1/busnum": "77\n", "sysusb/3-1/devnum": "6\n",
+           "sysusb/usb1/idVendor": "1d6b\n", "sysusb/usb1/idProduct": "0002\n", "sysusb/usb1/busnum": "+77\n",
+           "sysusb/usb1/devnum": "x\n"}
+    one = mf(disposable=True, devices={"usb": ["1234:abcd"]})
+
+    def K(name, args, files=None, env=None, script=None, usbmon="77", fake=True, user=False):
+        e = {"PATH": "{W}/bin", "NS_SYSUSB": "{W}/sysusb", "NS_USBMON": usbmon, "SUDO_UID": "", "SUDO_GID": "",
+             "FAKE_LOG": "{W}/calls.log"}
+        f = {"nsrun": NSRUN_CAP, "m.json": one, "bin/modprobe*": fake_mod, **usb, **(files or {})}
+        if script is not None:
+            f["usbmon.script"] = script
+        if fake and USBMON_FAKE:
+            e.update({"NS_FAKE": USBMON_FAKE, "NS_SCRIPT": "{W}/usbmon.script", "NS_LOG": "{W}/usbmon.log"})
+            f.setdefault("usbmon.script", "")
+        if user:
+            e["NS_USER"] = "1000"
+        e.update(env or {})
+        cs.append({"name": "capture " + name, "cmd": "capture", "args": list(args), "answers": [], "env": e,
+                   "stdin": b"", "files": f, "nsrun": True})
+
+    fake_mod = fake("modprobe")
+    out = "{W}/out.pcap"
+    K("no manifest", [])
+    K("one arg", ["m.json"])
+    K("three args", ["m.json", out, "x"])
+    K("missing manifest", ["nope.json", out])
+    K("not root", ["m.json", out], user=True)
+    K("no usb", ["n.json", out], {"n.json": mf()})
+    K("relative output", ["m.json", "out.pcap"])
+    K("empty output", ["m.json", ""])
+    for sec in ("0", "3601", "-1", "x", "1e3"):
+        K(f"seconds {sec}", ["--seconds", sec, "m.json", out])
+    K("not plugged in", ["n.json", out], {"n.json": mf(disposable=True, devices={"usb": ["dead:beef"]})})
+    K("plugged in twice", ["m.json", out], {"sysusb/4-1/idVendor": "1234\n", "sysusb/4-1/idProduct": "abcd\n",
+                                             "sysusb/4-1/busnum": "79\n", "sysusb/4-1/devnum": "2\n"})
+    K("twice but one unreadable", ["--seconds", "1", "m.json", out], {"sysusb/4-1/idVendor": "1234\n", "sysusb/4-1/idProduct": "abcd\n",
+                                                    "sysusb/4-1/busnum": "79\n", "sysusb/4-1/devnum": "two\n"})
+    K("two buses", ["n.json", out], {"n.json": mf(disposable=True, devices={"usb": ["1234:abcd", "5059:4040"]})})
+    K("no usbmon", ["--seconds", "1", "m.json", out], usbmon="")
+    K("no usbmon modprobe fails", ["--seconds", "1", "m.json", out], env={"FAKE_FAIL_modprobe": "1"}, usbmon="")
+    K("output exists", ["m.json", out], {"out.pcap": "old"})
+    K("output folder missing", ["m.json", "{W}/no/out.pcap"])
+    if not USBMON_FAKE:
+        print("no usbmon_fake (cargo build --release --example usbmon_fake): the capture recordings are left out", file=sys.stderr)
+        return cs
+    K("quiet", ["--seconds", "1", "m.json", out])
+    ev = lambda *a, **k: "event " + mon_hdr(*a, **k)
+    K("events", ["--seconds", "1", "m.json", out], script="\n".join([
+        ev(77, 5, cap=8) + " 0102030405060708", ev(77, 6, cap=4) + " deadbeef", ev(78, 5, cap=2) + " 0a0b",
+        ev(77, 5, typ=b"C") + " -", ev(77, 5, cap=3, urb=64) + " 616263", ev(77, 5, sec=-5, usec=-1, cap=1) + " ff",
+        ev(77, 5, usec=2500000, cap=0) + " -", "errno 4", "errno 11", ev(77, 5, cap=70000) + " " + "ab" * 70000,
+        ev(77, 5, cap=10) + " " + "cd" * 4, ev(77, 5, sec=1 << 40, cap=1) + " 01"]) + "\n")
+    K("two devices one bus", ["--seconds", "1", "n.json", out],
+      {"n.json": mf(disposable=True, devices={"usb": ["1234:abcd", "5059:4041"]})},
+      script="\n".join([ev(77, 5, cap=1) + " 01", ev(77, 6, cap=1) + " 02", ev(77, 7, cap=1) + " 03"]) + "\n")
+    K("error mid-way", ["--seconds", "1", "m.json", out], script=ev(77, 5, cap=1) + " 01\nerrno 5\n" + ev(77, 5, cap=1) + " 02\n")
+    K("no such device", ["--seconds", "1", "m.json", out], script="errno 19\n")
+    K("sigint", ["--seconds", "30", "m.json", out], script=ev(77, 5, cap=1) + " 01\nsignal 2\n")
+    K("sigterm", ["--seconds", "30", "m.json", out], script=ev(77, 5, cap=1) + " 01\nsignal 15\n")
+    K("sudo user", ["--seconds", "1", "m.json", out], env={"SUDO_UID": "0", "SUDO_GID": "0"})
+    K("sudo user unmapped", ["--seconds", "1", "m.json", out], env={"SUDO_UID": "1000", "SUDO_GID": "1000"})
+    return cs
+
+
 def make_files(work, files):
     for name, content in files.items():
         p = os.path.join(work, name.rstrip("/@*="))
@@ -1758,6 +1958,9 @@ def run_one(binary, case, base):
     if case.get("nsrun"):
         # uid 0 in a user and mount namespace, Limbo's folders replaced by the case's (nsrun; never real root)
         argv = [shutil.which("unshare") or "/usr/bin/unshare", "-rm", "/bin/sh", os.path.join(work, "nsrun")] + argv
+    if case.get("netns"):
+        # uid 0 in a user and network namespace (loopback only): the NFLOG group is the namespace's own
+        argv = [shutil.which("unshare") or "/usr/bin/unshare", "-rn", "/bin/sh", os.path.join(work, "nsrun")] + argv
     if case.get("userns"):
         # uid 0 in a user namespace: the files made here are root's there (no real root)
         argv = [shutil.which("unshare") or "/usr/bin/unshare", "-r"] + argv
@@ -1800,21 +2003,31 @@ def main():
     ap.add_argument("--out", help="scratch folder (short: the socket lives in it); default a new one in the temp folder")
     ap.add_argument("--only", default="", help="run only the cases whose name contains this")
     ap.add_argument("--show", action="store_true", help="print each case's Go result")
+    ap.add_argument("--require-all", action="store_true",
+                    help="fail unless nft can load log rules (net watch's packets) and usbmon_fake is there (CI)")
+    ap.add_argument("--usbmon-fake", help="rust/limbo/examples/usbmon_fake built (default: examples/usbmon_fake beside --rs)")
     a = ap.parse_args()
     go, rs = os.path.abspath(a.go), os.path.abspath(a.rs)
+    global USBMON_FAKE
+    fk = os.path.abspath(a.usbmon_fake or os.path.join(os.path.dirname(rs), "examples", "usbmon_fake"))
+    USBMON_FAKE = fk if os.access(fk, os.X_OK) else None
+    global REQUIRE_ALL
+    REQUIRE_ALL = a.require_all
+    if REQUIRE_ALL and not USBMON_FAKE:
+        sys.exit(f"--require-all: no usbmon_fake at {fk}")
     base = a.out or tempfile.mkdtemp(prefix="lcd")
     os.makedirs(base, exist_ok=True)
     if len(os.path.join(base, "s")) >= 100:
         sys.exit(f"{base}: too long for a socket path")
     os.umask(0o022)
     cs = [c for c in cases() + local_cases() + analyze_cases() + image_cases() + setup_cases() + act_cases() + passthrough_cases()
-          + wine_cases() if a.only in c["name"]]
+          + wine_cases() + net_cases() + capture_cases() if a.only in c["name"]]
     bad = 0
     comparisons = 0
     for c in cs:
         g = run_one(go, c, base)
         r = run_one(rs, c, base)
-        if c.get("nsrun") and 97 in (g["exit"], r["exit"]):
+        if (c.get("nsrun") or c.get("netns")) and 97 in (g["exit"], r["exit"]):
             # nsrun's own failure: the namespace was not made, so nothing was compared
             bad += 1
             print(f"NAMESPACE FAILED {c['name']}: go {g['stderr'][-300:]!r} rs {r['stderr'][-300:]!r}")

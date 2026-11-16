@@ -5,12 +5,14 @@
 
 pub mod act;
 pub mod analyze;
+pub mod capture;
 pub mod client;
 pub mod commands;
 pub mod flags;
 pub mod goexec;
 pub mod image;
 pub mod local;
+pub mod net;
 pub mod passthrough;
 pub mod seed;
 pub mod setup;

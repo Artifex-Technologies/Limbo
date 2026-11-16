@@ -15,10 +15,8 @@ pub const DAEMON_STATE_DIR: &str = "/var/lib/limbo/state";
 
 const USAGE: &str = "usage: limbo <validate|plan|seed|up|launch|down|address|export|screenshot|capture|version> <manifest> [args] | limbo serve | limbo quarantine ... | limbo report | limbo doctor | limbo setup | limbo passthrough ... | limbo analyze FILE | limbo settings|instance|license|exchange ... | limbo image list|verify | limbo wine [options] -- PROGRAM [ARGS]";
 
-/// The commands main.go's `run` handles before its manifest flag set, and those it handles after it that are still
-/// the Go binary's.
-const OWN_SWITCH: [&str; 7] = ["serve", "quarantine", "settings", "instance", "license", "exchange", "net"];
-const STILL_GO: [&str; 1] = ["capture"];
+/// The commands main.go's `run` handled before its manifest flag set that main.rs and commands.rs run.
+const OWN_SWITCH: [&str; 6] = ["serve", "quarantine", "settings", "instance", "license", "exchange"];
 
 /// `limbo` with no command, `version`, `validate`, `plan`, `seed`, `address`, `report`, `analyze`, `image`, `doctor`, `setup`, `passthrough`, `wine` and any command Go does not know; None
 /// for the rest.
@@ -47,9 +45,12 @@ pub fn run(cmd: Option<&str>, args: &[String], io: &mut Io) -> Option<Result<(),
         return Some(super::passthrough::run(args, io));
     }
     if cmd == "wine" {
-        return super::wine::run(args, io);
+        return Some(super::wine::run(args, io));
     }
-    if OWN_SWITCH.contains(&cmd) || STILL_GO.contains(&cmd) {
+    if cmd == "net" {
+        return Some(super::net::run(args, io));
+    }
+    if OWN_SWITCH.contains(&cmd) {
         return None;
     }
     Some(manifest_cmd(cmd, args, io))
@@ -140,6 +141,15 @@ fn manifest_cmd(cmd: &str, args: &[String], io: &mut Io) -> Result<(), Fail> {
             let ip = guest_address(&m, &o.state)?;
             let _ = writeln!(io.out, "{ip}");
             Ok(())
+        }
+        "capture" => {
+            if o.pos.len() != 2 {
+                return Err("capture: manifest and output path required".into());
+            }
+            if io.euid != 0 {
+                return Err("capture: must run as root (usbmon is root's)".into());
+            }
+            super::capture::capture(&m, &o.pos[1], o.seconds, io)
         }
         "export" | "screenshot" => {
             if o.pos.len() != 2 {

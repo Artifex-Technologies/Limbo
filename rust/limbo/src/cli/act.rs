@@ -237,7 +237,7 @@ fn shell_quote(s: &str) -> String {
 }
 
 /// giveToSudoUser: a file root made, handed to the person who ran sudo.
-fn give_to_sudo_user(io: &Io, path: &str) {
+pub(crate) fn give_to_sudo_user(io: &Io, path: &str) {
     let uid = (io.env)("SUDO_UID").parse::<i64>();
     let gid = (io.env)("SUDO_GID").parse::<i64>();
     if let (true, Ok(uid), Ok(gid)) = (io.euid == 0, uid, gid) {

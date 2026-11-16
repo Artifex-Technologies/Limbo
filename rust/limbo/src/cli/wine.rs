@@ -14,19 +14,52 @@ use std::os::unix::fs::MetadataExt;
 
 const USAGE: &str = "usage: limbo wine [options] [--] PROGRAM [ARGS]   (Windows programs with Wine, inside a sandbox)";
 
-/// The command, or None when the environment or the working folder is not UTF-8 (the Go limbo runs it then).
-pub fn run(args: &[String], io: &mut Io) -> Option<Result<(), Fail>> {
+/// The command.
+pub fn run(args: &[String], io: &mut Io) -> Result<(), Fail> {
     let mut environ = BTreeMap::new();
     for (k, v) in std::env::vars_os() {
-        let (Some(k), Some(v)) = (k.to_str(), v.to_str()) else { return None };
-        environ.insert(k.to_string(), v.to_string());
+        match (k.to_str(), v.to_str()) {
+            (Some(k), Some(v)) => {
+                environ.insert(k.to_string(), v.to_string());
+            }
+            // a variable the command reads or hands to the sandbox cannot be carried as it is: refused (Go, removed
+            // 2026-11-15, kept the bytes); any other is never read and never reaches the sandbox, so leaving it out
+            // changes nothing
+            (k, _) if k.is_some_and(reads) => {
+                return Err(Fail::Msg(format!("wine: ${} is not UTF-8; limbo reads it", k.unwrap_or_default())));
+            }
+            _ => {}
+        }
     }
     let cwd = match getwd() {
         Ok(Some(c)) => Ok(c),
-        Ok(None) => return None,
+        Ok(None) => return Err("wine: the working folder's path is not UTF-8; run it from another folder".into()),
         Err(e) => Err(e),
     };
-    Some(wine_cmd(args, io, &environ, cwd))
+    wine_cmd(args, io, &environ, cwd)
+}
+
+/// The host variables `limbo wine` reads (the probe, the folders, the shim, the caller) or hands to the sandbox.
+fn reads(k: &str) -> bool {
+    const READ: [&str; 16] = [
+        "USER",
+        "HOME",
+        "XDG_RUNTIME_DIR",
+        "WAYLAND_DISPLAY",
+        "DISPLAY",
+        "XAUTHORITY",
+        "PULSE_SERVER",
+        "PULSE_COOKIE",
+        "WINEPREFIX",
+        "LIMBO_STATE_DIR",
+        "SUDO_USER",
+        "SUDO_UID",
+        "SUDO_GID",
+        "PKEXEC_UID",
+        "TMPDIR",
+        "PWD",
+    ];
+    READ.contains(&k) || k.starts_with("XDG_") || crate::wine::sandbox::pass_env(k)
 }
 
 /// os.Getwd: $PWD when it names the working folder, else getcwd; Ok(None) when the answer is not UTF-8.
