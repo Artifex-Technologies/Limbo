@@ -23,7 +23,7 @@ real daemon, real sockets, real unprivileged users and real systemd units. See
 is not verified.
 
 ```
-go build ./cmd/limbo
+(cd rust && cargo build --release --locked)  # rust/target/release/limbo-rs is limbo (the package installs it as /usr/bin/limbo)
 limbo doctor                                 # what is installed, what is missing
 sudo limbo setup                             # installs libvirt, QEMU, ... (Limbo ships without them)
 limbo plan examples/analysis-linux.json      # safe anywhere: prints what `up` would apply

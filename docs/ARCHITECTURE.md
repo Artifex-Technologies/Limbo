@@ -424,7 +424,9 @@ performance figure. No code had been run when this was written; §12 says what h
 ## 12. Implementation status
 
 Written in Go (stdlib only, no libvirt bindings: the engine drives `virsh`,
-`qemu-img` and `nft` through a `Runner` interface). Layout and how each piece has
+`qemu-img` and `nft` through a `Runner` interface), and since 2026-11-15 in Rust only:
+each package below is the Rust module of the same name in `rust/limbo/src`, proved equal to
+the Go code of commit 86a479f (docs/RUST_PORT.md). Layout and how each piece has
 been verified:
 
 | Package | Does | Verified how |

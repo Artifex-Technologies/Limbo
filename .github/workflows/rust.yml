@@ -1,11 +1,11 @@
-# The Rust port of limbo serve and the socket-client commands (rust/): the Go fixtures current, build, tests (the
-# fixtures included), lints, the daemon and CLI differential runs, and a dependency audit. docs/RUST_PORT.md.
+# Limbo (rust/): build, tests (the Go fixtures in testdata/parity included), lints, the daemon and CLI differential runs
+# against the Go limbo of the pinned commit (rust/parity/go-limbo.sh), and a dependency audit. docs/RUST_PORT.md.
 name: rust
 on:
   push:
-    paths: ["rust/**", "internal/**", "testdata/**", "cmd/**", "VERSION", "*.go", ".github/workflows/rust.yml"]
+    paths: ["rust/**", "testdata/**", "packaging/**", "VERSION", ".github/workflows/rust.yml"]
   pull_request:
-    paths: ["rust/**", "internal/**", "testdata/**", "cmd/**", "VERSION", "*.go", ".github/workflows/rust.yml"]
+    paths: ["rust/**", "testdata/**", "packaging/**", "VERSION", ".github/workflows/rust.yml"]
   schedule:
     - cron: "23 5 * * 1" # the audit weekly, for advisories published after the last change
 permissions:
@@ -15,15 +15,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the pinned commit the Go limbo is built from
+      # only to build the Go limbo of the pinned commit, the differential runs' referee
       - uses: actions/setup-go@v5
         with:
           go-version: "1.27"
-      - name: every Go file is gofmt-formatted
-        run: |
-          unformatted=$(gofmt -l .)
-          [ -z "$unformatted" ] || { echo "run gofmt -w on:"; echo "$unformatted"; exit 1; }
-      - name: the Go fixtures are current
-        run: go test ./internal/... ./cmd/limbo -run Parity
+          cache: false
       - run: rustup toolchain install stable --profile minimal --component clippy,rustfmt
       - working-directory: rust
         run: cargo fmt --all --check
@@ -38,7 +36,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends nftables
           sudo modprobe -a nf_tables nfnetlink_log nft_log || true
           sudo mkdir -p /etc/limbo
-          CGO_ENABLED=0 go build -trimpath -o /tmp/limbo-go ./cmd/limbo
+          sh rust/parity/go-limbo.sh /tmp/limbo-go
           (cd rust && cargo build --locked --release --bins --example usbmon_fake)
           python3 -I rust/parity/daemon-differential.py --go /tmp/limbo-go --rs rust/target/release/limbo-rs --out /tmp/ld --idle 5
           # the NFLOG part ran: both daemons wrote flow events

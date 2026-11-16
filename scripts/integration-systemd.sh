@@ -10,6 +10,7 @@
 set -u
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
+. "$REPO/scripts/limbo-bin.sh"
 HEIMDALL_REPO="${HEIMDALL_REPO:-$(cd "$REPO/.." && pwd)/Heimdall}"
 BASE="${LIMBO_IT_IMAGE:-/var/lib/limbo/images/arch-cloudimg.qcow2}"
 WORK=/var/lib/limbo-itsd-scratch
@@ -25,7 +26,7 @@ mkdir -p "$WORK"
 
 cleanup() {
   systemctl stop heimdall.service limbo.service 2>/dev/null
-  rm -f /usr/bin/limbo /usr/lib/limbo/limbo-go /usr/bin/heimdalld \
+  rm -f /usr/bin/limbo /usr/bin/heimdalld \
         /usr/lib/systemd/system/limbo.service /usr/lib/systemd/system/heimdall.service \
         /usr/lib/sysusers.d/limbo.conf /usr/lib/sysusers.d/heimdall.conf
   rm -rf /etc/systemd/system/heimdall.service.d /etc/limbo /etc/heimdall "$STATE" /var/lib/heimdall "$WORK"
@@ -35,11 +36,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "== install exactly what the packages install"
-( cd "$REPO" && go build -o /usr/bin/limbo ./cmd/limbo ) || { echo "limbo build failed"; exit 2; }
-if [ -n "${LIMBO_RS:-}" ]; then # the Rust daemon as the package would install it: /usr/bin/limbo, the Go build beside it
-  install -Dm755 /usr/bin/limbo /usr/lib/limbo/limbo-go && install -m755 "$LIMBO_RS" /usr/bin/limbo || exit 2
-  echo "== /usr/bin/limbo is the Rust daemon ($LIMBO_RS); other commands run /usr/lib/limbo/limbo-go"
-fi
+install_limbo /usr/bin/limbo # as the package installs it: limbo-rs is /usr/bin/limbo, nothing beside it
 ( cd "$HEIMDALL_REPO" && go build -o /usr/bin/heimdalld ./cmd/heimdalld ) || { echo "heimdalld build failed"; exit 2; }
 install -Dm644 "$REPO/packaging/arch/limbo.service" /usr/lib/systemd/system/limbo.service
 install -Dm644 "$REPO/packaging/arch/limbo.sysusers" /usr/lib/sysusers.d/limbo.conf

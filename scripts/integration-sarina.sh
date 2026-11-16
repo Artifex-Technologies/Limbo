@@ -16,7 +16,7 @@
 set -u
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-. "$REPO/scripts/rust-daemon.sh"
+. "$REPO/scripts/limbo-bin.sh"
 SARINA_REPO="${SARINA_REPO:-$(cd "$REPO/.." && pwd)/Sarina}"
 . "$REPO/scripts/it-common.sh"
 pick_sarina
@@ -34,10 +34,9 @@ jget() { python3 -c "import sys,json; d=json.load(sys.stdin); print(eval('d'+sys
 runs_started() { c=$(grep -c '"kind":"run.start"' "$LIMBO_STATE_DIR/events.jsonl" 2>/dev/null); echo "${c:-0}"; }
 
 rm -rf "$WORK/state" "$WORK/sarina" ; mkdir -p "$WORK/bin" "$WORK/state" "$WORK/profiles" "$WORK/sarina/cwd" "$WORK/sarina/sessions" "$WORK/sarina/scratch"
-cd "$REPO" && go build -o "$WORK/bin/limbo" ./cmd/limbo || { echo "build failed"; exit 2; }
+cd "$REPO" && install_limbo "$WORK/bin/limbo"
 chmod 755 "$WORK" "$WORK/bin" "$WORK/bin/limbo"
 LIMBO="$WORK/bin/limbo"
-use_rust_daemon
 [ -f "$WORK/key" ] || ssh-keygen -q -t ed25519 -N '' -f "$WORK/key"
 SHA=$(sha256sum "$BASE" | cut -d' ' -f1)
 groupadd -f limbo-heimdall; groupadd -f limbo-agent

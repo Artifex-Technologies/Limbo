@@ -3,6 +3,7 @@
 # a copy of this computer's Limbo state, then each real-guest script twice, first with the Go daemon (the baseline)
 # and then with limbo-rs. A check that fails both times is the script's or this computer's; only a check that passes
 # with Go and fails with Rust counts against the port. Logs and a summary go to OUTDIR (handed to the sudo user).
+# The Go limbo is no longer in this repository: build it from the pinned commit (docs/RUST_PORT.md "The Go side").
 #
 #   sudo bash scripts/rust-checks.sh GO_LIMBO LIMBO_RS OUTDIR
 #
@@ -24,9 +25,9 @@ rm -rf "$LD"   # it held copies of the state and the license folder
 
 for s in quarantine chain sarina; do
   echo "== integration-$s.sh: Go daemon (baseline)"
-  env -u LIMBO_RS bash "$REPO/scripts/integration-$s.sh" >"$OUT/$s-go.log" 2>&1
+  env -u LIMBO_RS LIMBO_BIN="$GO" bash "$REPO/scripts/integration-$s.sh" >"$OUT/$s-go.log" 2>&1
   echo "== integration-$s.sh: limbo-rs"
-  LIMBO_RS="$RS" bash "$REPO/scripts/integration-$s.sh" >"$OUT/$s-rs.log" 2>&1
+  env -u LIMBO_RS LIMBO_BIN="$RS" bash "$REPO/scripts/integration-$s.sh" >"$OUT/$s-rs.log" 2>&1
   python3 -I - "$s" "$OUT/$s-go.log" "$OUT/$s-rs.log" >>"$OUT/summary.txt" <<'PY'
 import re, sys
 name, go, rs = sys.argv[1:]

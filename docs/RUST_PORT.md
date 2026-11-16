@@ -1,17 +1,15 @@
-# The Rust port of `limbo serve`
+# The Rust port of Limbo
 
 I want as much of the ecosystem as possible in Rust, for lightness and smoothness while I game and run a local model.
 `limbo serve` is Limbo's always-on part, so it goes first; Heimdall's port (its `docs/RUST_PORT.md`) is the model. The
 Go daemon measured 18.8 MB RSS idle on my PC; the target was about 3-5 MB.
 
-The CLI is being ported command by command. limbo-rs runs these itself (when their arguments and the variables they
-read are UTF-8): the five socket-client commands (`quarantine`, `settings`, `instance`, `license`, `exchange`) and,
-since 2026-11-11, `version`, `validate`, `plan`, `address`, `seed`, `report`, `analyze`, `image`, `doctor`, `setup`,
-`up`, `down`, `launch`, `export`, `screenshot`, `passthrough`, `wine`, an unknown command and no command at all. Still
-in Go: `capture` and `net`.
-`limbo-rs serve` is the daemon; **every other command is handed, unchanged, to the Go binary**
-(`$LIMBO_GO_BINARY`, else `limbo-go` beside `limbo-rs`, else `/usr/lib/limbo/limbo-go`, else `/usr/bin/limbo`). The
-state files are the contract between the two and are the Go daemon's, in the same formats.
+**Since 2026-11-15 Limbo is Rust only.** `limbo-rs`, installed as `/usr/bin/limbo`, is the daemon (`limbo serve`) and
+every command of the CLI; the Go sources (about 26,300 lines), the Go hand-over in `main.rs` and the Go build in the
+recipes are gone. The Go limbo is still the referee of every proof: the differential runs build it from the last commit
+that had it ("The Go side"), and the fixtures in `testdata/parity` are what that commit's Go tests wrote. The CLI was
+ported command by command from 2026-11-11 (the socket-client commands, then the manifest, file, guest, passthrough and
+Wine commands), and `net watch` and `capture` last (2026-11-15, "What still reached Go").
 
 ## Status
 
@@ -22,7 +20,61 @@ state files are the contract between the two and are the Go daemon's, in the sam
 | 3 | the differential run of both daemons on the same socket traffic (`rust/parity/daemon-differential.py`) | **done**: no difference |
 | 4 | the real-guest scripts against the Rust daemon (`LIMBO_RS=... scripts/integration-*.sh`) | **done** (2026-11-11): quarantine 71/71, sarina 15/15, chain 32/32 with limbo-rs ("The owner's first run") |
 | 5 | the rehearsal on a copy of this computer's real state (`--from-host`), then the switch | **done**: rehearsal no difference; my PC switched by hand (drop-in) on 2026-11-10, no restart since; the package ships it since 2026-11-11 ("Packaging") |
-| 6 | the CLI commands, one by one | **in progress**: the five socket-client commands, then version, validate, plan, address, seed, report, analyze, image, doctor, setup, up, down, launch, export, screenshot, passthrough and wine (2026-11-11, `cli.json`, `cliclient.json`, `manifests.json`, `tz.json`, `wine.json` and the CLI differential run); `net watch` and `capture` open ("Resume here") |
+| 6 | the CLI commands, one by one | **done**: the five socket-client commands, then version, validate, plan, address, seed, report, analyze, image, doctor, setup, up, down, launch, export, screenshot, passthrough and wine (2026-11-11, `cli.json`, `cliclient.json`, `manifests.json`, `tz.json`, `wine.json` and the CLI differential run); `net watch` and `capture` (2026-11-15) |
+| 7 | the Go code out of the repository and the recipes | **done** (2026-11-15): "What still reached Go", "The Go side" |
+
+## What still reached Go (inventory of 2026-11-15, before the removal)
+
+Until 86a479f, `main.rs` handed a command line to the Go build (`go_binary`: `$LIMBO_GO_BINARY`, `limbo-go` beside
+limbo-rs, `/usr/lib/limbo/limbo-go`, `/usr/bin/limbo`) in these cases, and only these:
+
+| Path to Go | Go code it ran | Now |
+| --- | --- | --- |
+| `limbo net watch [--seconds N]` | `cmd/limbo/net_cmd.go`; `internal/flows` (Listen on NFLOG group 7213, the Aggregator); `policy.NFLogGroup` | `cli/net.rs` on the daemon's `flows` module; CLI differential `net_cases` (real NFLOG packets in CI) |
+| `limbo capture [--seconds N] MANIFEST OUT` | `cmd/limbo/main.go` `capture`; `internal/usbcap` (Find, the pcap writer, the MON_IOCX_GETX loop); `manifest` | `usbcap.rs`, `cli/capture.rs`; CLI differential `capture_cases` with `examples/usbmon_fake.rs` |
+| any argument that is not UTF-8 (every command, `serve` included) | the whole CLI | refused, exit status 2 (`tests/dispatch.rs`); see "Differences" |
+| `SUDO_USER`, `USER`, `PKEXEC_UID`, `SUDO_UID`, `SUDO_GID`, `HOME`, `LIMBO_STATE_DIR`, `TMPDIR` or `WAYLAND_DISPLAY` not UTF-8 | the whole CLI | refused, exit status 2 |
+| `limbo wine` with any environment variable or the working folder not UTF-8 | `cmd/limbo/wine_cmd.go`, `internal/wine` | a variable wine reads or hands to the sandbox is refused, any other left out (it never reached the sandbox in Go either); a folder that is not UTF-8 is refused |
+
+Every other Go package (api, deps, disk, engine, events, exchange, hostfw, hostpolicy, image, instances, launch,
+license, manifest, policy, provision, quarantine, report, runner, runs, settings, virt, wine, and parity, the fixture
+writer) ran on no user's machine any more: limbo-rs ran those commands itself, and the Go code was only the referee of
+the fixtures and the differential runs. Lines at the pinned commit (code + tests): cmd/limbo 2,814 + 1,554, wine 2,143
++ 1,719, api 1,245 + 1,256, runs 1,064 + 1,070, instances 828, image 740 + 793, hostpolicy 722 + 1,113, virt 616 +
+321, engine 609 + 837, flows 602 + 414, the rest under 450 each; 26,273 in all.
+
+## The Go side (the referee, from a pinned commit)
+
+The Go sources left the repository with the commit after **86a479fbc33cca7aaa6c9e4d943562b0825ad8ba**, the last one
+that has them (and the first whose limbo-rs hands nothing to Go). `rust/parity/go-limbo.sh OUT` builds that commit's Go
+limbo with `git archive` into a temporary folder, with today's `VERSION` put over the old one so both report the same
+version; CI runs it (a full clone, `fetch-depth: 0`) before both differential runs, so every proof below stays
+reproducible after the deletion. The fixtures in `testdata/parity` were written by that commit's Go tests and are kept
+as data; a deliberate change to the Rust behaviour that the fixtures pin now means writing new expectations on purpose
+(check the commit out elsewhere, change the Go side there, `LIMBO_PARITY_UPDATE=1 go test ./internal/... ./cmd/limbo
+-run Parity`, copy the file), or a fixture of Rust's own. The Go unit tests that pinned something besides behaviour went
+with it except `internal/deps`'s packaging test, carried over as `rust/limbo/tests/packaging.rs` (every package `limbo
+setup` installs is in the PKGBUILD's optdepends, none in depends, and no Go build in the recipe).
+
+## Python and shell in the repository (2026-11-15)
+
+None of them ships or runs on a user's machine; each is a referee or a test, kept on purpose:
+
+| File | Lines | What |
+| --- | --- | --- |
+| `rust/parity/cli-differential.py` | 2,051 | the CLI differential (referee) |
+| `rust/parity/daemon-differential.py` | 827 | the daemon differential and the rehearsal on a copy of the real state (referee) |
+| `scripts/fake_model.py` | 110 | the scripted model for the Sarina integration scripts (test) |
+| `rust/parity/go-limbo.sh` | 22 | builds the Go referee from the pinned commit |
+| `scripts/integration-*.sh`, `it-common.sh`, `limbo-bin.sh`, `rust-checks.sh` | 1,366 | the owner's real-guest tests (root, a hypervisor) |
+| `rust/scripts/nicecargo.sh` | 4 | cargo at nice 15 |
+
+The packaging's shell is the recipe format itself (`PKGBUILD`, `limbo.install`, run by makepkg and pacman), not a
+program of ours. One shell file does ship: **`packaging/wine/wine`**, the 4-line shim installed as
+`/usr/lib/limbo/bin/wine` (and Wine's other command names as links to it), which only `exec`s `/usr/bin/limbo wine
+--shim -- ...` by the name it was called with. It is left as shell for now: porting it means a second Rust binary (or a
+multi-call limbo) for one `exec`, and the work goes first to what decides behaviour. It is next in line if the rule is
+read strictly.
 
 ## Layout
 
@@ -34,15 +86,17 @@ rust/
     http.rs                   HTTP/1.1 on a unix socket, one request per connection, Go's ServeMux matching
     api.rs                    the route tables (one function), handlers, the Kani harnesses on the tables
     serve.rs                  startup in Go's order, one poll(2) loop, a thread per connection and per run
-    main.rs                   `serve`, else exec the Go limbo
+    main.rs                   `serve`, `rs-version`, else the CLI (cli/); a command line that is not UTF-8 is refused
   limbo/tests/                parity_* (the Go fixtures), properties.rs (exhaustive claims, proptest, fuzz bodies),
-                              dispatch.rs (what reaches the Go build, unchanged)
+                              dispatch.rs (command lines and variables that are not UTF-8), packaging.rs
+  examples/usbmon_fake.rs     the usbmon stand-in for the capture differential (seccomp user notification; not shipped)
   fuzz/                       cargo-fuzz targets (nightly): http_request, json, manifest, nflog
   parity/daemon-differential.py   both daemons, the same traffic, compared
+  parity/cli-differential.py      both CLIs, the same arguments, files and answers, compared
+  parity/go-limbo.sh              the Go referee, built from the pinned commit
   scripts/nicecargo.sh        cargo at nice 15
-internal/parity/              the fixture writer and the manifest corpus; each package's parity_test.go records Go
-testdata/parity/              the fixtures both languages run
-scripts/rust-daemon.sh        LIMBO_RS=... makes the integration scripts use the Rust daemon
+testdata/parity/              the fixtures the Go tests of the pinned commit wrote (internal/parity, parity_test.go there)
+scripts/limbo-bin.sh          the binary the integration scripts test: $LIMBO_BIN, else rust/target/release/limbo-rs
 ```
 
 Threads, no async. The release binary is 1.5 MB and links only libc and libgcc_s.
@@ -77,7 +131,7 @@ behaviour differs from Go's, the port carries Go's:
 
 ## Proof
 
-- **The Go tests, carried over as fixtures.** Each package's `parity_test.go` records what the Go code answers;
+- **The Go tests, carried over as fixtures.** Each package's `parity_test.go` (at the pinned commit: "The Go side") recorded what the Go code answers;
   `LIMBO_PARITY_UPDATE=1 go test ./internal/... ./cmd/limbo -run Parity` writes `testdata/parity/*.json`, and without the variable
   the Go test fails when a fixture is out of date. The Rust tests run the same files:
 
@@ -118,6 +172,22 @@ behaviour differs from Go's, the port carries Go's:
   real one inside the namespace, a run whose device stays on vfio-pci, two restarts with the run folder emptied, a new
   boot id; besides agreeing, both daemons must refuse with `reboot_required` after each restart and allow after the
   reboot (the script checks it; the build before the fix fails it, Go and Rust alike).
+- **The CLI differential** (`rust/parity/cli-differential.py`; "Resume here" item 4 has how each group is faked): the
+  Go and the Rust binary on the same arguments, environment, stdin, files and scripted socket answers, comparing stdout,
+  stderr, exit status, requests and files. 2026-11-15: **1,046 cases, 5,230 comparisons, no difference** on this PC
+  (where nft cannot load log rules, so the net watch cases run without packets); in CI, with real NFLOG packets and
+  the usbmon stand-in required (`--require-all`), **1,049 cases, 5,245 comparisons, no difference** (run 43792882719,
+  86a479f), and again against the Go build from the pinned commit after the deletion. `net_cases` (16): argument errors, binding without the
+  right to, then in a user and network namespace the real nft's log rules for group 7213 on loopback and the daemon
+  differential's traffic (flows, refusals, an IPv6 packet, a scan), a time limit, SIGTERM, SIGINT, limits that wrap.
+  `capture_cases` (30): every refusal before a recording (arguments, root, the manifest, the output, `--seconds`, a
+  device not plugged in or twice, two buses, no usbmon and the modprobe it runs), then recordings: `usbmon_fake` starts
+  the command under a seccomp filter that hands exactly the MON_IOCX_GETX ioctl to it (a user notification) and
+  answers from the case's script, writing the event's header and data into the caller's buffers with
+  process_vm_writev, or an errno, or a signal; every other call reaches the kernel. The pcap files are compared byte
+  for byte: another device's events on the same bus never written, empty, short and oversized data (65,536 bytes
+  offered by both), a header claiming more than was captured, times before 1970 and negative microseconds, EINTR,
+  EAGAIN, an error mid-way, SIGINT, SIGTERM, the hand-over to SUDO_UID.
 - **Properties** (`tests/properties.rs`): the Kani harnesses' claims exhaustively (control.sock and agent.sock have no
   route outside their restrict-only sets for every one of the 32 combinations of services; user.sock never has a
   verdict, close, down, settings, instance-registry or license-key route); any path and method on control.sock or
@@ -193,6 +263,16 @@ no error); a command's end was noticed only every 25 ms (now a pidfd in poll(2))
   symlink target under /, /etc/localtime or /sys/class/drm with bytes that are not UTF-8 reads them as U+FFFD (Go keeps
   the bytes; Wine and the system write none). A profile that shrinks between its stat and its read: Go fails with
   `EOF`, the port reads what is there (a race only). The environment bwrap gets is the same list in the same order.
+- **A command line that is not UTF-8** (2026-11-15, with the Go build gone): refused with exit status 2 and `limbo:
+  argument N is not UTF-8 (...)`, the daemon's included (never a panic); so is one of the variables the commands read
+  (SUDO_USER, USER, PKEXEC_UID, SUDO_UID, SUDO_GID, HOME, LIMBO_STATE_DIR, TMPDIR, WAYLAND_DISPLAY): `limbo: $NAME is not
+  UTF-8; limbo reads it`. Go took any bytes. `limbo wine` reads the whole environment: a variable that is not UTF-8 is
+  refused only when wine reads it or hands it to the sandbox (the probe's, the folders', the shim's and the caller's
+  variables, every `XDG_` one and every name the sandbox passes through); any other is left out, which is what Go's
+  sandbox did with it too. A working folder that is not UTF-8 is refused for `limbo wine`. The practical case is a
+  Windows program whose file name is not UTF-8 (an old zip): rename it, or start it from a folder whose path is UTF-8.
+- `limbo capture`: what reaches the pcap file is the same bytes; a write error is reported as Go's `write PATH: ...`
+  at the same buffer boundaries (bufio's 4 KiB), not exercised (no full disk in the harness).
 - JSON error paths now follow Go 1.27 everywhere (the document's own struct name, the path as the document spells it,
   array indexes); the image-proofs.json entry above was written before that and was not checked again.
 
@@ -221,7 +301,7 @@ applied by one, a release by the other). So instead of a live shadow:
 ```bash
 cd ~/Documents/Github/Limbo && git pull
 (cd rust && scripts/nicecargo.sh build --release --locked)
-CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /tmp/limbo-go ./cmd/limbo
+sh rust/parity/go-limbo.sh /tmp/limbo-go   # the Go referee, from the pinned commit ("The Go side")
 
 # 1. (optional, no root) the differential run again
 python3 -I rust/parity/daemon-differential.py --go /tmp/limbo-go --rs rust/target/release/limbo-rs --out /tmp/ld --idle 60
@@ -234,7 +314,7 @@ sudo bash scripts/rust-checks.sh /tmp/limbo-go rust/target/release/limbo-rs ~/li
 # One script against the Rust daemon alone: sudo LIMBO_RS="$PWD/rust/target/release/limbo-rs" bash scripts/integration-chain.sh
 
 # 4. the switch: the Rust daemon as limbo.service, the Go one kept for every other command
-sudo install -Dm755 /usr/bin/limbo /usr/lib/limbo/limbo-go
+sudo install -Dm755 /usr/bin/limbo /usr/lib/limbo/limbo-go   # (2026-11-10: /usr/bin/limbo was the Go build then)
 sudo install -Dm755 rust/target/release/limbo-rs /usr/lib/limbo/limbo-rs
 sudo mkdir -p /etc/systemd/system/limbo.service.d
 printf '[Service]\nExecStart=\nExecStart=/usr/lib/limbo/limbo-rs serve --state-dir /var/lib/limbo/state --run-dir /run/limbo --profile-dir /etc/limbo/validation\n' \
@@ -254,7 +334,12 @@ that switched by hand moves to it with the steps under "Packaging".
 Restarting `limbo.service` while a validation run is executing destroys that run's guest (the startup reap, as with any
 restart of the Go daemon): switch when Sarina is not running one.
 
-## Packaging (2026-11-11)
+## Packaging (2026-11-11; one binary since 2026-11-15)
+
+**Since 2026-11-15** the package installs one binary, `/usr/bin/limbo` (limbo-rs), and builds no Go (`makedepends`
+lose `go`; `check()` runs the Rust tests only; Labyrinth's two limbo-git recipes the same). `limbo.install` says on
+upgrade that a hand-installed `/usr/lib/limbo/limbo-go` (no package's file) can go. What follows is how it was from
+2026-11-11, kept for the hosts that switched by hand then.
 
 From 2026-11-10 my PC ran the Rust daemon through the drop-in of step 4 above. Since 2026-11-11 the packages ship it:
 
@@ -394,10 +479,12 @@ failure of the script or the computer is told apart from one of the port.
 
 ```bash
 cd rust
-scripts/nicecargo.sh test --offline          # every fixture, the properties, the fuzz bodies
+scripts/nicecargo.sh test --offline          # every fixture, the properties, the fuzz bodies, dispatch, packaging
 scripts/nicecargo.sh clippy --all-targets
-cd .. && go test ./internal/... -run Parity  # the fixtures are current with the Go code
-LIMBO_PARITY_UPDATE=1 go test ./internal/... ./cmd/limbo -run Parity # after a deliberate change: rewrite them, review the diff
+scripts/nicecargo.sh build --release --bins --example usbmon_fake
+cd .. && sh rust/parity/go-limbo.sh /tmp/limbo-go    # the Go referee from the pinned commit
+python3 -I rust/parity/cli-differential.py --go /tmp/limbo-go --rs rust/target/release/limbo-rs --out /tmp/lcd
+python3 -I rust/parity/daemon-differential.py --go /tmp/limbo-go --rs rust/target/release/limbo-rs --out /tmp/ld --idle 5
 ```
 
 ## Resume here
@@ -486,11 +573,12 @@ Next, in order:
    `LIMBO_RS_NO_GO=1` there, so a command it does not run itself fails instead of reaching a Go limbo (without it, a
    command missing from the dispatch would be compared Go against Go: it happened to seed once). Fixed in Go on the
    way: `license.Check` and `seed` depended on map order; `launch --check` panicked on an app.exec of only spaces
-   (the manifest accepts it; now a failed check). Left, and what each needs (all with fakes in a namespace, never the
-   real ones here):
-   a. `net watch`: NFLOG needs root; the daemon differential's namespace has real nft rules for it.
-   b. `capture`: everything up to the recording could be faked (sysfs bound over in the namespace, modprobe on PATH),
-      but the recording is usbmon's MON_IOCX_GETX ioctl on /dev/usbmonN, which no fake file answers: it stays on Go
-      until it can be proved against a real usbmon.
+   (the manifest accepts it; now a failed check). Done 2026-11-15: `net watch` (`cli/net.rs`, in a user and network namespace with the
+   real nft's log rules) and `capture` (`usbcap.rs`, `cli/capture.rs`; the recording proved through
+   `examples/usbmon_fake.rs`, which answers usbmon's ioctl by seccomp user notification), 86a479f; then the Go code,
+   the hand-over and the Go build left ("What still reached Go", "The Go side").
    The integration scripts call `limbo quarantine` through limbo-rs, so a ported command is exercised by the owner's
    next run of them.
+5. Left: a real usbmon run of `sudo limbo capture` on my PC with the SCT X4 (the stand-in answers the ioctl as the
+   kernel's mon_bin_ioctl does, but it is not the kernel); `packaging/wine/wine` to Rust if wanted ("Python and
+   shell"); the runs fixtures of item 2.

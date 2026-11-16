@@ -1,7 +1,7 @@
 [package]
 name = "limbo"
 version = "0.1.0"
-description = "Limbo's always-on daemon (limbo serve), ported from Go; every other command is handed to the Go binary"
+description = "Limbo: the daemon (limbo serve) and every command, ported from Go"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true

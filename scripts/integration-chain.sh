@@ -19,7 +19,7 @@
 set -u
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-. "$REPO/scripts/rust-daemon.sh"
+. "$REPO/scripts/limbo-bin.sh"
 GH="$(cd "$REPO/.." && pwd)"
 HEIMDALL_REPO="${HEIMDALL_REPO:-$GH/Heimdall}"
 SARINA_REPO="${SARINA_REPO:-$GH/Sarina}"
@@ -43,11 +43,10 @@ waitfor() { # waitfor <seconds> <command...>
 
 rm -rf "$WORK/state" "$WORK/heimdall" "$WORK/model.jsonl" "$WORK/sarina-sessions"
 mkdir -p "$WORK/bin" "$WORK/state" "$WORK/profiles" "$WORK/sarina-cwd" "$WORK/sarina-sessions" "$WORK/heimdall"
-cd "$REPO" && go build -o "$WORK/bin/limbo" ./cmd/limbo || { echo "limbo build failed"; exit 2; }
+cd "$REPO" && install_limbo "$WORK/bin/limbo"
 ( cd "$HEIMDALL_REPO" && go build -o "$WORK/bin/heimdalld" ./cmd/heimdalld ) || { echo "heimdalld build failed"; exit 2; }
 chmod 755 "$WORK" "$WORK/bin" "$WORK/bin/limbo" "$WORK/bin/heimdalld"
 LIMBO="$WORK/bin/limbo"
-use_rust_daemon
 [ -f "$WORK/key" ] || ssh-keygen -q -t ed25519 -N '' -f "$WORK/key"
 SHA=$(sha256sum "$BASE" | cut -d' ' -f1)
 

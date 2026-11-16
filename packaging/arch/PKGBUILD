@@ -1,13 +1,13 @@
 # Maintainer: Artifex Technologies (https://github.com/Artifex-Technologies)
 #
-# Limbo ships as a small package of its own (two binaries, units, docs). /usr/bin/limbo is limbo-rs, the Rust build:
-# it is the daemon (`limbo serve`, limbo.service) and runs every command but the two not ported yet (`net watch`,
-# `capture`), which it hands, unchanged, to the Go build at /usr/lib/limbo/limbo-go (docs/RUST_PORT.md).
+# Limbo ships as a small package of its own (one binary, units, docs). /usr/bin/limbo is limbo-rs, the Rust build: the
+# daemon (`limbo serve`, limbo.service) and every command. The Go build it was ported from left on 2026-11-15
+# (docs/RUST_PORT.md); a host that still has the hand-installed /usr/lib/limbo/limbo-go can delete it.
 # Its heavy runtime (libvirt, QEMU, dnsmasq, ...) is deliberately NOT in
 # depends=(): an image can carry Limbo "packaged and ready" without every system
 # also carrying a hypervisor stack it may never use. `sudo limbo setup` installs
 # the runtime on first use; `limbo doctor` says what is missing. The list below
-# must match internal/deps (a test pins that they agree).
+# must match `limbo setup`'s list (rust/limbo/src/cli/setup.rs; rust/limbo/tests/packaging.rs pins that they agree).
 pkgname=limbo-git
 pkgver=1.0.0
 pkgrel=1
@@ -16,7 +16,7 @@ arch=('x86_64')
 url="https://github.com/Artifex-Technologies/Limbo"
 license=('MPL-2.0')
 depends=('glibc' 'gcc-libs')
-makedepends=('go' 'git' 'rust')
+makedepends=('git' 'rust')
 optdepends=(
 	'libvirt: manages guests (installed by `limbo setup`)'
 	'qemu-base: the hypervisor (installed by `limbo setup`)'
@@ -96,21 +96,15 @@ prepare() {
 }
 
 build() {
-	cd "$srcdir/Limbo"
-	export CGO_ENABLED=0
-	go build -trimpath -ldflags "-s -w" -o limbo-go ./cmd/limbo
-	cd rust
+	cd "$srcdir/Limbo/rust"
 	export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR=target
 	cargo build --frozen --release -p limbo --bin limbo-rs
 }
 
 check() {
-	cd "$srcdir/Limbo"
-	# Unit tests only: the integration scripts need a hypervisor and root, and -short skips the real Wine run
-	# (it makes a prefix, about a minute).
-	go test -short ./...
-	# the Rust daemon against the Go fixtures (testdata/parity), its properties and the fuzz bodies
-	cd rust
+	# the Go fixtures (testdata/parity), the properties, the fuzz bodies, the dispatch and this recipe's optdepends; the
+	# integration scripts need a hypervisor and root, and the differential runs the Go build of the pinned commit
+	cd "$srcdir/Limbo/rust"
 	RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR=target cargo test --frozen -p limbo
 }
 
@@ -118,7 +112,6 @@ package() {
 	cd "$srcdir/Limbo"
 
 	install -Dm755 rust/target/release/limbo-rs "$pkgdir/usr/bin/limbo"
-	install -Dm755 limbo-go "$pkgdir/usr/lib/limbo/limbo-go"
 	install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 	install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
 	install -Dm644 docs/QUARANTINE.md "$pkgdir/usr/share/doc/$pkgname/QUARANTINE.md"

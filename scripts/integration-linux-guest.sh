@@ -11,6 +11,7 @@
 set -u
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
+. "$REPO/scripts/limbo-bin.sh"
 WORK="${LIMBO_IT_DIR:-/var/lib/limbo/it}"
 BASE="${LIMBO_IT_IMAGE:-/var/lib/limbo/images/arch-cloudimg.qcow2}"
 export LIMBO_STATE_DIR="$WORK/state"
@@ -19,7 +20,7 @@ PASS=0
 FAIL=0
 
 mkdir -p "$WORK" "$LIMBO_STATE_DIR"
-cd "$REPO" && go build -o "$WORK/limbo" ./cmd/limbo || { echo "build failed"; exit 2; }
+cd "$REPO" && install_limbo "$WORK/limbo"
 LIMBO="$WORK/limbo"
 
 [ -f "$WORK/key" ] || ssh-keygen -q -t ed25519 -N '' -f "$WORK/key"

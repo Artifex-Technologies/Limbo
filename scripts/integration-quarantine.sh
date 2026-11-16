@@ -8,7 +8,7 @@
 set -u
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-. "$REPO/scripts/rust-daemon.sh"
+. "$REPO/scripts/limbo-bin.sh"
 WORK="${LIMBO_IT_DIR:-/var/lib/limbo/itq}"
 BASE="${LIMBO_IT_IMAGE:-/var/lib/limbo/images/arch-cloudimg.qcow2}"
 export LIMBO_STATE_DIR="$WORK/state"
@@ -25,9 +25,8 @@ expect() { want=$1; desc=$2; shift 2
 
 mkdir -p "$WORK" "$LIMBO_STATE_DIR" "$PROFILES"
 chmod 755 "$PROFILES"
-cd "$REPO" && go build -o "$WORK/limbo" ./cmd/limbo || { echo "build failed"; exit 2; }
+cd "$REPO" && install_limbo "$WORK/limbo"
 LIMBO="$WORK/limbo"
-use_rust_daemon
 [ -f "$WORK/key" ] || ssh-keygen -q -t ed25519 -N '' -f "$WORK/key"
 SHA=$(sha256sum "$BASE" | cut -d' ' -f1)
 

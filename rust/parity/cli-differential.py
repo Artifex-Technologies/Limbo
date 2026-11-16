@@ -1950,8 +1950,7 @@ def run_one(binary, case, base):
         case["prep"](work)
     srv = Server(sockp, case["answers"])
     args = [a.replace("{S}", sockp).replace("{D}", base).replace("{W}", work) for a in case["args"]]
-    # LIMBO_RS_NO_GO: limbo-rs fails a command it has not ported instead of handing it to a Go limbo
-    env = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "HOME": work, "USER": "tester", "LIMBO_RS_NO_GO": "1"}
+    env = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "HOME": work, "USER": "tester"}
     env.update({k: v.replace("{W}", work).replace("{S}", sockp) if isinstance(v, str) else v for k, v in case["env"].items()})
     env = {k: v for k, v in env.items() if v is not None}
     argv = [binary] + ([case["cmd"]] if case["cmd"] is not None else []) + args

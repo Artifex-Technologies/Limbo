@@ -10,32 +10,23 @@ diff names no host name, network address, SSID or MAC address.
 
 ## State
 
-Go module, stdlib only. First slice built (see `docs/ARCHITECTURE.md` §12 for the
-per-package verification table and known weaknesses). Run against real libvirt
-and live guests since 2026-10-14 (latest: 66/66 and 24/24 on 2026-11-05; the
-Coordination Log has the details). The Wine backend (`limbo wine`, `internal/wine`, §13) since 2026-11-08: plain
-`go test ./...` runs it for real (bwrap + Wine's own `cmd`/`cscript`, headless, about 15 s); `-short` skips that.
-
-**The Rust port of `limbo serve`** (since 2026-11-10, `rust/`, docs/RUST_PORT.md): `limbo-rs serve` is the daemon;
-`quarantine`, `settings`, `instance`, `license`, `exchange`, `version`, `validate`, `plan`, `address`, `seed`, `report`,
-`analyze`, `image`, `doctor`, `setup`, `up`, `down`, `launch`, `export`, `screenshot`, `passthrough` and `wine` run in Rust too (2026-11-11, `rust/parity/cli-differential.py` compares them
-with Go); every other command is handed to the Go binary. Equal to Go on 34,676 fixture comparisons
-(`testdata/parity`, written by
-each package's `parity_test.go`; `LIMBO_PARITY_UPDATE=1 go test ./internal/... ./cmd/limbo -run Parity` after a deliberate change)
-and in a differential run of both daemons (`rust/parity/daemon-differential.py`). A change to a serve package now
-needs its fixture regenerated and the Rust side kept equal (`cd rust && scripts/nicecargo.sh test --offline`). Switched
-by hand on 2026-11-10 (a drop-in); since 2026-11-11 the package ships it: `/usr/bin/limbo` is limbo-rs (the daemon and
-the CLI), the Go build is `/usr/lib/limbo/limbo-go` for `net watch` and `capture` (docs/RUST_PORT.md "Packaging").
-
-A Claude session isolated in a worktree has its commands refused when they wrap a payload the guard cannot read
-(`bash script`, `env`, `nice` before `go test`, a program literally named `cmd` after `--`): run real Wine checks from
-Go tests, and builds with `renice -n 15 -p $$ && go ...`.
+**Rust only since 2026-11-15** (`rust/`, docs/RUST_PORT.md): `limbo-rs`, installed as `/usr/bin/limbo`, is the daemon
+(`limbo serve`) and every command. It was ported from a Go module (stdlib only) between 2026-11-10 and 2026-11-15; the
+Go sources, the hand-over to them and the Go build in the recipes are gone. The Go limbo stays the referee: the
+differential runs (`rust/parity/cli-differential.py`, `daemon-differential.py`) build it from the last commit that had
+it (`rust/parity/go-limbo.sh`, commit 86a479f), and `testdata/parity` holds what that commit's Go tests wrote. Proof:
+34,676 fixture comparisons, the CLI differential (1,049 cases, 5,245 comparisons in CI) and the daemon differential, all
+with no difference. The Go package names (`internal/policy`, `internal/engine`, ...) used below and in
+docs/ARCHITECTURE.md are the Rust modules of the same names now (`rust/limbo/src/policy.rs`, `engine.rs`, ...). First
+slice built (docs/ARCHITECTURE.md §12 for the per-package verification table and known weaknesses). Run against real
+libvirt and live guests since 2026-10-14 (latest: 66/66 and 24/24 on 2026-11-05; the Coordination Log has the
+details). The Wine backend (`limbo wine`, §13) since 2026-11-08.
 
 ```bash
-go vet ./... && go test ./...      # Linux (the code uses Linux syscalls; it no longer builds for Windows)
+cd rust && scripts/nicecargo.sh test --offline && scripts/nicecargo.sh clippy --all-targets   # Linux only
 ```
 
-**Run on a real Linux host (Labyrinth OS, 2026-10-14):** `go vet` and `go test ./...` pass natively, and
+**Run on a real Linux host (Labyrinth OS, 2026-10-14):** the Go build's tests passed natively, and
 `scripts/integration-linux-guest.sh` passes 43/43 with real guests under libvirt/KVM. That run found two defects
 unit tests could not: a host firewall that drops by default (UFW, enabled on Labyrinth OS) starved the guest of
 DHCP because Limbo's table cannot override someone else's drop, now handled by `internal/hostfw`; and
@@ -185,6 +176,21 @@ From Heimdall's CLAUDE.md Coordination Log.
   repository; it waits for that image's recipe.
 
 ## Coordination Log (newest first)
+
+### 2026-11-15 — Limbo is Rust only: net watch and capture ported, the Go code gone
+- `limbo net watch` and `limbo capture` in Rust (the last two commands the Go build ran), proved by the CLI
+  differential against the Go build: net watch on real NFLOG packets in a user and network namespace, capture through
+  a usbmon stand-in that answers the one ioctl by seccomp user notification. CI: 1,049 cases, 5,245 comparisons, no
+  difference (with real NFLOG packets); here 1,046 and 5,230 (no nft_log module).
+- limbo-rs hands nothing to Go. A command line, or a variable the commands read, that is not UTF-8 is refused (exit 2);
+  Go took any bytes (docs/RUST_PORT.md "Differences").
+- The Go sources (26,273 lines), the Go build in `packaging/arch/PKGBUILD` and the integration scripts' `go build` are
+  gone; the referee is built from commit 86a479f (`rust/parity/go-limbo.sh`). The scripts test `$LIMBO_BIN`, else
+  `rust/target/release/limbo-rs` (`scripts/limbo-bin.sh`).
+- **For Labyrinth_OS:** done from here the same day: both limbo-git recipes build and install limbo-rs only
+  (`makedepends` without `go`), and their limbo.install copies say a leftover `/usr/lib/limbo/limbo-go` can go.
+- **For Heimdall, Sarina, Yggdrasil:** nothing changes (same sockets, routes, JSON, codes and events).
+— Signed: Limbo / Claude Opus 5.5
 
 ### 2026-11-11 (3) — A restart no longer lifts the passthrough block
 - `RuntimeDirectory=limbo` makes systemd empty /run/limbo at every stop, and the reboot-needed marker
