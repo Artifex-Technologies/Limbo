@@ -32,6 +32,12 @@ pub const RUN_START: &str = "run.start";
 pub const RUN_END: &str = "run.end";
 pub const RUN_ERROR: &str = "run.error";
 pub const HARDWARE_STUCK: &str = "hardware.stuck";
+// network mode sinkhole (docs/SINKHOLE.md, since 2026-11-18)
+pub const SINKHOLE_START: &str = "sinkhole.start";
+pub const SINKHOLE_STOP: &str = "sinkhole.stop";
+pub const SINKHOLE_DNS: &str = "sinkhole.dns";
+pub const SINKHOLE_CONNECT: &str = "sinkhole.connect";
+pub const SINKHOLE_CAPPED: &str = "sinkhole.capped";
 
 /// Writes the audit log. Implemented by [`Logger`], by fakes in tests, and by the daemon's wrapper that tells the flow
 /// aggregator about a torn-down guest.

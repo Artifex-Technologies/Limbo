@@ -8,7 +8,7 @@ use crate::image::{CheckErr, Proofs};
 use crate::manifest::{self, Manifest};
 use crate::quarantine::{self, Holder};
 use crate::virt::{self, Subnets};
-use crate::{detail, disk, exchange, gotext, hostfw, license, policy, sys, Detail};
+use crate::{detail, disk, exchange, gotext, hostfw, license, policy, sinkhole, sys, Detail};
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
 use std::process::{Command, Stdio};
@@ -258,6 +258,9 @@ pub struct Engine {
     pub exchange_root: String,
     pub subnets: Option<Subnets>,
     pub images: Option<Arc<Proofs>>,
+    /// The responders of guests in network mode sinkhole; only `limbo serve` has them, so elsewhere such a guest is
+    /// refused.
+    pub sinkhole: Option<Arc<sinkhole::Service>>,
     before: Mutex<BTreeMap<String, Option<BTreeMap<String, String>>>>,
 }
 
@@ -294,6 +297,7 @@ impl Engine {
             exchange_root: String::new(),
             subnets: None,
             images: None,
+            sinkhole: None,
             before: Mutex::new(BTreeMap::new()),
         }
     }
@@ -351,6 +355,10 @@ impl Engine {
         if !m.devices.pci().is_empty() {
             let b = self.hardware.as_ref().map(|h| h.before(m));
             self.before.lock().unwrap_or_else(|e| e.into_inner()).insert(g.clone(), b);
+        }
+        if let Err(e) = self.sinkhole_ready(m) {
+            let _ = self.events.emit(events::GATE_BLOCKED, &g, detail([("reason", &e)]));
+            return Err(EngineErr::Other(e));
         }
         if let Err(e) = self.exchange_safe(m) {
             let _ = self.events.emit(events::GATE_BLOCKED, &g, detail([("reason", &e)]));
@@ -413,6 +421,11 @@ impl Engine {
             self.prepare_disk(ctx, m, &root_disk)?;
             self.virsh(ctx, &["net-define", &net_path])?;
             self.virsh(ctx, &["net-start", &virt::network_name(m)])?;
+            if m.network.mode == manifest::NET_SINKHOLE {
+                if let Some(sh) = &self.sinkhole {
+                    sh.start(m).map_err(EngineErr::Other)?;
+                }
+            }
             self.emit(events::POLICY_APPLY, g, detail([("table", &policy::table_name(m))]))?;
             self.runner
                 .run(ctx, &rules, "nft", &s(&["-f", "-"]))
@@ -469,6 +482,9 @@ impl Engine {
                 errs.push(e.to_string());
             }
         }
+        if let Some(sh) = &self.sinkhole {
+            sh.stop(&m.name);
+        }
         if m.disposable {
             if let Err(e) = self.discard_overlay(m) {
                 errs.push(e);
@@ -511,7 +527,7 @@ impl Engine {
         if !self.ufw_active.is_some_and(|f| f()) {
             return Ok(());
         }
-        for args in hostfw::ufw_open(&virt::bridge_name(m)) {
+        for args in hostfw::ufw_open_mode(&virt::bridge_name(m), &m.network.mode) {
             if let Err(e) = self.runner.run(ctx, "", "ufw", &args) {
                 return Err(EngineErr::Cmd(CmdErr {
                     text: format!("engine: opening the bridge in the host firewall (ufw {}): {}", args.join(" "), e.text),
@@ -527,7 +543,7 @@ impl Engine {
             return Ok(());
         }
         let mut errs = vec![];
-        for args in hostfw::ufw_close(&virt::bridge_name(m)) {
+        for args in hostfw::ufw_close_mode(&virt::bridge_name(m), &m.network.mode) {
             if let Err(e) = self.runner.run(ctx, "", "ufw", &args) {
                 errs.push(format!("ufw {}: {}", args.join(" "), e.text));
             }
@@ -536,6 +552,17 @@ impl Engine {
             Ok(())
         } else {
             Err(errs.join("\n"))
+        }
+    }
+
+    /// A guest in network mode sinkhole starts only where its responder can run: under `limbo serve`, with the account.
+    fn sinkhole_ready(&self, m: &Manifest) -> Result<(), String> {
+        if m.network.mode != manifest::NET_SINKHOLE {
+            return Ok(());
+        }
+        match &self.sinkhole {
+            None => Err("network mode sinkhole needs limbo serve, which runs the sinkhole's responder for the guest's whole life: start the guest as a sample or validation run, or from the Settings page".into()),
+            Some(sh) => sh.ready(),
         }
     }
 
@@ -688,5 +715,34 @@ impl Runner for FakeRunner {
     fn output(&self, _ctx: &Ctx, name: &str, args: &[String]) -> Result<String, CmdErr> {
         self.calls.lock().unwrap_or_else(|e| e.into_inner()).push((name.to_string(), args.to_vec(), String::new()));
         Ok(self.running.lock().unwrap_or_else(|e| e.into_inner()).clone())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_sinkhole_guest_starts_only_where_its_responder_can_run() {
+        let doc = format!(
+            r#"{{"name":"sh","os":"linux","image":{{"path":"/i/x.qcow2","sha256":"{}"}},"network":{{"mode":"sinkhole"}},"access":{{"user":"a"}},"app":{{"name":"a","exec":"true"}}}}"#,
+            "0".repeat(64)
+        );
+        let runner = Arc::new(FakeRunner::default());
+        let rec = Arc::new(events::Recorder::default());
+        let mut e = Engine::new(runner.clone(), rec.clone(), "/nonexistent-limbo-state");
+        let mut m = manifest::parse(doc.as_bytes()).unwrap();
+        // the command line's engine has no responders
+        let err = e.up(&Ctx::background(), &mut m).unwrap_err().to_string();
+        assert!(err.contains("needs limbo serve"), "{err}");
+        // the daemon's, without the account
+        let mut sh = sinkhole::Service::new(rec.clone());
+        sh.account = Some("limbo-no-such-account-x".into());
+        e.sinkhole = Some(Arc::new(sh));
+        let err = e.up(&Ctx::background(), &mut m).unwrap_err().to_string();
+        assert!(err.contains("needs the account limbo-no-such-account-x"), "{err}");
+        assert!(runner.calls.lock().unwrap().is_empty(), "nothing was set up");
+        let evs = rec.events.lock().unwrap();
+        assert_eq!(evs.iter().map(|e| e.0.as_str()).collect::<Vec<_>>(), ["gate.blocked", "gate.blocked"]);
     }
 }

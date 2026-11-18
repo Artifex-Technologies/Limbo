@@ -48,3 +48,24 @@ pub fn nflog(data: &[u8]) {
     let _ = flows::parse_ip(data);
     let _ = flows::ack_error(data);
 }
+
+/// Any bytes as what a guest in network mode sinkhole sends (a DNS question, a TCP connection's first bytes) and as a
+/// line the responder writes: no panic; whatever is logged is printable ASCII.
+pub fn sinkhole(data: &[u8]) {
+    use crate::sinkhole::responder;
+    let gw = std::net::Ipv4Addr::new(10, 213, 7, 1);
+    let printable = |s: &str| s.bytes().all(|c| (0x20..=0x7e).contains(&c));
+    if let Some((reply, q, _)) = responder::dns_reply(data, gw) {
+        assert!(printable(&q.name) && reply.len() >= 12 && reply[..2] == data[..2]);
+    }
+    if let Some(sni) = responder::client_hello_sni(data) {
+        assert!(printable(&sni));
+    }
+    if let Some((line, host)) = responder::http_request(data) {
+        assert!(printable(&line) && printable(&host));
+    }
+    let mut log = crate::sinkhole::Log::default();
+    for (_, d) in log.take(data) {
+        assert!(d.values().all(|v| printable(v)));
+    }
+}

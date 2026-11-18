@@ -11,6 +11,9 @@ pub const OS_WINDOWS: &str = "windows";
 pub const NET_NONE: &str = "none";
 pub const NET_ALLOWLIST: &str = "allowlist";
 pub const NET_INTERNET_ONLY: &str = "internet-only";
+/// No route out: the guest's DNS and connections reach a logging responder on the host's side of its own bridge
+/// (docs/SINKHOLE.md, since 2026-11-18).
+pub const NET_SINKHOLE: &str = "sinkhole";
 pub const CLIP_OFF: &str = "off";
 pub const CLIP_TEXT: &str = "text";
 pub const MAX_DISK_GB: i64 = 4096;
@@ -307,7 +310,7 @@ impl Network {
 
     pub fn validate(&self) -> Result<(), String> {
         match self.mode.as_str() {
-            NET_NONE | NET_INTERNET_ONLY => {
+            NET_NONE | NET_INTERNET_ONLY | NET_SINKHOLE => {
                 if !self.allow().is_empty() {
                     return Err("manifest: network.allow only applies to mode \"allowlist\"".into());
                 }
@@ -317,7 +320,7 @@ impl Network {
                     return Err("manifest: mode \"allowlist\" needs at least one network.allow entry".into());
                 }
             }
-            _ => return Err("manifest: network.mode must be none, allowlist or internet-only".into()),
+            _ => return Err("manifest: network.mode must be none, allowlist, internet-only or sinkhole".into()),
         }
         for a in self.allow() {
             a.prefix()?;

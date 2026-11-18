@@ -2,7 +2,7 @@
 //! refusals logged to the NFLOG group limbo serve reads, then dropped.
 
 use crate::manifest::{self, Manifest, Network};
-use crate::virt;
+use crate::{sinkhole, virt};
 
 pub const NFLOG_GROUP: u16 = 7213;
 
@@ -37,6 +37,9 @@ pub fn nft(m: &Manifest) -> Result<String, String> {
         w("    drop".into());
         w("  }".into());
     }
+    if m.network.mode == manifest::NET_SINKHOLE {
+        sinkhole_nat(&mut w, &tap);
+    }
     w("  chain input {".into());
     w("    type filter hook input priority -10; policy accept;".into());
     w(format!("    iifname \"{tap}\" ct state established,related accept"));
@@ -45,6 +48,13 @@ pub fn nft(m: &Manifest) -> Result<String, String> {
         let gw = virt::ip4(virt::addr(m).gateway);
         w(format!("    iifname \"{tap}\" ip daddr {gw} udp dport 53 accept"));
         w(format!("    iifname \"{tap}\" ip daddr {gw} tcp dport 53 accept"));
+    }
+    if m.network.mode == manifest::NET_SINKHOLE {
+        // only what the redirect sent to the responder, on the gateway address it is bound to
+        let gw = virt::ip4(virt::addr(m).gateway);
+        let (dns, udp, tcp) = (sinkhole::DNS_PORT, sinkhole::UDP_PORT, sinkhole::TCP_PORT);
+        w(format!("    iifname \"{tap}\" ip daddr {gw} ct status dnat udp dport {{ {dns}, {udp} }} accept"));
+        w(format!("    iifname \"{tap}\" ip daddr {gw} ct status dnat tcp dport {tcp} accept"));
     }
     w(format!("    iifname \"{tap}\" goto hostblocked"));
     w("  }".into());
@@ -84,6 +94,22 @@ pub fn nft(m: &Manifest) -> Result<String, String> {
     Ok(b)
 }
 
+/// Mode sinkhole's redirect (docs/SINKHOLE.md): every IPv4 TCP connection and UDP datagram the guest sends, to any
+/// address, lands on the responder bound to the guest's gateway address; DHCP is left to libvirt's dnsmasq. A UDP
+/// datagram keeps its destination port in the packet mark (the responder reads it with SO_RCVMARK; a TCP connection's
+/// comes from SO_ORIGINAL_DST). Nothing is forwarded: the forward chain still drops everything from the bridge, and the
+/// guest's libvirt network is isolated.
+fn sinkhole_nat(w: &mut impl FnMut(String), tap: &str) {
+    let (dns, udp, tcp) = (sinkhole::DNS_PORT, sinkhole::UDP_PORT, sinkhole::TCP_PORT);
+    w("  chain sinkhole {".into());
+    w("    type nat hook prerouting priority -100; policy accept;".into());
+    w(format!("    iifname \"{tap}\" udp sport 68 udp dport 67 return"));
+    w(format!("    iifname \"{tap}\" meta nfproto ipv4 udp dport 53 redirect to :{dns}"));
+    w(format!("    iifname \"{tap}\" meta nfproto ipv4 meta l4proto tcp redirect to :{tcp}"));
+    w(format!("    iifname \"{tap}\" meta nfproto ipv4 meta l4proto udp meta mark set udp dport redirect to :{udp}"));
+    w("  }".into());
+}
+
 /// A script that replaces the guest's table with the ruleset of `mode` in one transaction.
 pub fn nft_replace(m: &Manifest, mode: &str) -> Result<String, String> {
     let mut cp = m.clone();
@@ -104,4 +130,39 @@ pub fn nft_restrict(m: &Manifest) -> Result<String, String> {
 /// The ruleset the manifest asked for, restored.
 pub fn nft_release(m: &Manifest) -> Result<String, String> {
     nft_replace(m, &m.network.mode.clone())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn m(mode: &str) -> Manifest {
+        let doc = format!(
+            r#"{{"name":"sh","os":"linux","image":{{"path":"/i/x.qcow2","sha256":"{}"}},"subnet":7,"network":{{"mode":"{mode}"}},"access":{{"user":"a"}},"app":{{"name":"a","exec":"true"}}}}"#,
+            "0".repeat(64)
+        );
+        manifest::parse(doc.as_bytes()).unwrap()
+    }
+
+    #[test]
+    fn sinkhole_redirects_everything_and_forwards_nothing() {
+        let r = nft(&m("sinkhole")).unwrap();
+        assert!(r.contains("type nat hook prerouting priority -100;"));
+        assert!(r.contains("iifname \"lb-sh\" meta nfproto ipv4 udp dport 53 redirect to :7253"));
+        assert!(r.contains("iifname \"lb-sh\" meta nfproto ipv4 meta l4proto tcp redirect to :7280"));
+        assert!(r.contains("meta mark set udp dport redirect to :7281"));
+        assert!(r.contains("iifname \"lb-sh\" ip daddr 10.213.7.1 ct status dnat udp dport { 7253, 7281 } accept"));
+        assert!(r.contains("iifname \"lb-sh\" ip daddr 10.213.7.1 ct status dnat tcp dport 7280 accept"));
+        // the forward chain accepts nothing from the guest
+        let fwd = r.split("chain forward {").nth(1).unwrap();
+        assert!(!fwd.lines().any(|l| l.contains("iifname") && l.trim_end().ends_with("accept")), "{fwd}");
+        // no DNS to the gateway's dnsmasq, as in mode none
+        assert!(!r.contains("udp dport 53 accept"));
+        // a hold replaces it with mode none's table: no redirect left
+        let held = nft_restrict(&m("sinkhole")).unwrap();
+        assert!(!held.contains("redirect") && held.starts_with("table inet limbo_sh\ndelete table inet limbo_sh\n"));
+        assert_eq!(nft_release(&m("sinkhole")).unwrap(), format!("table inet limbo_sh\ndelete table inet limbo_sh\n{r}"));
+        // the other modes are untouched by it
+        assert!(!nft(&m("none")).unwrap().contains("sinkhole"));
+    }
 }

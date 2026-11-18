@@ -58,6 +58,8 @@ fn main() {
             }
             return;
         }
+        // run by limbo serve for a guest in network mode sinkhole, as the account limbo-sinkhole (docs/SINKHOLE.md)
+        Some("sinkhole-responder") => std::process::exit(limbo::sinkhole::responder::run(&args[2..])),
         Some("rs-version") => {
             println!("limbo-rs {} (every command in Rust)", limbo::api::VERSION);
             return;

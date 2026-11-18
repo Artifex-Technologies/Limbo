@@ -29,6 +29,7 @@ pub mod instances;
 pub mod launch;
 pub mod license;
 pub mod runs;
+pub mod sinkhole;
 
 pub mod flows;
 pub mod usbcap;

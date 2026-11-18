@@ -7,3 +7,6 @@
 g limbo-heimdall - -
 g limbo-agent  - -
 g limbo-users  - -
+# The sinkhole's responder (network mode sinkhole, docs/SINKHOLE.md): limbo serve runs it as this account, which has no
+# login, no home and no group but its own, and owns nothing on disk.
+u limbo-sinkhole - "Limbo sinkhole responder" / /usr/bin/nologin

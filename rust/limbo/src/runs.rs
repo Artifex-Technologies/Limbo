@@ -114,6 +114,9 @@ pub struct RunResult {
     pub remedy: String,
     pub started: Time,
     pub ended: Time,
+    /// What the guest asked the sinkhole for (network mode sinkhole only): `{"totals":{...},"records":[...]}`, every
+    /// value a bounded, escaped string the guest controlled in part.
+    pub sinkhole: Option<String>,
 }
 
 impl RunResult {
@@ -122,15 +125,19 @@ impl RunResult {
         if let Some(c) = self.exit_code {
             o = o.int("exit_code", c);
         }
-        o.str("stdout", &self.stdout)
+        o = o
+            .str("stdout", &self.stdout)
             .str("stderr", &self.stderr)
             .bool_omit("truncated", self.truncated)
             .str_omit("error", &self.error)
             .str_omit("code", &self.code)
             .str_omit("remedy", &self.remedy)
             .str("started", &self.started.rfc3339_nano())
-            .str("ended", &self.ended.rfc3339_nano())
-            .end()
+            .str("ended", &self.ended.rfc3339_nano());
+        if let Some(sh) = &self.sinkhole {
+            o = o.raw("sinkhole", sh);
+        }
+        o.end()
     }
 }
 
@@ -370,10 +377,12 @@ impl Manager {
         let q = gotext::quote(profile);
         if kind == SAMPLE {
             let mf = &p.manifest;
-            if !p.allow_sample || mf.network.mode != "none" || mf.access.sudo || !mf.exchange_dir.is_empty() || mf.devices.any() {
+            // sealed: no route out (none, or sinkhole since 2026-11-18: the guest's calls reach a log on this computer)
+            let sealed_net = mf.network.mode == manifest::NET_NONE || mf.network.mode == manifest::NET_SINKHOLE;
+            if !p.allow_sample || !sealed_net || mf.access.sudo || !mf.exchange_dir.is_empty() || mf.devices.any() {
                 return Err(new_err(
                     CODE_PROFILE_INVALID,
-                    "use a sealed profile with allow_sample (no network, no sudo, no shared folder, no devices)",
+                    "use a sealed profile with allow_sample (network none or sinkhole, no sudo, no shared folder, no devices)",
                     format!("profile {q} may not analyse samples"),
                 ));
             }
@@ -405,6 +414,19 @@ impl Manager {
                     CODE_BAD_REQUEST,
                     "this Limbo cannot carry files into a guest",
                     "bundles are not supported here".into(),
+                ));
+            }
+        }
+        if p.manifest.network.mode == manifest::NET_SINKHOLE {
+            let ready = match &self.engine.sinkhole {
+                None => Err("this Limbo cannot run a sinkhole".to_string()),
+                Some(sh) => sh.ready(),
+            };
+            if let Err(e) = ready {
+                return Err(new_err(
+                    CODE_PROFILE_INVALID,
+                    "ask the operator to create the limbo-sinkhole account (docs/SINKHOLE.md), or use a profile in mode none",
+                    format!("profile {q} uses network mode sinkhole, which cannot run here: {e}"),
                 ));
             }
         }
@@ -470,6 +492,7 @@ impl Manager {
             remedy: String::new(),
             started: Time::now().utc(),
             ended: Time::default(),
+            sinkhole: None,
         };
         st.results.insert(id.clone(), res);
         let (ctx, cancel) = Ctx::background().with_cancel();
@@ -555,6 +578,7 @@ impl Manager {
         let mut timed_out = false;
         let mut fail: Option<Refusal> = None;
         let mut leaked = false;
+        let mut sink: Option<String> = None;
         for d in [&runs_dir, &run_dir] {
             if let Err(e) = mkdir_traversable(d) {
                 fail = Some(classify("prepare", &Failure::text(&sys::go_err(&e)), false));
@@ -598,6 +622,7 @@ impl Manager {
             })();
             let dctx = Ctx::background().with_timeout(Duration::from_millis(TEARDOWN_TIMEOUT_MS));
             leaked = self.engine.down(&dctx, &mf).is_err();
+            sink = self.engine.sinkhole.as_ref().and_then(|s| s.take(id));
             self.engine.clean_state(&mf);
             if !leaked {
                 let _ = std::fs::remove_dir_all(&run_dir);
@@ -654,6 +679,7 @@ impl Manager {
         sys::trim();
         self.finish(id, |r| {
             r.status = status.into();
+            r.sinkhole = sink;
             r.stdout = sanitize(&out.0);
             r.stderr = sanitize(&out.1);
             r.truncated = out.3;

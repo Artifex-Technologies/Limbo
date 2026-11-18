@@ -138,6 +138,19 @@ fn fuzz_nflog_smoke() {
     smoke(fuzzing::nflog, &[b"\x2c\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x1c\x2d\x10\x00\x0a\x00limbo:lab:a\x00\x08\x00\x09\x00\x45\x00\x00\x00"]);
 }
 
+#[test]
+fn fuzz_sinkhole_smoke() {
+    smoke(
+        fuzzing::sinkhole,
+        &[
+            b"\x12\x34\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x08callhome\x07example\x00\x00\x01\x00\x01",
+            b"GET /beacon HTTP/1.1\r\nHost: c2.example\r\n\r\n",
+            b"\x16\x03\x01\x00\x30\x01\x00\x00\x2c\x03\x03",
+            br#"{"kind":"tcp","dst":"198.51.100.7","dport":"80","first":"\u001b"}"#,
+        ],
+    );
+}
+
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(2000))]
 

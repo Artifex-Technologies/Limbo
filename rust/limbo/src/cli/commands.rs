@@ -574,7 +574,7 @@ fn settings(args: &[String], io: &mut Io) -> Result<(), Fail> {
     }
 }
 
-const I_USAGE: &str = "usage: limbo instance list | show NAME | start NAME | stop NAME | set NAME [--cpus N] [--memory-mb N] [--disk-gb N] [--shared-folder on|off] [--clipboard off|text] [--devices A,B] [--network none|internet-only|allowlist --allow A:tcp:443,...] | free-space NAME [--yes] | add MANIFEST [--owner USER] (root) | remove NAME [--delete-disk] (root)";
+const I_USAGE: &str = "usage: limbo instance list | show NAME | start NAME | stop NAME | set NAME [--cpus N] [--memory-mb N] [--disk-gb N] [--shared-folder on|off] [--clipboard off|text] [--devices A,B] [--network none|internet-only|sinkhole|allowlist --allow A:tcp:443,...] | free-space NAME [--yes] | add MANIFEST [--owner USER] (root) | remove NAME [--delete-disk] (root)";
 
 /// bufio.Reader.ReadString('\n') on stdin (at most `limit` bytes): the line with its newline, or what came before EOF.
 fn read_line(stdin: &mut dyn Read, limit: usize) -> Vec<u8> {
@@ -628,7 +628,7 @@ fn instance(args: &[String], io: &mut Io) -> Result<(), Fail> {
         "\x00",
         "set: comma-separated PCI addresses or USB IDs (vendor:product), from the manifest's own list; empty for none",
     );
-    fs.string("network", "", "set (root): none, internet-only, or allowlist (with --allow); from the guest's next start");
+    fs.string("network", "", "set (root): none, internet-only, sinkhole, or allowlist (with --allow); from the guest's next start");
     fs.string("allow", "", "set --network allowlist: comma-separated ADDRESS[/BITS]:tcp|udp:PORT, e.g. 1.2.3.4:tcp:443");
     fs.string("owner", "", "add: the account that may change it without the password (default: the sudo user)");
     fs.bool("delete-disk", false, "remove: also delete the guest's own disk");

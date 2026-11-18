@@ -44,3 +44,10 @@ path = "fuzz_targets/nflog.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "sinkhole"
+path = "fuzz_targets/sinkhole.rs"
+test = false
+doc = false
+bench = false

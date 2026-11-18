@@ -677,6 +677,18 @@ def passthrough_failures(rep):
     return bad
 
 
+# What Limbo changed on purpose after the Go build left (docs/RUST_PORT.md "Changed since the Go build left"; the same
+# list as rust/limbo/tests/common/mod.rs INTENDED): the Go limbo's text on the left is read as the right in both outputs.
+INTENDED = [
+    # network mode sinkhole (2026-11-18, docs/SINKHOLE.md)
+    ("must be none, allowlist or internet-only", "must be none, allowlist, internet-only or sinkhole"),
+    ("none, internet-only, or allowlist with at least one", "none, internet-only, sinkhole, or allowlist with at least one"),
+    ("--network none|internet-only|allowlist ", "--network none|internet-only|sinkhole|allowlist "),
+    ("set (root): none, internet-only, or allowlist (with --allow)", "set (root): none, internet-only, sinkhole, or allowlist (with --allow)"),
+    ("use a sealed profile with allow_sample (no network,", "use a sealed profile with allow_sample (network none or sinkhole,"),
+]
+
+
 def normalise(rep, root, images):
     """Everything that may differ between two correct runs, made equal: the scratch folder, times, ids, pids."""
     ids = {}
@@ -698,6 +710,8 @@ def normalise(rep, root, images):
         if not isinstance(s, str):
             return s
         s = s.replace(root, "$ROOT").replace(images, "$IMAGES")
+        for old, new in INTENDED:
+            s = s.replace(old, new)
         for k, v in ids.items():
             s = s.replace(k, v)
         s = re.sub(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z", "T", s)

@@ -103,6 +103,50 @@ pub fn run(args: &[String], io: &mut Io) -> Result<(), Fail> {
     r
 }
 
+/// A sinkhole run's part of the result as text: what the guest asked for (network mode sinkhole, docs/SINKHOLE.md).
+/// Every value came from the guest in part; it is shown as printable ASCII only, whatever the daemon sent.
+pub fn sinkhole_text(sh: &[(String, Value)]) -> String {
+    let field = |m: &[(String, Value)], k: &str| match map_get(m, k) {
+        // the daemon sends them escaped already (a backslash stays); anything else is escaped here again
+        Some(Value::String(s)) => {
+            s.bytes().map(|c| if (0x20..=0x7e).contains(&c) { (c as char).to_string() } else { format!("\\x{c:02x}") }).collect()
+        }
+        _ => String::new(),
+    };
+    let mut out = String::from("\n== sinkhole: what the guest asked for (nothing left this computer; guest data, untrusted)\n");
+    if let Some(Value::Object(t)) = map_get(sh, "totals") {
+        out.push_str(&format!(
+            "   {} DNS questions, {} TCP connections, {} UDP datagrams; {} not listed\n",
+            field(t, "dns"),
+            field(t, "tcp"),
+            field(t, "udp"),
+            field(t, "unrecorded")
+        ));
+    }
+    if let Some(Value::Array(recs)) = map_get(sh, "records") {
+        for r in recs {
+            let Value::Object(r) = r else { continue };
+            let line = match field(r, "kind").as_str() {
+                "sinkhole.dns" => format!("dns  {} {}", field(r, "type"), field(r, "name")),
+                _ => {
+                    let mut l = format!("{}  {}:{}", field(r, "proto"), field(r, "dst"), field(r, "dport"));
+                    for (k, label) in [("sni", "tls"), ("http", "http"), ("host", "host"), ("first", "first")] {
+                        let v = field(r, k);
+                        if !v.is_empty() {
+                            l.push_str(&format!("  {label}={}", if v.len() > 120 { format!("{}...", &v[..120]) } else { v }));
+                        }
+                    }
+                    l
+                }
+            };
+            out.push_str("   ");
+            out.push_str(&line);
+            out.push('\n');
+        }
+    }
+    out
+}
+
 #[allow(clippy::too_many_arguments)]
 fn ask(io: &mut Io, sock: &str, profile: &str, command: &str, name: &str, sum: &str, timeout: i64, as_json: bool) -> Result<(), Fail> {
     // json.Marshal of the map: keys sorted
@@ -148,6 +192,9 @@ fn ask(io: &mut Io, sock: &str, profile: &str, command: &str, name: &str, sum: &
                     let _ = io.err.write_all(e.as_bytes());
                 }
             }
+            if let Some(Value::Object(sh)) = map_get(&res, "sinkhole") {
+                let _ = io.out.write_all(sinkhole_text(sh).as_bytes());
+            }
             if let Some(Value::String(e)) = map_get(&res, "error") {
                 if !e.is_empty() {
                     return Err(Fail::Msg(e.clone()));
@@ -157,4 +204,18 @@ fn ask(io: &mut Io, sock: &str, profile: &str, command: &str, name: &str, sum: &
         return Ok(());
     }
     Err(Fail::Msg("the run did not finish in time".into()))
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn sinkhole_text_is_printable() {
+        let raw = "{\"totals\":{\"dns\":\"2\",\"tcp\":\"1\",\"udp\":\"0\",\"unrecorded\":\"0\"},\"records\":[{\"kind\":\"sinkhole.dns\",\"type\":\"A\",\"name\":\"c2.example\"},{\"kind\":\"sinkhole.connect\",\"proto\":\"tcp\",\"dst\":\"198.51.100.7\",\"dport\":\"443\",\"sni\":\"c2.example\\u001b[2J\\u202e\"}]}";
+        let crate::gojson::Value::Object(m) = crate::gojson::parse(raw.as_bytes()).unwrap() else { panic!() };
+        let t = super::sinkhole_text(&m);
+        assert!(t.contains("   2 DNS questions, 1 TCP connections, 0 UDP datagrams; 0 not listed\n"), "{t}");
+        assert!(t.contains("   dns  A c2.example\n"));
+        assert!(t.contains("   tcp  198.51.100.7:443  tls=c2.example\\x1b[2J\\xe2\\x80\\xae\n"), "{t}");
+        assert!(t.bytes().all(|c| c == b'\n' || (0x20..=0x7e).contains(&c)));
+    }
 }

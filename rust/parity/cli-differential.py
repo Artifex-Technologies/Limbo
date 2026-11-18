@@ -1908,8 +1908,22 @@ def make_files(work, files):
             os.chmod(p, 0o755)
 
 
+# What Limbo changed on purpose after the Go build left (docs/RUST_PORT.md "Changed since the Go build left"; the same
+# list as rust/limbo/tests/common/mod.rs INTENDED): the Go limbo's text on the left is read as the right in both outputs.
+INTENDED = [
+    # network mode sinkhole (2026-11-18, docs/SINKHOLE.md)
+    ("must be none, allowlist or internet-only", "must be none, allowlist, internet-only or sinkhole"),
+    ("none, internet-only, or allowlist with at least one", "none, internet-only, sinkhole, or allowlist with at least one"),
+    ("--network none|internet-only|allowlist ", "--network none|internet-only|sinkhole|allowlist "),
+    ("set (root): none, internet-only, or allowlist (with --allow)", "set (root): none, internet-only, sinkhole, or allowlist (with --allow)"),
+    ("use a sealed profile with allow_sample (no network,", "use a sealed profile with allow_sample (network none or sinkhole,"),
+]
+
+
 def normalize(data, norm):
     """The case's (pattern, replacement) pairs applied: what differs between two runs by design (the time now)."""
+    for old, new in INTENDED:
+        data = data.replace(old.encode(), new.encode())
     for pat, rep in norm:
         data = re.sub(pat.encode(), rep.encode(), data)
     return data

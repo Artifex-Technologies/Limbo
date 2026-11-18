@@ -16,7 +16,7 @@ use crate::instances;
 use crate::quarantine::Store;
 use crate::runs::{self, Manager};
 use crate::virt::{self, Subnets};
-use crate::{exchange, gotext, http, license, osuser, settings, sys, Detail};
+use crate::{exchange, gotext, http, license, osuser, settings, sinkhole, sys, Detail};
 use std::io;
 use std::os::fd::{AsFd, AsRawFd, FromRawFd, OwnedFd};
 use std::os::unix::net::{UnixListener, UnixStream};
@@ -239,6 +239,34 @@ impl Emitter for Forgetting {
     }
 }
 
+/// Guests in network mode sinkhole that kept running while the daemon was down (persistent ones: runs were reaped) get
+/// their responder back. Until then their table still redirects everything to it, so nothing left the host meanwhile.
+fn reattach_sinkholes(eng: &Engine, state_dir: &str) {
+    let Some(sh) = &eng.sinkhole else { return };
+    let mut guests = vec![];
+    for (file, ft) in sys::read_dir_sorted(state_dir).unwrap_or_default() {
+        let Some(guest) = file.strip_suffix(".manifest.json") else { continue };
+        if !ft.is_file() {
+            continue;
+        }
+        if let Ok(m) = engine::load_guest(state_dir, guest) {
+            if m.network.mode == crate::manifest::NET_SINKHOLE {
+                guests.push(m);
+            }
+        }
+    }
+    // libvirt is asked only when there is a sinkhole guest to look for
+    if guests.is_empty() {
+        return;
+    }
+    let Ok(running) = eng.running_domains(&engine::Ctx::background()) else { return };
+    for m in guests.iter().filter(|m| running.contains(&virt::domain_name(m))) {
+        if let Err(e) = sh.start(m) {
+            eprintln!("limbo serve: {e}");
+        }
+    }
+}
+
 fn kvm() -> bool {
     use std::os::unix::fs::FileTypeExt;
     std::fs::metadata("/dev/kvm").is_ok_and(|m| m.file_type().is_char_device())
@@ -323,6 +351,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
     eng.exchange_root = f.exchange_root.clone();
     eng.subnets = Some(Subnets { path: sys::join(&[&f.state_dir, "subnets.json"]), in_use: None });
     eng.images = Some(Arc::new(Proofs::new(&sys::join(&[&f.state_dir, image::PROOFS_FILE]), 0)));
+    eng.sinkhole = Some(Arc::new(sinkhole::Service::new(log.clone())));
     let eng = Arc::new(eng);
 
     let mut mgr = Manager::new(&f.profile_dir, &f.state_dir, eng.clone(), Arc::new(runs::Ssh), log.clone());
@@ -336,6 +365,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
     if n > 0 {
         eprintln!("limbo serve: destroyed {n} guest(s) left by an interrupted run");
     }
+    reattach_sinkholes(&eng, &f.state_dir);
 
     let exch = exchange::Service {
         root: f.exchange_root.clone(),

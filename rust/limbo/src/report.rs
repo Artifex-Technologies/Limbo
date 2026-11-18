@@ -139,6 +139,45 @@ pub fn render(inp: &Input) -> String {
         w!("None in this period.");
     }
 
+    // network mode sinkhole (2026-11-18): only when there is something to show, so other reports stay as they were
+    let sink: Vec<&&Event> = evs
+        .iter()
+        .filter(|e| matches!(e.kind.as_str(), events::SINKHOLE_DNS | events::SINKHOLE_CONNECT | events::SINKHOLE_CAPPED))
+        .collect();
+    if !sink.is_empty() {
+        w!("");
+        w!("## Sinkhole");
+        w!("");
+        w!("What guests in network mode sinkhole asked for. None of it left this computer. **Untrusted**: names and bytes chosen by the guest, shown escaped.");
+        w!("");
+        w!("| Time | Guest | Asked for | What it sent |");
+        w!("| --- | --- | --- | --- |");
+        for e in sink {
+            let g = |k: &str| e.get(k).unwrap_or("").to_string();
+            let (asked, sent) = match e.kind.as_str() {
+                events::SINKHOLE_DNS => (format!("DNS {} {} ({})", g("type"), g("name"), g("proto")), String::new()),
+                events::SINKHOLE_CAPPED => (format!("more than {} records: the rest were counted, not listed", g("limit")), String::new()),
+                _ => {
+                    let dst = if g("dst").is_empty() { "?".to_string() } else { g("dst") };
+                    let mut sent = vec![];
+                    for (k, label) in [("sni", "TLS name"), ("http", "HTTP"), ("host", "Host"), ("first", "first bytes")] {
+                        if !g(k).is_empty() {
+                            sent.push(format!("{label}: {}", g(k)));
+                        }
+                    }
+                    (format!("{} {dst}:{}", g("proto"), g("dport")), sent.join("; "))
+                }
+            };
+            w!(
+                "| {} | {} | {} | {} |",
+                e.time.utc().rfc3339(),
+                md(&e.guest),
+                md(&clip(asked.as_bytes(), 160)),
+                md(&clip(sent.as_bytes(), 200))
+            );
+        }
+    }
+
     w!("");
     w!("## Timeline");
     if evs.is_empty() {
@@ -327,4 +366,40 @@ fn fence(s: &str) -> String {
     }
     let f = "`".repeat(3.max(longest + 1));
     format!("{f}text\n{}\n{f}", clean.trim_end_matches('\n'))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ev(kind: &str, d: &[(&str, &str)]) -> Event {
+        Event {
+            time: Time::default(),
+            kind: kind.into(),
+            guest: "r0000beef".into(),
+            detail: Some(d.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()),
+        }
+    }
+
+    #[test]
+    fn sinkhole_section_only_when_there_is_one_and_escaped() {
+        let mut inp = Input {
+            events: vec![ev("guest.start", &[])],
+            skipped: 0,
+            records: vec![],
+            guest: String::new(),
+            since: Time::default(),
+            now: Time::default(),
+        };
+        assert!(!render(&inp).contains("## Sinkhole"));
+        inp.events.push(ev("sinkhole.dns", &[("name", "callhome.example"), ("type", "A"), ("proto", "udp")]));
+        inp.events.push(ev(
+            "sinkhole.connect",
+            &[("proto", "tcp"), ("dst", "198.51.100.7"), ("dport", "80"), ("http", "GET /|x HTTP/1.1"), ("first", "`</td>")],
+        ));
+        let r = render(&inp);
+        assert!(r.contains("## Sinkhole"));
+        assert!(r.contains("| DNS A callhome.example (udp) |"));
+        assert!(r.contains("tcp 198.51.100.7:80 | HTTP: GET /\\|x HTTP/1.1; first bytes: \\`\\</td\\> |"), "{r}");
+    }
 }

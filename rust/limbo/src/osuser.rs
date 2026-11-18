@@ -32,6 +32,15 @@ pub fn group_gid_in(file: &str, name: &str) -> Option<u32> {
     p[2].parse().ok()
 }
 
+/// An account's uid and primary gid, by name (the sinkhole's responder account).
+pub fn user_ids(name: &str) -> Option<(u32, u32)> {
+    if name.is_empty() {
+        return None;
+    }
+    let p = lookup("/etc/passwd", |p| p.len() >= 4 && p[0] == name)?;
+    Some((p[2].parse().ok()?, p[3].parse().ok()?))
+}
+
 /// user.LookupId(uid).Username
 pub fn user_name(uid: u32) -> Option<String> {
     let s = uid.to_string();

@@ -725,7 +725,8 @@ impl Service {
                 ));
             }
             let n = Network { mode: n.mode.clone(), allow: n.allow.clone().filter(|a| !a.is_empty()) };
-            n.validate().map_err(|err| bad("none, internet-only, or allowlist with at least one address:proto:port".into(), err))?;
+            n.validate()
+                .map_err(|err| bad("none, internet-only, sinkhole, or allowlist with at least one address:proto:port".into(), err))?;
             d.insert("network".into(), n.mode.clone());
             o.network = Some(n);
             changed.push("network");

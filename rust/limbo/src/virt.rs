@@ -324,11 +324,16 @@ pub fn domain_xml(m: &Manifest, root_disk: &str) -> Result<String, String> {
     Ok(marshal(&d))
 }
 
-/// The guest's private network: isolated for mode none (no forward), NAT otherwise.
+/// The guest's private network: isolated for modes none and sinkhole (no forward), NAT otherwise.
 pub fn network_xml(m: &Manifest) -> String {
     let a = addr(m);
-    let mut n = el("network").kid(el("name").text(network_name(m)));
-    if m.network.mode != manifest::NET_NONE {
+    let sinkhole = m.network.mode == manifest::NET_SINKHOLE;
+    let mut n = el("network");
+    if sinkhole {
+        n = n.at("xmlns:dnsmasq", "http://libvirt.org/schemas/network/dnsmasq/1.0");
+    }
+    n = n.kid(el("name").text(network_name(m)));
+    if m.network.mode != manifest::NET_NONE && !sinkhole {
         n = n.kid(el("forward").ao("mode", "nat"));
     }
     n = n.kid(el("bridge").ao("name", &bridge_name(m)));
@@ -338,6 +343,12 @@ pub fn network_xml(m: &Manifest) -> String {
             .at("netmask", "255.255.255.0")
             .kid(el("dhcp").kid(el("host").at("mac", &a.mac).at("name", &m.name).at("ip", ip4(a.guest)))),
     );
+    if sinkhole {
+        // An isolated network gives the guest no default route (libvirt has dnsmasq announce none), so a sample that
+        // calls an address it carries would fail inside the guest and never reach the sinkhole's log. The gateway is
+        // announced as the router; the host still forwards nothing (isolated network, and the guest's own table).
+        n = n.kid(el("dnsmasq:options").kid(el("dnsmasq:option").at("value", format!("dhcp-option=option:router,{}", ip4(a.gateway)))));
+    }
     marshal(&n)
 }
 
@@ -451,4 +462,20 @@ pub fn host_subnets() -> Vec<i64> {
         libc::freeifaddrs(ifap);
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_sinkhole_network_is_isolated_and_announces_its_router() {
+        let doc = format!(
+            r#"{{"name":"sh","os":"linux","image":{{"path":"/i/x.qcow2","sha256":"{}"}},"subnet":7,"network":{{"mode":"sinkhole"}},"access":{{"user":"a"}},"app":{{"name":"a","exec":"true"}}}}"#,
+            "0".repeat(64)
+        );
+        let m = crate::manifest::parse(doc.as_bytes()).unwrap();
+        let x = super::network_xml(&m);
+        assert!(x.starts_with("<network xmlns:dnsmasq=\"http://libvirt.org/schemas/network/dnsmasq/1.0\">\n  <name>limbo-sh</name>"));
+        assert!(!x.contains("<forward"), "{x}");
+        assert!(x.contains("<dnsmasq:option value=\"dhcp-option=option:router,10.213.7.1\"></dnsmasq:option>"), "{x}");
+    }
 }
