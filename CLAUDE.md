@@ -128,7 +128,8 @@ Commit per logical section, with the Co-Authored-By trailer.
   The one exception (owner's decision, 2026-10-10) is **PCI passthrough for driver
   testing**: `manifest.devices.pci`, disposable Linux guests only, set by a
   root-owned profile (never by a caller). The host decides, not the profile:
-  `internal/hostpolicy` refuses on Chymaera OS unconditionally (hard-coded), and
+  `hostpolicy` (`rust/limbo/src/hostpolicy.rs`) refuses on LykanOS unconditionally
+  (hard-coded: os-release `ID=lykanos`, or the old `chymaera`), and
   allows on Labyrinth OS only for devices in the root-owned
   `/etc/limbo/host-policy.json` `pci_allow`. Any other OS, or any read error, is a
   refusal. Each test window also needs a human: `sudo limbo passthrough approve` (terminal,
@@ -144,7 +145,7 @@ Commit per logical section, with the Co-Authored-By trailer.
   the device. A USB device may instead have a **standing approval** (`usb_standing` in the same root-owned file, also on
   `usb_allow`; owner's decision 2026-11-08 for the SCT X4 and Icarus): no time window, every other check still each time.
   PCI never gets one, and nothing but that root-written file can grant one. Never a route on `agent.sock`/`control.sock`. First real run 2026-11-08: the SCT X4 seen in a disposable Arch guest. Labyrinth
-  (CachyOS-based) ships `ID=labyrinth` in its os-release, which `internal/hostpolicy` relies on.
+  (CachyOS-based) ships `ID=labyrinth` in its os-release, which `hostpolicy` relies on.
 - **Write our own implementations of what the references do.** Owner's
   decision (2026-10-04): the references are for ideas, not code. Limbo is MPL-2.0
   (owner's decision, 2026-10-05); Bottles and Prism Launcher are GPL-3.0, so copy
@@ -158,8 +159,8 @@ Commit per logical section, with the Co-Authored-By trailer.
 
 ## Ecosystem
 
-Siblings: `Chymaera_OS` (host distro, Arch/Hyprland), `Heimdall`
-(Go security daemon), `Sarina` (agent). Heimdall integration is specified in
+Siblings: `Labyrinth_OS` and `LykanOS` (the host distros), `Yggdrasil` (their desktop), `Heimdall`
+(security daemon), `Sarina` (agent). Heimdall integration is specified in
 `docs/ARCHITECTURE.md` §8. Anything that changes a cross-repo contract needs
 `CONTRACT:` in the commit message and a matching update in the other repo's
 CLAUDE.md. Heimdall's one way to act on Limbo is `control.sock` (restrict-only,
