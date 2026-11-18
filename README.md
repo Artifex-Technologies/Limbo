@@ -122,6 +122,22 @@ verifies them against current source.
 
 `VERSION` is Limbo's own version (1.0.0 since 2026-11-11, its first numbered release); its package is `limbo-git` `VERSION-<build number>`. How the numbers work and how to make a release: [Labyrinth_OS docs/VERSIONING.md](https://github.com/Artifex-Technologies/Labyrinth_OS/blob/main/docs/VERSIONING.md).
 
+## Artifex Ecosystem
+
+| Repository | What it is |
+| --- | --- |
+| [Labyrinth_OS](https://github.com/Artifex-Technologies/Labyrinth_OS) | privacy- and security-first Linux distribution (CachyOS-based), made for gaming too |
+| [LykanOS](https://github.com/Artifex-Technologies/LykanOS) | the security edition, built on the same desktop and tools |
+| [Yggdrasil](https://github.com/Artifex-Technologies/Yggdrasil) | the desktop environment both systems use (panel, Settings, Agora, Minos, the compositor) |
+| [Sarina](https://github.com/Artifex-Technologies/Sarina) | optional local AI assistant that runs on this computer |
+| [Heimdall](https://github.com/Artifex-Technologies/Heimdall) | the security agent: watches the computer, its network and Sarina |
+| [Limbo](https://github.com/Artifex-Technologies/Limbo) | **this repository**: disposable sandboxes for apps, Windows programs and untrusted files |
+| [Kairos](https://github.com/Artifex-Technologies/Kairos) | frame generation for games (a Vulkan layer) |
+| [Argus_App](https://github.com/Artifex-Technologies/Argus_App) | desktop console for the Flipper Zero (a qFlipper fork) |
+| [Argus_Firmware](https://github.com/Artifex-Technologies/Argus_Firmware) | Flipper Zero firmware fork |
+| [Daedalus_CAD](https://github.com/Artifex-Technologies/Daedalus_CAD) | 3D modelling and CAD (SketchUp-style) |
+| [Icarus](https://github.com/Artifex-Technologies/Icarus) | vehicle diagnostics and tuning |
+
 ## License
 
 MPL 2.0. See [`LICENSE`](LICENSE).
