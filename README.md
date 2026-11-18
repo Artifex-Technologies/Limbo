@@ -10,8 +10,10 @@ Artifex ecosystem: it ships in Labyrinth OS (package `limbo-git`), is meant for
 LykanOS (formerly Chymaera OS) too, and is watched by
 [Heimdall](https://github.com/Artifex-Technologies/Heimdall).
 
-**Sample runs** ([docs/SAMPLES.md](docs/SAMPLES.md)): one hostile file analysed in a sealed guest (no network, no sudo, no shared
-folder) for Heimdall's quarantine, `sudo limbo analyze FILE`. While Heimdall has contained Sarina, her agents' runs are refused and
+**Sample runs** ([docs/SAMPLES.md](docs/SAMPLES.md)): one hostile file analysed in a sealed guest (no route out, no sudo, no shared
+folder) for Heimdall's quarantine, `sudo limbo analyze FILE`. Its network is the **sinkhole**
+([docs/SINKHOLE.md](docs/SINKHOLE.md)): every name resolves to the guest's own gateway and every connection lands on a logging
+responder there, so a sample that calls home reaches a log on this computer, never the internet. While Heimdall has contained Sarina, her agents' runs are refused and
 stopped.
 
 **Status: working for Linux guests, verified against real guests; Windows

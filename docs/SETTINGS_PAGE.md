@@ -90,7 +90,7 @@ The page shows figures (instances, states, disk use, memory) even with the switc
 Possible additions:
 
 - per-guest network rules (which hosts a guest may reach): built 2026-11-07. `limbo instance set NAME --network
-  none|internet-only|allowlist [--allow ADDRESS:tcp|udp:PORT,...]`, root only (Settings: a selector on each guest's row,
+  none|internet-only|sinkhole|allowlist [--allow ADDRESS:tcp|udp:PORT,...]` (`sinkhole` since 2026-11-18, docs/SINKHOLE.md), root only (Settings: a selector on each guest's row,
   which asks for the password every time), never for a held guest, in force from the guest's next start. The address lists are
   set on the command line for now;
 - snapshots ("go back to how it was yesterday");
@@ -197,7 +197,7 @@ registered instances kept elsewhere; the other figures are parts of it.
 - `state`: `running`, `stopped` or `held`. `held` wins: a held guest may be running or stopped (see `running`).
 - `hold`: null, or `{"id": "q-...", "status": "open"|"dangerous", "level": "restrict"|"isolate", "by": "heimdall"|"person",
   "since": "RFC 3339 time"}`. Show "held by Heimdall" (`held_by_heimdall` is `by == "heimdall"`) and link to Heimdall's page.
-- `network`: what the manifest gives (`none`, `allowlist`, `internet-only`); a hold cuts it whatever this says. Changing it is not
+- `network`: what the manifest gives (`none`, `allowlist`, `internet-only`, `sinkhole`); a hold cuts it whatever this says. Changing it is not
   offered: it is root's manifest.
 - `disk`: `base_bytes` is the base image (shared by every guest built from it, so do not add it up across rows), `own_bytes` the
   guest's own changes (what "Free space" deletes), `virtual_bytes` the size the guest sees (0 if unknown), `disk_gb` the size asked for

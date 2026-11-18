@@ -276,6 +276,18 @@ no error); a command's end was noticed only every 25 ms (now a pidfd in poll(2))
 - JSON error paths now follow Go 1.27 everywhere (the document's own struct name, the path as the document spells it,
   array indexes); the image-proofs.json entry above was written before that and was not checked again.
 
+## Changed since the Go build left
+
+Limbo goes on after the port; the Go limbo of the pinned commit stays the referee for everything that existed then. A
+deliberate change to text the fixtures or the differential runs compare is listed in `INTENDED` (the same pairs in
+`rust/limbo/tests/common/mod.rs` and both `rust/parity/*-differential.py`): Go's text on the left is read as the new one
+before comparing, so nothing else may differ. New behaviour that Go never had (a new mode, a new event kind, a new key in
+an answer) needs no entry when no fixture or case reaches it.
+
+- 2026-11-18, network mode `sinkhole` (docs/SINKHOLE.md): the manifest's mode list in its error, the Settings page's
+  refusal and `limbo instance`'s usage and flag help name `sinkhole`; a sealed sample profile may be `none` or `sinkhole`,
+  and the refusal's remedy says so.
+
 ## The switch: why not a week of shadow mode
 
 Heimdall's port ran a week beside the Go daemon, reading the same sources and writing its own alert log. Two Limbo

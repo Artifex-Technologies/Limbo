@@ -116,6 +116,7 @@ package() {
 	install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
 	install -Dm644 docs/QUARANTINE.md "$pkgdir/usr/share/doc/$pkgname/QUARANTINE.md"
 	install -Dm644 docs/EVENTS.md "$pkgdir/usr/share/doc/$pkgname/EVENTS.md"
+	install -Dm644 docs/SINKHOLE.md "$pkgdir/usr/share/doc/$pkgname/SINKHOLE.md"
 	install -Dm644 packaging/arch/limbo.service "$pkgdir/usr/lib/systemd/system/limbo.service"
 	install -Dm644 packaging/arch/limbo.sysusers "$pkgdir/usr/lib/sysusers.d/limbo.conf"
 	# The weekly full re-check of base images proven by a full hash (limbo image verify; docs/ARCHITECTURE.md
@@ -130,6 +131,8 @@ package() {
 	install -Dm644 examples/validation-profile.json "$pkgdir/usr/share/doc/$pkgname/examples/validation-profile.json"
 	install -Dm644 examples/analysis-linux.json "$pkgdir/usr/share/doc/$pkgname/examples/analysis-linux.json"
 	install -Dm644 examples/wine-profile.json "$pkgdir/usr/share/doc/$pkgname/examples/wine-profile.json"
+	install -Dm644 examples/malware-analysis.json "$pkgdir/usr/share/doc/$pkgname/examples/malware-analysis.json"
+	install -Dm644 examples/app-vetting.json "$pkgdir/usr/share/doc/$pkgname/examples/app-vetting.json"
 
 	# Limbo's wine: programs that run `wine` from PATH land in Limbo's sandbox. Not on PATH by itself (nothing here
 	# changes what /usr/bin/wine is); a person links it from a folder before /usr/bin:

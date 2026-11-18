@@ -24,7 +24,11 @@ details). The Wine backend (`limbo wine`, §13) since 2026-11-08.
 
 ```bash
 cd rust && scripts/nicecargo.sh test --offline && scripts/nicecargo.sh clippy --all-targets   # Linux only
+sh scripts/netns-sinkhole.sh   # no root: the analysis networks' isolation, in a throwaway namespace (docs/SINKHOLE.md)
 ```
+
+Run `scripts/netns-sinkhole.sh` after any change to `policy`, `virt`, `hostfw` or `sinkhole`: it is the release check that
+no analysis profile (`sinkhole`, `none`) reaches the home connection.
 
 **Run on a real Linux host (Labyrinth OS, 2026-10-14):** the Go build's tests passed natively, and
 `scripts/integration-linux-guest.sh` passes 43/43 with real guests under libvirt/KVM. That run found two defects
@@ -90,6 +94,10 @@ Commit per logical section, with the Co-Authored-By trailer.
 - **Sandbox defaults are deny-first.** No shared folders, no LAN access, no
   clipboard/USB by default. Any convenience that widens the boundary is an
   explicit per-app profile setting, never a default.
+- **A sample run has no route out** (owner's decision 2026-11-18, docs/SINKHOLE.md): a sealed profile is `none` or
+  `sinkhole`, never a mode that forwards. The sinkhole's responder never runs as root and binds only the guest's gateway
+  address; what it reports is guest data (escaped, bounded, labelled). Real egress is R8 phase 2 and needs the owner's
+  choice of tunnel first.
 - **Automated actors may restrict, never loosen.** Heimdall reaches Limbo only
   through `control.sock`, which has no route to release a guest, lift a hold,
   lower a level, tear a guest down or give a verdict; Sarina only through
@@ -176,6 +184,52 @@ From Heimdall's CLAUDE.md Coordination Log.
   repository; it waits for that image's recipe.
 
 ## Coordination Log (newest first)
+
+### 2026-11-18 — Network mode `sinkhole` (R8 phase 1): a sample that calls home reaches a log on this computer
+- **Owner's decision** (Labyrinth_OS docs/REFERENCE_PLAN_2026-11.md, decision 7; docs/ARCHITECTURE.md section 9 item 1 is
+  marked decided): running a sample in Limbo is in scope, sinkhole first; real egress (phase 2) is chosen when it is built,
+  so until then a sample run has no route out.
+- **Built** (docs/SINKHOLE.md): mode `sinkhole` for manifests and profiles. The libvirt network is isolated (dnsmasq
+  announces the gateway as router); the guest's table redirects all IPv4 TCP and UDP from its bridge to a responder on the
+  gateway address (DNS 7253/udp, TCP 7280, other UDP 7281 with the port in the packet mark), accepts only that on input and
+  forwards nothing. The responder (`limbo sinkhole-responder`, Rust, threads) runs per guest under `limbo serve` as the new
+  account `limbo-sinkhole` (sysusers; no new privileges, no file writes, few descriptors, refuses root): A answers are the
+  gateway, AAAA no data, HTTP gets an empty 200, a TLS ClientHello's server name is read, first bytes (512) logged escaped.
+  The daemon re-checks every line it sends. `limbo up` from the command line refuses a sinkhole guest (only serve lives as
+  long as the guest). UFW gets the responder's ports and no route rule.
+- **Records:** new event kinds `sinkhole.start`, `sinkhole.dns`, `sinkhole.connect`, `sinkhole.capped`, `sinkhole.stop`
+  (docs/EVENTS.md); a run's result gains a `sinkhole` part (sinkhole runs only); `limbo analyze` prints it after the output;
+  `limbo report` has a "Sinkhole" section when there are records. A budget of 256 records per guest, repeats dropped.
+- **Release check:** `scripts/netns-sinkhole.sh` (no root, a throwaway `unshare -rn` namespace, CI runs it): the real tables
+  and the real responder; sinkhole and none get nothing to an outside that a host with forwarding and masquerade would
+  reach, DNS answers point at the sinkhole, connections land in its log; internet-only is the control and does get out.
+  Passed here; a sinkhole table that let TCP 80 through failed it (checked by hand).
+- **Profiles:** `examples/malware-analysis.json` (the sealed sample profile `limbo analyze` and Heimdall's immunity use) goes
+  from `none` to `sinkhole`. Still sealed: no route out, no sudo, no share, no devices. What changes: a call-home from the
+  sample, or from an analysis tool a crafted file has taken over, is recorded instead of failing silently; the cost is one
+  more thing the guest can reach on the host, the small unprivileged responder on its own bridge. A sealed profile may be
+  `none` or `sinkhole`; one that stays `none` works as before. New `examples/app-vetting.json` (same shape, for watching a
+  program's first run). Unchanged: `agent-profile.json` (agents need no network), `validation-profile.json` and
+  `analysis-linux.json` (they need a real destination).
+- **Parity:** the texts that name the modes changed on purpose; `INTENDED` in the fixtures' comparison and both differential
+  runs reads Go's old text as the new one (docs/RUST_PORT.md "Changed since the Go build left").
+- **Not verified:** a real guest under libvirt (whether dnsmasq keeps the router announcement over libvirt's own empty one for
+  isolated networks), UFW on a real host, Windows guests. Owner steps: docs/SINKHOLE.md "Owner steps" (restart, the account,
+  the real profile to sinkhole, one harmless run that calls home).
+- **For Heimdall (not edited from here):** additive. The `limbo-guest` detector ignores the new kinds today. Suggested: a
+  `sinkhole.dns`/`sinkhole.connect` on a sample run of the immunity queue is a strong sign (the sample calls home): worth a
+  finding and a line in the immunity report, with the names and server names shown as untrusted text. The responder is
+  Limbo's own listener (account `limbo-sinkhole`, `/usr/bin/limbo`, bound to a guest gateway 10.213.X.1 on 7253/udp,
+  7280/tcp, 7281/udp between `sinkhole.start` and `sinkhole.stop`): the local-ports watch can treat it as Limbo's.
+  docs/IMMUNITY.md says the `malware-analysis` machine has "no network": now "no route out (sinkhole)".
+- **For Sarina:** nothing changes on `agent.sock` (the agent profile stays `none`). A run's result may carry `sinkhole`
+  (`{"totals":{...},"records":[...]}`, every value a string) when a profile uses the mode; her limbo tools may show it, as
+  untrusted guest data like the output.
+- **For Labyrinth OS:** the limbo-git recipes should install `docs/SINKHOLE.md`, `examples/malware-analysis.json` and
+  `examples/app-vetting.json` as this repo's PKGBUILD now does (the account comes from the sysusers file already
+  installed). docs/RELEASE_CHECKS.md can list R8's check: "no analysis profile reaches the home connection: Limbo's
+  `sh scripts/netns-sinkhole.sh` (CI runs it)".
+— Signed: Limbo / Claude Opus 5.5
 
 ### 2026-11-15 — Limbo is Rust only: net watch and capture ported, the Go code gone
 - `limbo net watch` and `limbo capture` in Rust (the last two commands the Go build ran), proved by the CLI

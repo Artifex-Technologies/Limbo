@@ -230,7 +230,11 @@ configured to preserve it. Defaults, all deny-first:
   larger kernel-module footprint, weaker seamless/3D story on Linux.)
 - **Network**: each VM on its own tap/bridge with nftables rules generated from
   the profile: `none`, `internet-only` (no RFC1918/host/LAN), `allowlist` (per
-  host/port), or `proxy` (everything via a logging proxy). Never bridged to the
+  host/port), or `sinkhole` (built 2026-11-18, docs/SINKHOLE.md: no route out; DNS
+  answers every name with the guest's gateway, and every connection lands on a
+  logging responder there). A `proxy` mode (everything via a logging proxy) was
+  planned here and is not built; R8 phase 2 (real egress through a throwaway
+  tunnel) is the next step instead. Never bridged to the
   LAN by default. The host's own services must be unreachable from the guest.
 - **Filesystem**: no shared folders by default. File exchange goes through a
   broker: the user drops files into an explicit per-app exchange directory;
@@ -380,8 +384,11 @@ decision recorded there, with a `CONTRACT:` note, before anything is built.
 
 ## 9. Decisions needed from the user
 
-1. **Scope of "security analysis".** Assessment tooling and safe document
-   handling (assumed), or also malware detonation (separate lab design)?
+1. **Scope of "security analysis".** Decided 2026-11-18: running a sample in
+   Limbo is in scope. Network mode `sinkhole` first (docs/SINKHOLE.md); real
+   egress (a VPN account or a throwaway server, through a tunnel with a kill
+   switch) is chosen when it is built, and until then a sample run has no route
+   out.
 2. **Which Windows-only tools** do you actually need? That drives the first
    Windows guest image and its network profile.
 3. **Auto-quarantine.** May Heimdall cut a guest's network without approval?
@@ -449,6 +456,7 @@ been verified:
 | `internal/license` (store) | Windows keys, root-only, masked | unit tests |
 | `internal/exchange` | guest outboxes: ClamAV-scanned copies out, known files held | unit tests with a fake scanner |
 | `internal/flows` | NFLOG reader and the `net.*` events | unit tests on kernel-format messages; real kernel in `integration-linux-guest.sh` |
+| `sinkhole` (Rust only, 2026-11-18) | network mode `sinkhole`: the responder (`limbo sinkhole-responder`, as the account `limbo-sinkhole`) and the daemon's side that starts it and turns its lines into events (docs/SINKHOLE.md) | unit tests (DNS, TLS and HTTP parsers, record checks, budget); a fuzz body; `scripts/netns-sinkhole.sh`: the real tables and responder in a throwaway namespace, with internet-only as the control. Not yet with a real guest |
 | `internal/virt` (subnets) | allocated, recorded guest subnets | unit tests (254 at once); real guests |
 | `cmd/limbo` | CLI: up/down/plan/seed/launch/serve/quarantine/report, settings/instance/license/exchange/net/address, wine | everything except `launch` exercised for real; the Settings commands against a stub socket |
 | `internal/wine` | `limbo wine`: Wine inside bubblewrap, profiles, prefixes, run records, trace (section 13) | unit tests pin the bwrap arguments; real runs of Wine's own `cmd` and `cscript` in the real sandbox (`go test`, headless) |

@@ -16,6 +16,14 @@ UFW sets `input` and `forward` policy to drop. When UFW is installed and `ENABLE
     ufw allow in on lb-NAME to any port 53 proto tcp   comment limbo
     ufw route allow in on lb-NAME                      comment limbo
 
+A guest in network mode `sinkhole` (docs/SINKHOLE.md) gets DHCP and its responder's ports instead, which is what UFW sees
+once the guest's table has redirected a packet, and no route rule (nothing from it is forwarded):
+
+    ufw allow in on lb-NAME to any port 67 proto udp     comment limbo
+    ufw allow in on lb-NAME to any port 7253 proto udp   comment limbo
+    ufw allow in on lb-NAME to any port 7281 proto udp   comment limbo
+    ufw allow in on lb-NAME to any port 7280 proto tcp   comment limbo
+
 `limbo down` (and a failed `up`) removes them (`ufw --force delete ...`, and
 `ufw --force route delete ...` for the route rule). This widens nothing: Limbo's table runs before
 UFW's and its drops are final, so what a guest can do is still exactly what its manifest says. If Limbo

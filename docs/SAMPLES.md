@@ -9,8 +9,11 @@ the host, so a parser bug in the analysis tools (radare2, Ghidra, binutils) expl
 - The file is put in Limbo's inbox (`/var/lib/limbo/inbox`, root-only) and named there (a plain name; links are refused). Limbo
   reads it (at most 64 MiB), sends it into the guest on the ssh connection's input and stores it read-only as `~/sample/sample`. It
   is never made executable. The command runs from that folder with `LIMBO_SAMPLE_DIR` set to it.
-- Only a **sealed** profile takes samples: `allow_sample: true`, network `none`, no sudo, no shared folder (`exchange_dir`), no
-  host devices. Checked at every start. Example: `examples/malware-analysis.json` (the decompile image: radare2, Ghidra, YARA).
+- Only a **sealed** profile takes samples: `allow_sample: true`, network `none` or `sinkhole` (no route out either way), no sudo,
+  no shared folder (`exchange_dir`), no host devices. Checked at every start. Example: `examples/malware-analysis.json` (the
+  decompile image: radare2, Ghidra, YARA), in mode `sinkhole` since 2026-11-18: a call-home from the sample, or from an analysis
+  tool a crafted file has taken over, lands in the sinkhole's log (docs/SINKHOLE.md) and in the run's result, and `limbo analyze`
+  prints it after the output. Running the sample itself is in scope since 2026-11-18 (`examples/app-vetting.json`).
 - The sample's SHA-256 and size are in the audit log (`run.start`), like a bundle's.
 - The default command is the image's `limbo-decompile triage` and `functions`: file type, hashes, imports, sections, strings, YARA
   matches, and the function list. Output is capped at the profile's limit and is untrusted (it comes from a hostile file).

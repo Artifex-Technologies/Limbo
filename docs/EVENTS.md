@@ -102,6 +102,27 @@ down (the name may be reused) and when serve restarts. Heimdall may raise a find
 carries `scope` too (`host`, `lan`, `loopback`, `internet` or `other`, as `net.blocked` does), so a reader need not work it
 out from `reason`.
 
+## Network mode sinkhole (docs/SINKHOLE.md, since 2026-11-18)
+
+Written by `limbo serve` for a guest in network mode `sinkhole` (only serve runs one), from what the guest's responder
+saw. All additive: new kinds, every value a string. `guest` is the guest's name (a run's id for sample and validation
+runs). **Every value the guest chose (`name`, `first`, `sni`, `http`, `host`) is untrusted**: printable ASCII only, any
+other byte written as `\xNN` and a backslash doubled, and bounded (`name` 1,024 characters, `first` at most 512 raw bytes,
+so 2,048 characters escaped). `dst` is a dotted IPv4 address and `dport`, `bytes`, `ms_first`, `ms` are decimal numbers, or
+the key is absent. A key with nothing to say is left out.
+
+| kind | when | detail |
+| --- | --- | --- |
+| `sinkhole.start` | before the guest's responder starts (after its network exists, before its table loads and the guest starts; again at a daemon start for a sinkhole guest still running) | `addr` (the gateway address it binds), `dns_port`, `tcp_port`, `udp_port`, `account` (`limbo-sinkhole`) |
+| `sinkhole.dns` | the first time a guest asks for a name and type | `proto` (`udp`/`tcp`), `name`, `type` (`A`, `AAAA`, `TXT`, ..., or `TYPEn`), `answer` (the gateway address, for A and ANY; absent otherwise) |
+| `sinkhole.connect` | each TCP connection, and the first UDP datagram to each port | `proto` (`tcp`/`udp`), `dst` (TCP only: the address the guest connected to), `dport`, `bytes` (read: at most 4,096 for TCP; a datagram's full length), `first` (its first bytes), `sni` (a TLS ClientHello's server name), `http` (an HTTP request line), `host` (its Host header), `reply` (TCP: `http-200` or `none`), `ms_first` (TCP: milliseconds until its first byte), `ms` (TCP: how long it was open) |
+| `sinkhole.capped` | the guest used its budget of 256 `sinkhole.dns`/`sinkhole.connect` records; the rest are counted in `sinkhole.stop`, not written | `limit` |
+| `sinkhole.stop` | after the responder ended (the guest's teardown) | `addr`, `dns`, `tcp`, `udp` (everything seen), `recorded`, `unrecorded` (over the budget, or connections refused while 32 were open) |
+
+A guest in mode `sinkhole` writes no `net.flow` for what it sends: nothing is forwarded, and what it sends to the sinkhole is
+these records instead. What its table refuses (ICMP, other IP protocols, IPv6) is `net.blocked` as for any guest. A held
+sinkhole guest gets mode `none`'s table like any other, so it reaches nothing, the sinkhole included, until it is released.
+
 ## The Settings page (docs/SETTINGS_PAGE.md)
 
 Written by the API server; each carries `principal` (`admin` or `user`) and `peer`.

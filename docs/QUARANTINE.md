@@ -129,7 +129,10 @@ write (`limbo serve` refuses to load profiles from anywhere else):
 It must have `"disposable": true`. Choose the network deliberately: `none` proves
 nothing about an update that needs to download, `allowlist` with just the mirrors
 is the usual choice (note that allowlist mode gives the guest no DNS, so list IP
-addresses, or use `internet-only` if you accept the wider access).
+addresses, or use `internet-only` if you accept the wider access). `sinkhole`
+(docs/SINKHOLE.md) suits a run that must reach nothing but whose attempts are
+worth seeing: every name resolves to the guest's gateway and every connection is
+logged there, nothing leaves the host.
 
 Set `"access": {"user": "analyst", "sudo": true}` for a profile that vets system
 updates: `pacman` needs root and runs execute as an unprivileged user, so without
