@@ -185,6 +185,14 @@ From Heimdall's CLAUDE.md Coordination Log.
 
 ## Coordination Log (newest first)
 
+### 2026-11-18 (2) — The decompile image's YARA is YARA-X's `yr` (R4 phase 3)
+- docs/SAMPLES.md: the analysis image (used by `examples/malware-analysis.json`) has YARA-X's `yr` instead of C YARA.
+  Nothing in Limbo's code changes: the image is built by hand from Sarina's `packaging/limbo/decompile/README.md`, whose
+  step 1 now installs `yr` from one package file of Labyrinth's package repository (Labyrinth `9a74745`, Sarina `d929665`).
+- The triage output a sample run returns keeps its shape (`-- yara`, `RULE PATH` lines).
+- **For Heimdall / Sarina:** nothing to change.
+— Signed: Limbo / Claude Opus 5.5
+
 ### 2026-11-18 — Network mode `sinkhole` (R8 phase 1): a sample that calls home reaches a log on this computer
 - **Owner's decision** (Labyrinth_OS docs/REFERENCE_PLAN_2026-11.md, decision 7; docs/ARCHITECTURE.md section 9 item 1 is
   marked decided): running a sample in Limbo is in scope, sinkhole first; real egress (phase 2) is chosen when it is built,
