@@ -3,9 +3,9 @@
 name: rust
 on:
   push:
-    paths: ["rust/**", "testdata/**", "packaging/**", "VERSION", ".github/workflows/rust.yml"]
+    paths: ["rust/**", "testdata/**", "packaging/**", "scripts/netns-sinkhole.sh", "VERSION", ".github/workflows/rust.yml"]
   pull_request:
-    paths: ["rust/**", "testdata/**", "packaging/**", "VERSION", ".github/workflows/rust.yml"]
+    paths: ["rust/**", "testdata/**", "packaging/**", "scripts/netns-sinkhole.sh", "VERSION", ".github/workflows/rust.yml"]
   schedule:
     - cron: "23 5 * * 1" # the audit weekly, for advisories published after the last change
 permissions:
@@ -41,6 +41,13 @@ jobs:
           python3 -I rust/parity/daemon-differential.py --go /tmp/limbo-go --rs rust/target/release/limbo-rs --out /tmp/ld --idle 5
           # the NFLOG part ran: both daemons wrote flow events
           grep -q '"kind":"net.flow"' /tmp/ld/go/state/events.jsonl
+      # the release check "no analysis profile reaches the home connection" (docs/SINKHOLE.md): a sinkhole and a mode none
+      # guest behind their real tables in a throwaway user and network namespace; internet-only is the control
+      - name: analysis networks reach nothing but the sinkhole
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          for m in bridge veth nf_tables nf_nat nft_chain_nat nft_ct nft_redir nft_masq nft_log nfnetlink_log; do sudo modprobe "$m" || true; done
+          sh scripts/netns-sinkhole.sh
       - name: both CLIs on the same scripted socket
         run: python3 -I rust/parity/cli-differential.py --go /tmp/limbo-go --rs rust/target/release/limbo-rs --out /tmp/lcd --require-all
   audit:
