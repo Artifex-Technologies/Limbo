@@ -113,7 +113,7 @@ MPL-2.0, so nothing may be copied from them). What is adopted is recorded here.
 
 | Project | What it is | What Limbo takes from it |
 | --- | --- | --- |
-| [Bottles](https://github.com/bottlesdevs/Bottles) | Wine prefix manager | One prefix per app with its own settings (`limbo wine` profiles, built 2026-11-08); runner and dependency management later |
+| [Bottles](https://github.com/bottlesdevs/Bottles) | Wine prefix manager | One prefix per app with its own settings (`limbo wine` profiles, built 2026-11-08); no runner or dependency management |
 | [Prism Launcher](https://github.com/PrismLauncher/PrismLauncher) | Minecraft launcher | UX model: one isolated instance per app, library-style GUI |
 | [Wine](https://github.com/wine-mirror/wine) | Windows API layer | The backend for Windows programs on the desktop (`limbo wine`), always inside bubblewrap; run as a separate program |
 | [bubblewrap](https://github.com/containers/bubblewrap) | Unprivileged sandbox | The Wine backend's sandbox, run as a separate program (LGPL-2.0-or-later; nothing copied) |

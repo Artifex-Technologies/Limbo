@@ -85,24 +85,25 @@ Status: the Windows code in Limbo is written but has never run, so the license p
 The page shows figures (instances, states, disk use, memory) even with the switch on. They come through read-only routes on
 `user.sock` (GET only), so looking never needs sudo.
 
-## Later (wanted)
+## Also built
 
-Possible additions:
+- Per-guest network rules (which hosts a guest may reach), 2026-11-07: `limbo instance set NAME --network
+  none|internet-only|sinkhole|allowlist [--allow ADDRESS:tcp|udp:PORT,...]` (`sinkhole` since 2026-11-18, docs/SINKHOLE.md),
+  root only (Settings: a selector on each guest's row, which asks for the password every time), never for a held guest, in
+  force from the guest's next start. The address lists are set on the command line only.
+- A one-click `limbo report` (2026-11-07: Settings > Limbo, "Save a report…", Yggdrasil b735099).
 
-- per-guest network rules (which hosts a guest may reach): built 2026-11-07. `limbo instance set NAME --network
-  none|internet-only|sinkhole|allowlist [--allow ADDRESS:tcp|udp:PORT,...]` (`sinkhole` since 2026-11-18, docs/SINKHOLE.md), root only (Settings: a selector on each guest's row,
-  which asks for the password every time), never for a held guest, in force from the guest's next start. The address lists are
-  set on the command line for now;
-- snapshots ("go back to how it was yesterday");
-- a default memory and processor limit for new guests;
-- the audit log in plain words;
-- a one-click `limbo report` (built 2026-11-07: Settings > Limbo, "Save a report…", Yggdrasil b735099).
+## Known limitations
+
+No snapshots ("go back to how it was yesterday"), no default memory and processor limit for new guests, and the audit log is
+shown as recorded, not in plain words.
 
 ## Decided
 
 - 2026-11-04 (my decision): quarantine verdicts and loosening a restricted guest always need the password, whatever the switch says. The
   quarantine screen belongs with Heimdall.
-- 2026-11-04 (my decision): the "Later, if wanted" items are wanted.
+- 2026-11-04 (my decision): the items then listed as "Later, if wanted" are wanted (network rules, snapshots, default limits,
+  the audit log in plain words, a one-click report).
 
 ## Protocol
 

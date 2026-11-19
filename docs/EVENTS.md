@@ -168,4 +168,4 @@ The run record (`record`) is JSON with the run's whole story: profile and its SH
 arguments, the program file's SHA-256, times, status, exit status and what the sandbox was
 allowed. Heimdall's `limbo-guest` detector ignores these kinds today.
 
-Not yet emitted (planned): guest-agent health.
+There is no guest agent, so no guest-agent health events.

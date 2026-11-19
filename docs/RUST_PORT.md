@@ -172,7 +172,7 @@ behaviour differs from Go's, the port carries Go's:
   real one inside the namespace, a run whose device stays on vfio-pci, two restarts with the run folder emptied, a new
   boot id; besides agreeing, both daemons must refuse with `reboot_required` after each restart and allow after the
   reboot (the script checks it; the build before the fix fails it, Go and Rust alike).
-- **The CLI differential** (`rust/parity/cli-differential.py`; "Resume here" item 4 has how each group is faked): the
+- **The CLI differential** (`rust/parity/cli-differential.py`; "How the CLI differential fakes the host" below): the
   Go and the Rust binary on the same arguments, environment, stdin, files and scripted socket answers, comparing stdout,
   stderr, exit status, requests and files. 2026-11-15: **1,046 cases, 5,230 comparisons, no difference** on this PC
   (where nft cannot load log rules, so the net watch cases run without packets); in CI, with real NFLOG packets and
@@ -222,6 +222,9 @@ Both daemons in the differential harness (same namespaces, same fake tools, rele
 The Go figures here are lower than the 18.8 MB the installed daemon shows after days of use; both grow a little with
 use. The Rust daemon keeps one malloc arena for all its threads and hands freed heap back (malloc_trim) when the last
 open connection ends and when a run ends; before that change it stayed at 6.3 MB RSS after the script. Idle, neither does anything: both sleep in the kernel until a socket or the NFLOG group wakes them.
+
+Installed on my PC (limbo-git 1.0.0-10, the package's `/usr/bin/limbo`, no drop-in): 4.1 MB resident and 1 thread after
+ten hours of `limbo serve` (2026-11-19).
 
 Found by these runs and fixed before the numbers: guest output with several bad bytes in a row (Go writes one U+FFFD per
 run of bad bytes, the first build one per byte); a command killed by its deadline or a stop (Go reads it as exit -1 with
@@ -308,43 +311,27 @@ applied by one, a release by the other). So instead of a live shadow:
 4. **A direct switch** with the Go daemon one command away. Switching is a daemon restart, which Limbo already handles:
    the state files are shared, running guests keep running, and the startup reap is the same in both.
 
-## Commands for the owner (root; nothing above was installed or run as root by the session)
+## Rerunning the checks (root for the second step)
 
 ```bash
 cd ~/Documents/Github/Limbo && git pull
 (cd rust && scripts/nicecargo.sh build --release --locked)
 sh rust/parity/go-limbo.sh /tmp/limbo-go   # the Go referee, from the pinned commit ("The Go side")
 
-# 1. (optional, no root) the differential run again
+# 1. (no root) the differential run again
 python3 -I rust/parity/daemon-differential.py --go /tmp/limbo-go --rs rust/target/release/limbo-rs --out /tmp/ld --idle 60
 
-# 2 and 3 in one go: the rehearsal on a copy of the real state (read-only, both daemons in namespaces, nothing
-# stopped; its scratch folder with the copies is deleted at once), then each real-guest script twice, with the Go
-# daemon (baseline) and with limbo-rs; summary.txt lists every check that differs between the two
+# 2. the rehearsal on a copy of the real state (read-only, both daemons in namespaces, nothing stopped; its scratch folder
+# with the copies is deleted at once), then each real-guest script twice, with the Go daemon (baseline) and with limbo-rs;
+# summary.txt lists every check that differs between the two
 sudo bash scripts/rust-checks.sh /tmp/limbo-go rust/target/release/limbo-rs ~/limbo-rust-checks-2
 # (integration-linux-guest.sh does not use the daemon; integration-systemd.sh installs and removes files: test machine only)
 # One script against the Rust daemon alone: sudo LIMBO_RS="$PWD/rust/target/release/limbo-rs" bash scripts/integration-chain.sh
-
-# 4. the switch: the Rust daemon as limbo.service, the Go one kept for every other command
-sudo install -Dm755 /usr/bin/limbo /usr/lib/limbo/limbo-go   # (2026-11-10: /usr/bin/limbo was the Go build then)
-sudo install -Dm755 rust/target/release/limbo-rs /usr/lib/limbo/limbo-rs
-sudo mkdir -p /etc/systemd/system/limbo.service.d
-printf '[Service]\nExecStart=\nExecStart=/usr/lib/limbo/limbo-rs serve --state-dir /var/lib/limbo/state --run-dir /run/limbo --profile-dir /etc/limbo/validation\n' \
-  | sudo tee /etc/systemd/system/limbo.service.d/rust.conf
-sudo systemctl daemon-reload && sudo systemctl restart limbo.service
-systemctl status limbo.service --no-pager; journalctl -u limbo.service -n 20 --no-pager
-pid=$(systemctl show -p MainPID --value limbo.service); grep -E '^(VmRSS|Threads)' /proc/$pid/status; sudo grep Pss: /proc/$pid/smaps_rollup
-limbo settings status    # the CLI (Go) through the Rust daemon's user.sock
-
-# back to the Go daemon at any time (the state is shared):
-sudo rm /etc/systemd/system/limbo.service.d/rust.conf && sudo systemctl daemon-reload && sudo systemctl restart limbo.service
 ```
 
-Step 4 is what I did on 2026-11-10. With the package (since 2026-11-11) the switch is the package itself, and a host
-that switched by hand moves to it with the steps under "Packaging".
-
-Restarting `limbo.service` while a validation run is executing destroys that run's guest (the startup reap, as with any
-restart of the Go daemon): switch when Sarina is not running one.
+The switch itself was a systemd drop-in on 2026-11-10, and the package since 2026-11-11 ("Packaging"). Restarting
+`limbo.service` while a validation run is executing destroys that run's guest (the startup reap, as with any restart):
+restart when Sarina is not running one.
 
 ## Packaging (2026-11-11; one binary since 2026-11-15)
 
@@ -487,6 +474,36 @@ none of them has a Python path: all three run `"$SARINA_BIN" service` with the s
 `scripts/rust-checks.sh` runs every script with the Go daemon and with limbo-rs and lists the checks that differ, so a
 failure of the script or the computer is told apart from one of the port.
 
+## How the CLI differential fakes the host
+
+The image cases that need root's files run under `unshare -r` (uid 0 in a user namespace, so the files made for the case
+are root's there; never real root), with `--state-dir` in the work folder and `--i-know`; a case's `prep` writes the
+record file with each image's real device, inode, size and times; 16 values of $TZ. doctor and setup run under `unshare
+-rm` with /etc/limbo, /var/lib/limbo and /usr/lib/sysusers.d bind-mounted from the case's own folders (`nsrun`), and
+PATH holding only fake programs (pacman, systemctl, systemd-sysusers, groupadd, getent and the runtime's commands, each
+logging its arguments): nothing real is installed, enabled or read. The guest commands run the same way (`NSRUN_ACT`),
+with a tmpfs on /run whose /run/limbo/user.sock is the case's scripted socket (a person's launch asks it, never the real
+daemon), and for a person's launch a second user namespace that makes the command uid 1000 again; virsh, qemu-img, nft
+(logging the rules it is fed), ufw, ssh, waypipe and xfreerdp3 are fakes: no guest, firewall, network or display is
+touched. passthrough runs there too, with /etc/os-release, the host policy and /sys/bus/usb/devices and
+/sys/bus/pci/devices bound over by made-up ones (no device of this computer is read) and the typed answer from a pty.
+`wine` (`wine/`, internal/wine file by file, and `cli/wine.rs`; 23e0976 and the commit with this note): its pure parts
+pinned by `wine.json` (3,031 comparisons), then the dry run and real runs on a made-up host (`NSRUN_WINE`): an overlay
+puts Limbo's fake bwrap, wine and wineserver over /usr/bin (nothing of the host changes); /dev holds only the usual
+nodes and made-up graphics nodes (/dev/null bound over each name), /sys, /opt and /etc are the case's own (made-up
+accounts, /etc entries, a Vulkan manifest naming a folder under /opt), /tmp is the namespace's own with the case's X11
+socket folder; the Wayland, PulseAudio and PipeWire sockets, ~/.Xauthority and the PulseAudio cookie are made up in the
+case folder; a nested user namespace makes the command uid 1000. The fake bwrap logs its arguments, the environment and
+the data files on its descriptors and acts the sandbox's part from the case's fake.ctl (the started byte, the prefix
+made, output and Wine's trace lines, an exit status, a stop request sent to limbo and the answer read from descriptor 3,
+a second signal, a stop ignored until the 10 s grace kills it); it never starts anything, and nothing of this computer's
+display, sound, graphics card or accounts is read. 123 cases: 74 dry runs (every refusal before a run, shares, profiles,
+the host's variations) and 49 runs (making a prefix, setting its Windows version, every setup and sandbox failure, the
+trace split, stops by SIGTERM, SIGINT and SIGHUP, the kill, root, missing bwrap or Wine, a bwrap without an interpreter,
+a busy prefix, an unwritable state folder, a full event log, the shim).
+
+limbo-rs gets `LIMBO_RS_NO_GO=1` there, so a command it does not run itself fails instead of reaching a Go limbo.
+
 ## Running the tests
 
 ```bash
@@ -498,99 +515,3 @@ cd .. && sh rust/parity/go-limbo.sh /tmp/limbo-go    # the Go referee from the p
 python3 -I rust/parity/cli-differential.py --go /tmp/limbo-go --rs rust/target/release/limbo-rs --out /tmp/lcd
 python3 -I rust/parity/daemon-differential.py --go /tmp/limbo-go --rs rust/target/release/limbo-rs --out /tmp/ld --idle 5
 ```
-
-## Resume here
-
-Done: steps 1-3 (above), the scripts and commands for 4 and 5; the CI job (`.github/workflows/rust.yml`: the Go
-fixtures current, fmt, clippy, tests, the differential run with the real nft for NFLOG, cargo-audit weekly and per
-change; green since run 42950117164); the owner's first run read and every failure traced to the scripts (table above).
-Next, in order:
-
-1. Rerun done 2026-11-11 (rehearsal NO DIFFERENCE, quarantine 71/71 and sarina 15/15 with both daemons; chain's Go-only
-   failures were leftover test heimdallds, fixed in 8531da0). Switched by hand (drop-in) on 2026-11-10: the Rust daemon
-   has run since with no restart. Packaging done 2026-11-11 ("Packaging"): the branch `package-rust-daemon` rebased
-   onto main and merged, the dispatch's non-UTF-8 panic fixed (`tests/dispatch.rs`), Labyrinth's limbo-git mirrored,
-   a package built from main without root (nothing installed). Two CI runs after the merge each differed on one case
-   of the CLI differential, both the harness's races, not the port: `wine run folders pruned` (the snapshot descended
-   folders in readdir order, which on ext4 follows a hash of the name, and four run folders folded into one `RUNID`
-   path, so a random one won: now sorted, and the old folders keep their names) and `q verdict conflict` (Go's
-   transport sent the POST on the GET's connection before it saw the scripted socket close it, and met a reset: every
-   scripted answer now says `Connection: close`). Left for me (root): install it on my PC with the steps for a host
-   that switched by hand (`--overwrite /usr/lib/limbo/limbo-go`, the drop-in removed after, one restart
-   when no validation run is active), then the Rust daemon's figures (`VmRSS`, `Threads`) as in step 4. Fixed the same
-   day (Go and Rust alike): a restart of the daemon no longer lifts the passthrough block, because `RuntimeDirectory=limbo`
-   empties /run/limbo at every stop; the marker that counts is in the state folder and names its boot ("The
-   reboot-needed marker and restarts"). The package needs a rebuild for it; the unit is unchanged.
-2. (hostpolicy done: `hostpolicy.json`.) Carry over the runs tests that use a fake clock and executor (`internal/runs/*_test.go`) as fixtures; today the differential run covers runs end to end, not each branch.
-   Plan: `internal/runs/parity_test.go` with a runner that fails by line prefix as `engine/parity_test.go` words it
-   (`<line>: exit status 1: <stderr>`; the Rust side builds `CmdErr` with the same text, `not_found` for
-   exec.ErrNotFound), a fake executor (out, errOut, exit, truncated, an error that is or is not errConnection, block
-   until the command timeout), the profile variants of `setup()`, and per scenario: the Start error (code, message,
-   remedy), the finished Result with id and times normalised (`r00000001`...), the command lines per run, the events
-   (kind, guest, detail) and the files left under state/. Scenarios needing a caller's context (boot timeout through
-   ctx, cancel) stay with the differential run: the Rust `Manager::start` takes none.
-3. Done 2026-11-11: the socket-client commands in Rust, dispatched by limbo-rs. `flags.rs`, `tabw.rs`, `text.rs`
-   (`cli.json`); `url.rs` and `client.rs` (net/url and net/http's client as the CLI uses them: URL parsing and escaping,
-   the request as the transport writes it, http.ReadResponse, redirects, Go's error texts; `cliclient.json`, 7,449
-   comparisons) in 18e850e; `commands.rs` (quarantine, settings, instance, license, exchange, line for line) in 18e850e;
-   `rust/parity/cli-differential.py` (a scripted socket recording each request, both binaries on the same arguments,
-   environment, stdin, folder and answers: 247 cases, 1,235 comparisons of stdout, stderr, exit status, requests and
-   files, no difference; in CI) and the dispatch in main.rs in a37bb36. Found on the way and fixed: Go 1.27's
-   encoding/json reads times with time.Parse (comma fractions, a one-digit hour and offsets up to 24:60 are accepted;
-   the port had refused them) and names error paths differently (gojson's Ctx now follows it; the daemon differential
-   still shows no difference); Go's `exchange take` panicked on a guest name the URL cannot carry (`%zz`), now an
-   error. rustix 1.1.6 (RUSTSEC-2026-0486) in 20022c7. The package branch: merged 2026-11-11 (item 1).
-4. The other CLI commands, one by one. Done 2026-11-11: `version`, `validate`, `plan`, `address`, an unknown command
-   and no command (`cli/local.rs`, `launch.rs`; 3bf2c9d); `report` (`report.rs`, `events::read`, `parseSince` pinned
-   by `cli.json`; f6e12f3); `analyze` (`cli/analyze.rs`, Content-Type in the client; 6c3e257); `seed` (`cli/seed.rs`,
-   `cli/goexec.rs` for os/exec with Go's error texts, the Windows answer file in `provision.rs` pinned by
-   `manifests.json`, fake ssh-keygen and xorriso in the differential; afb8a94); `image list | verify`
-   (`cli/image.rs`; `image::Proofs::list` and `verify_all`; Go's ignore reasons in `load_why`; `tz.rs`, Go's local
-   time zone from $TZ or /etc/localtime with its TZif reader and POSIX TZ rules, pinned by `tz.json`;
-   1802bd7); `doctor` and `setup` (`cli/setup.rs`, internal/deps; 6c39956); `up`, `down`, `launch`, `export` and
-   `screenshot` (`cli/act.rs`: the daemon's engine with the CLI's wiring, Go's preflight, launch's hold and address
-   gates with `fmt.Sscanf`'s reading of the address, os.CreateTemp's names, `--check` with its 20 s limit per ssh;
-   8627402); `passthrough status | approve | revoke | clear` (`cli/passthrough.rs`; hostpolicy's approval,
-   can_approve, approve, revoke, clear with os.Remove's rules; Go's Duration.String in `gotime`, pinned by a test with
-   Go's own answers; 6778c2b). The CLI differential run: 977 cases, 4,885 comparisons, no difference (about 11
-   minutes: analyze polls every 3 s, one launch check waits out its 20 s ssh limit, one wine stop waits out its 10 s
-   grace). The image cases that
-   need root's files run under `unshare -r` (uid 0 in a user namespace, so the files made for the case are root's
-   there; never real root), with `--state-dir` in the work folder and `--i-know`; a case's `prep` writes the record
-   file with each image's real device, inode, size and times; 16 values of $TZ. doctor and setup run under
-   `unshare -rm` with /etc/limbo, /var/lib/limbo and /usr/lib/sysusers.d bind-mounted from the case's own folders
-   (`nsrun`), and PATH holding only fake programs (pacman, systemctl, systemd-sysusers, groupadd, getent and the
-   runtime's commands, each logging its arguments): nothing real is installed, enabled or read. The guest commands
-   run the same way (`NSRUN_ACT`), with a tmpfs on /run whose /run/limbo/user.sock is the case's scripted socket (a
-   person's launch asks it, never the real daemon), and for a person's launch a second user namespace that makes the
-   command uid 1000 again; virsh, qemu-img, nft (logging the rules it is fed), ufw, ssh, waypipe and xfreerdp3 are
-   fakes: no guest, firewall, network or display is touched. passthrough runs there too, with /etc/os-release, the host
-   policy and /sys/bus/usb/devices and /sys/bus/pci/devices bound over by made-up ones (no device of this computer is
-   read) and the typed answer from a pty. `wine` (`wine/`, internal/wine file by file, and `cli/wine.rs`; 23e0976 and the commit with this note):
-   its pure parts pinned by `wine.json` (3,031 comparisons), then the dry run and real runs on a made-up host
-   (`NSRUN_WINE`): an overlay puts Limbo's fake bwrap, wine and wineserver over /usr/bin (nothing of the host changes);
-   /dev holds only the usual nodes and made-up graphics nodes (/dev/null bound over each name), /sys, /opt and /etc are
-   the case's own (made-up accounts, /etc entries, a Vulkan manifest naming a folder under /opt), /tmp is the
-   namespace's own with the case's X11 socket folder; the Wayland, PulseAudio and PipeWire sockets, ~/.Xauthority and
-   the PulseAudio cookie are made up in the case folder; a nested user namespace makes the command uid 1000. The fake
-   bwrap logs its arguments, the environment and the data files on its descriptors and acts the sandbox's part from the
-   case's fake.ctl (the started byte, the prefix made, output and Wine's trace lines, an exit status, a stop request sent
-   to limbo and the answer read from descriptor 3, a second signal, a stop ignored until the 10 s grace kills it); it
-   never starts anything, and nothing of this computer's display, sound, graphics card or accounts is read. 123 cases:
-   74 dry runs (every refusal before a run, shares, profiles, the host's variations) and 49 runs (making a prefix,
-   setting its Windows version, every setup and sandbox failure, the trace split, stops by SIGTERM, SIGINT and SIGHUP,
-   the kill, root, missing bwrap or Wine, a bwrap without an interpreter, a busy prefix, an unwritable state folder, a
-   full event log, the shim). Fixed in Go on the way: ParseProfile and Build named a bad environment name in map
-   order (with two, either one). limbo-rs gets
-   `LIMBO_RS_NO_GO=1` there, so a command it does not run itself fails instead of reaching a Go limbo (without it, a
-   command missing from the dispatch would be compared Go against Go: it happened to seed once). Fixed in Go on the
-   way: `license.Check` and `seed` depended on map order; `launch --check` panicked on an app.exec of only spaces
-   (the manifest accepts it; now a failed check). Done 2026-11-15: `net watch` (`cli/net.rs`, in a user and network namespace with the
-   real nft's log rules) and `capture` (`usbcap.rs`, `cli/capture.rs`; the recording proved through
-   `examples/usbmon_fake.rs`, which answers usbmon's ioctl by seccomp user notification), 86a479f; then the Go code,
-   the hand-over and the Go build left ("What still reached Go", "The Go side").
-   The integration scripts call `limbo quarantine` through limbo-rs, so a ported command is exercised by the owner's
-   next run of them.
-5. Left: a real usbmon run of `sudo limbo capture` on my PC with the SCT X4 (the stand-in answers the ioctl as the
-   kernel's mon_bin_ioctl does, but it is not the kernel); `packaging/wine/wine` to Rust if wanted ("Python and
-   shell"); the runs fixtures of item 2.

@@ -1,8 +1,7 @@
 # Network mode `sinkhole`: a sample that calls home reaches a log on this computer
 
-Built 2026-11-18 as phase 1 of R8 in my reference plan (in my private plans, not in this repository). I decided that day that
-running a sample in Limbo is in scope (my decision 7 there, and docs/ARCHITECTURE.md section 9, item 1), sinkhole first. Real egress (phase 2,
-a throwaway tunnel) is chosen when it is built; until then **a sample run has no route out**.
+Built 2026-11-18. I decided that day that running a sample in Limbo is in scope (docs/ARCHITECTURE.md section 9, item 1),
+with the sinkhole; **a sample run has no route out**.
 
 A guest in mode `sinkhole` sits on its own isolated bridge with no route off the host. Every name it looks up resolves to its
 own gateway address, every TCP connection and UDP datagram it sends, to any address, lands on a small responder on the host's
@@ -84,37 +83,15 @@ counter of every packet that arrives).
 Result 2026-11-18 on my PC (kernel 7.3, nftables 1.1.7): passed. It needs unprivileged user namespaces and the bridge, veth
 and nftables NAT modules loaded, which a user namespace cannot load itself (on a host that has run a Limbo guest they are).
 
-## Not verified yet, and limits
+## Known limitations
 
 - **Not run with a real guest under libvirt.** The table, the responder and the daemon's side are proved in the namespace test
   and by unit tests; libvirt's handling of the `dnsmasq:options` router announcement on an isolated network (libvirt writes an
   empty router option of its own for isolated networks; which one dnsmasq keeps is the open question), UFW on a real host, and
   a real sample run through `limbo serve` are not. If the router option loses, a guest still has DNS through the sinkhole but
-  no default route, so calls to hard-coded addresses fail inside the guest instead of reaching the log. The owner steps below
-  check it.
+  no default route, so calls to hard-coded addresses fail inside the guest instead of reaching the log.
 - UDP records carry the destination port but not the address; TCP records carry both.
 - A sample can tell it is in a sinkhole (every name resolves to one private address, every port answers). That is the nature of
-  a sinkhole; phase 2 (real egress through a throwaway tunnel) is the answer when a sample must see the real far side.
+  a sinkhole; there is no mode in which a sample reaches the real far side.
 - No TLS handshake is made (only the server name is read), so HTTPS payloads are not seen.
 - Windows guests are untested in this mode.
-
-## Owner steps (root; on my PC)
-
-```bash
-# 1. the package with this change (it brings the limbo-sinkhole account through sysusers), then the daemon, when no run is active
-sudo systemctl restart limbo.service
-getent passwd limbo-sinkhole                       # the account exists, uid not 0
-# 2. my real sample profile to sinkhole (the file has one "mode" key, network.mode)
-sudo sed -i 's/"mode": *"none"/"mode": "sinkhole"/' /etc/limbo/validation/malware-analysis.json
-sudo grep -n '"mode"' /etc/limbo/validation/malware-analysis.json
-# 3. the first real run: a harmless "sample" whose command calls home in every way
-printf 'hello\n' > /tmp/harmless.txt
-sudo limbo analyze /tmp/harmless.txt 'ip route; getent hosts callhome.example; for h in 198.51.100.7 callhome.example; do timeout 5 bash -c "exec 3<>/dev/tcp/$h/80; printf \"GET /beacon HTTP/1.0\\r\\n\\r\\n\" >&3; head -n 1 <&3"; done'
-#    expected: a "default via 10.213.X.1" route, callhome.example -> 10.213.X.1, "HTTP/1.1 200 OK" twice, and the
-#    "== sinkhole" list after the output with the DNS question and both connections
-# 4. the events
-sudo grep '"kind":"sinkhole\.' /var/lib/limbo/state/events.jsonl | tail -n 20
-```
-
-If step 3 shows no default route, the router announcement lost to libvirt's own (see above): calls by name still reach the
-sinkhole, calls to a bare address do not.

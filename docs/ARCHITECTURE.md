@@ -232,9 +232,8 @@ configured to preserve it. Defaults, all deny-first:
   the profile: `none`, `internet-only` (no RFC1918/host/LAN), `allowlist` (per
   host/port), or `sinkhole` (built 2026-11-18, docs/SINKHOLE.md: no route out; DNS
   answers every name with the guest's gateway, and every connection lands on a
-  logging responder there). A `proxy` mode (everything via a logging proxy) was
-  planned here and is not built; R8 phase 2 (real egress through a throwaway
-  tunnel) is the next step instead. Never bridged to the
+  logging responder there). There is no `proxy` mode (everything via a logging
+  proxy) and no real egress for sample runs. Never bridged to the
   LAN by default. The host's own services must be unreachable from the guest.
 - **Filesystem**: no shared folders by default. File exchange goes through a
   broker: the user drops files into an explicit per-app exchange directory;
@@ -321,7 +320,7 @@ sign-in).
 
 ```
 limbo-cli        user-facing CLI (install, launch, list, policy, snapshot)
-limbo-ui         later: library/launcher GUI (Prism-style)
+limbo-ui         not built: library/launcher GUI (Prism-style)
 limbod           per-user daemon; owns VM lifecycle, policy, event log
   backends/vm    libvirt + guest agent + FreeRDP RemoteApp launcher
   backends/wine  bubblewrap + Wine runner management
@@ -382,42 +381,41 @@ Heimdall's CLAUDE.md says it is read-only toward other projects with one
 deliberate exception. Item 2 is a second exception and needs an explicit
 decision recorded there, with a `CONTRACT:` note, before anything is built.
 
-## 9. Decisions needed from the user
+## 9. Decisions
 
 1. **Scope of "security analysis".** Decided 2026-11-18: running a sample in
-   Limbo is in scope. Network mode `sinkhole` first (docs/SINKHOLE.md); real
-   egress (a VPN account or a throwaway server, through a tunnel with a kill
-   switch) is chosen when it is built, and until then a sample run has no route
-   out.
-2. **Which Windows-only tools** do you actually need? That drives the first
-   Windows guest image and its network profile.
-3. **Auto-quarantine.** May Heimdall cut a guest's network without approval?
-4. **Language.** Go (recommended, matches Heimdall) or something else.
-5. **Arch-only or generic Linux.**
-6. **Windows license/ISO** — only when you are ready; nothing is blocked on it.
+   Limbo is in scope, network mode `sinkhole` (docs/SINKHOLE.md); a sample run
+   has no route out. Real egress (a tunnel with a kill switch) is not built.
+2. **Windows-only tools.** The first is a vehicle tuner's maker program that needs
+   its own Windows kernel driver (section 6, USB passthrough; 2026-11-08).
+3. **Auto-quarantine.** Decided 2026-10-04: Heimdall may cut a guest's network
+   without approval; every verdict is a human's (docs/QUARANTINE.md).
+4. **Language.** Go first (matching Heimdall), Rust only since 2026-11-15
+   (docs/RUST_PORT.md).
+5. **Arch only** (Labyrinth OS and LykanOS).
+6. **Windows licence and ISO.** Microsoft's 90-day evaluation since 2026-11-08; a
+   bought licence is not in use yet.
 
-## 10. Roadmap
+## 10. Milestones
 
 - **M0 — verify assumptions. (done)** On a real Linux box: libvirt Linux guest, then
   read current WinApps, Bottles and macos-parallels-build-vms for what
-  transfers. Decide libvirt binding approach. Amend this document with what
-  held. Decided: no bindings, `virsh` through a `Runner`; what held is in §12.
+  transfers. Decided: no bindings, `virsh` through a `Runner`; what held is in §12.
 - **M1 — one Linux guest, seamless app. (built; real-guest tested: 66/66 and 24/24 on 2026-11-05)** `limbo`
-  (`cmd/limbo`; planned as `limbod`) builds a guest from a scripted install, snapshots it, launches one app as a
-  host window. Network profile `none`/`internet-only`, no shares. Not yet seen: a real window (waypipe is not
-  installed; `limbo launch --check` passes).
+  builds a guest from a scripted install, snapshots it, launches one app as a host window. Network profile
+  `none`/`internet-only`, no shares. A real window has not been seen (waypipe is not installed; `limbo launch --check`
+  passes).
 - **M2 — sandbox profiles and broker. (built)** Profile format, nftables generation,
-  exchange directory, clipboard policy, disposable mode. The broker is `internal/exchange`
-  (planned as `broker/`): guest outboxes, ClamAV-scanned copies out, known files held.
-- **M3 — event log + Heimdall source. (built)** `events.jsonl`, `limbosource`,
+  exchange directory, clipboard policy, disposable mode. The broker is the `exchange`
+  module: guest outboxes, ClamAV-scanned copies out, known files held.
+- **M3 — event log + Heimdall source. (built)** `events.jsonl`, Heimdall's `limbosource`,
   detectors, evidence-oriented report output (`limbo report`).
 - **M4 — quarantine actions. (built)** Local API, human-approved flow, Heimdall wiring
   (`control.sock`, restrict-only; `docs/QUARANTINE.md`).
-- **M5 — Windows guest (license-gated; not started).** Same manifest, RDP RemoteApp,
-  guest agent. Starts when the user supplies a license and ISO. (The license store
-  and the FreeRDP argv exist; no Windows installer.)
-- **M6 — Wine backend, GUI.** Wine backend phase 1 built and run for real 2026-11-08 (section 13); its phase 2 and the
-  GUI later.
+- **M5 — Windows guest (licence-gated; partly built).** The unattended installer, `limbo export`, `limbo screenshot`,
+  `limbo capture` and USB passthrough ran for real on 2026-11-08 (section 6). Not built: the guest agent; not verified:
+  RDP RemoteApp (`limbo launch` for Windows) and a stored licence key going into the answer file.
+- **M6 — Wine backend, GUI.** Wine backend phase 1 built and run for real 2026-11-08 (section 13). No GUI.
 
 ## 11. What was and was not verified
 
@@ -575,7 +573,7 @@ sparse image on tmpfs: the full hash every start did took 23 827 ms (541 MB/s); 
 1000; 99th percentile 0.023 ms, slowest 0.21 ms). A 2 GiB sparse image on the btrfs home: the old hash left all 524 288
 pages of it in the page cache, the new one none.
 
-**Owner steps after installing** (in this order: a Limbo from before this change would chown them back at its next
+**Upgrading from a Limbo older than 2026-11-09** (in this order: a Limbo from before this change would chown them back at its next
 start): install the package and restart `limbo.service`; then give the existing images back to root once
 (`sudo chown root:root /var/lib/limbo/images/*.qcow2`; the folder is already root's 0755). The first start of each then
 hashes it in full and records it, and the ones after skip the hash; until then every start hashes in full, as before.
@@ -589,10 +587,10 @@ Wine with its own container and stays outside on purpose.
 
 **Why on the host and not in a VM.** A game needs the graphics card, and a VM does not get one (section 4: passthrough
 needs a second card, paravirtual 3D for Windows guests is unproven). Wine on the host uses the host's own driver
-directly (Vulkan, and DXVK/VKD3D on top of it later), the system's Vulkan layers (Kairos frame generation included),
+directly (Vulkan; DXVK and VKD3D are not set up by Limbo), the system's Vulkan layers (Kairos frame generation included),
 and its windows are ordinary host windows. The price is a weaker boundary: a process sandbox (bubblewrap), not a
 hypervisor. So this is for programs the person chose to run on the desktop. A file nobody trusts goes to
-`limbo analyze` (a sealed VM, docs/SAMPLES.md), never into this sandbox; Wine inside that guest is a later step.
+`limbo analyze` (a sealed VM, docs/SAMPLES.md), never into this sandbox; there is no Wine inside that guest.
 
 ### Command
 
@@ -762,31 +760,18 @@ the Kairos layer inserted. A first prefix took about 3 s to make (381 MB on disk
 Not verified: a window (the runs were headless by rule), sound, X11 authority on a desktop that uses one (Hyprland's
 Xwayland has none), a third-party Windows program, a game.
 
-### Phase 2
+### Not in this backend
 
-- **DirectX through Vulkan** in each prefix: DXVK (Direct3D 8 to 11) and VKD3D-Proton (Direct3D 12), most of what makes
-  games run well; Limbo installs nothing that downloads by itself, so this needs a decision on where they come from
-  (Arch packages, or a pinned, checksummed release fetched at a person's request).
-- **Proton for non-Steam games** through umu-launcher instead of plain Wine.
-- **The Steam client inside a sandbox.** Steam's own container (pressure-vessel) uses bwrap too, so that profile would need
-  nested user namespaces (`--disable-userns` off for it); check they work.
-- **Wayland's security context** (wp_security_context_v1) for the sandbox's display connection, so the compositor can keep
-  screen capture, virtual input and the clipboard protocol from sandboxed programs.
-- Finer networks (internet only, an allowlist) through a user-mode network of the sandbox's own; game controllers
-  (opt-in `/dev/input`, hidraw, `/run/udev`); a seccomp filter; a second program joining a running prefix's sandbox;
-  `wineserver` through Limbo; other Wine builds (runner management); portals through a D-Bus filter; registry and file
-  changes as evidence (the prefix before and after a run).
-- **Sarina and Heimdall** (not wired yet; nothing here rules them out). Sarina's agents would ask through `agent.sock`
-  for a headless run under a profile a person wrote (the agent names the profile and the arguments, never a share or
-  the network; `--trace` on), and get the record and trace back labelled untrusted; `limbo wine` runs as the person, so
-  that needs the daemon to start it as the person (or a per-user service), never as root. Heimdall reads `wine.*` and the
-  run records (the user's log, or the daemon mirroring them), checks `sha256` against its known-bad list, and could stop
-  a run through a restrict-only `control.sock` route (stopping restricts). Suspicious `.exe` files go to Wine inside the
-  sealed `limbo analyze` guest, with the same trace channels, never to this sandbox.
+DirectX through DXVK or VKD3D-Proton, Proton for non-Steam games, the Steam client in a sandbox, Wayland's security
+context for the sandbox's display connection, finer networks than none or the host's, game controllers, a seccomp filter,
+a second program joining a running prefix's sandbox, runner management, portals, the prefix before and after a run as
+evidence, and a route for Sarina's agents or Heimdall: none of these is built. Suspicious `.exe` files go to the sealed
+`limbo analyze` guest, never to this sandbox.
 
 ## Shipping with LykanOS (formerly Chymaera OS)
 
-(Labyrinth OS already ships Limbo as `limbo-git` from its own local repository; this section is the plan for LykanOS.)
+(Labyrinth OS ships Limbo as `limbo-git` from its signed package repository `[labyrinth]`, which LykanOS uses too. The
+measurement and the decision below are from 2026-10, when LykanOS still built a local package repository.)
 
 Owner's plan: ship Limbo in the ISO. Measured against the distro's real package
 list and repositories (resolved from an empty root, using its own `pacman.conf`
@@ -821,19 +806,9 @@ hypervisor stack.
 - `internal/deps` is the one list of what is needed; a test pins that the PKGBUILD's
   `optdepends` cover it and that none of it is a hard dependency.
 
-What remains, and why it was not done here:
-
-- The distro vendors private packages as submodules (`packages/sarina`) built into
-  its `[chymaera]` repo. Limbo needs the same (`packages/limbo` plus a
-  `limbo-git` PKGBUILD modelled on `sarina-git`), and its CI token
-  (`SARINA_REPO_TOKEN`) must be able to read the Limbo repo too.
-- **Heimdall is not in the ISO yet**, so Limbo's quarantine response is
-  dormant there until it is packaged and added to `limbo-heimdall`.
-- Enabling `limbo.service` on the live medium needs the distro's symlink handling
-  (its CLAUDE.md explains the Windows `core.symlinks` trap). It is not enabled by
-  default; the sockets and API only matter once a guest is running.
-- The ISO build itself cannot run on the development machine, so none of this has
-  been built into an ISO.
+Today `limbo-git` is in `[labyrinth]`, which LykanOS's `pacman.conf` carries, but it is not on the LykanOS image or in
+its Agora catalog, and it has not been tried on LykanOS. Heimdall is on the LykanOS image but off there by default, so
+Limbo's quarantine response is dormant on LykanOS.
 
 Defects only real runs could find (all fixed, each with a regression test or
 check): firewall rules matched the tap but routed traffic arrives on the bridge,
@@ -857,7 +832,9 @@ now describe their network, sudo and time cap, read-only). Writing Sarina's CLI 
 also showed that `sarina limbo-validate` had never worked: its positional overwrote
 the subcommand name.
 
-Not built / not verified:
+## Known limitations
+
+Not built or not verified:
 
 - **Windows guests**: gate, XML and argv are written but have never been run; no
   Windows ISO or license exists on this machine.
@@ -886,9 +863,9 @@ Not built / not verified:
   yet, because there is no Windows installer.
 - GUI, guest agent, and the Wine backend's phase 2 (section 13). No window of a Windows program through `limbo wine` has
   been looked at yet: the real runs were headless, by rule.
-- Anything on bare-metal KVM or under load (only nested KVM was tested).
+- Anything under load (many guests at once). The real-guest runs since 2026-10-14 are on bare-metal KVM.
 
-Known weaknesses to fix before trusting it:
+Known weaknesses:
 
 - A guest can only be quarantined by name through the manifest copy `up` leaves in
   the state directory; if that file is removed, holds cannot be applied by name.
