@@ -1,7 +1,7 @@
 # Network mode `sinkhole`: a sample that calls home reaches a log on this computer
 
-Built 2026-11-18 as phase 1 of R8 in Labyrinth_OS's docs/REFERENCE_PLAN_2026-11.md. I decided that day that running a sample
-in Limbo is in scope (my decision 7 there, and docs/ARCHITECTURE.md section 9, item 1), sinkhole first. Real egress (phase 2,
+Built 2026-11-18 as phase 1 of R8 in my reference plan (in my private plans, not in this repository). I decided that day that
+running a sample in Limbo is in scope (my decision 7 there, and docs/ARCHITECTURE.md section 9, item 1), sinkhole first. Real egress (phase 2,
 a throwaway tunnel) is chosen when it is built; until then **a sample run has no route out**.
 
 A guest in mode `sinkhole` sits on its own isolated bridge with no route off the host. Every name it looks up resolves to its

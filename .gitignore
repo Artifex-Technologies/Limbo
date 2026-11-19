@@ -10,5 +10,8 @@ events.jsonl
 # Local progress notes
 PROGRESS.md
 
+# My private plans (a link to a private checkout on my computers)
+docs/plans/
+
 # The Rust port's build output
 /rust/target/

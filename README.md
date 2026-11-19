@@ -2,6 +2,8 @@
 
 # Limbo
 
+[![rust](https://github.com/Artifex-Technologies/Limbo/actions/workflows/rust.yml/badge.svg)](https://github.com/Artifex-Technologies/Limbo/actions/workflows/rust.yml)
+
 Run Windows and Linux guest applications on a Linux host as seamless,
 native-looking windows, each inside a sandbox you control. Built first for
 **network and infrastructure security analysis and reporting**: run
@@ -23,6 +25,13 @@ verdicts, validation runs and the Heimdall/Sarina integrations were tested with 
 real daemon, real sockets, real unprivileged users and real systemd units. See
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) section 12 for exactly what is and
 is not verified.
+
+**How it is tested.** Every change to the Rust code runs the `rust` workflow: formatting, clippy, the tests, and the
+differential runs, in which the Rust daemon and CLI and the last Go limbo get the same socket traffic and must answer the
+same; it also puts a sinkhole guest's real firewall tables in a throwaway network namespace to show an analysis network
+reaches nothing else, and audits the dependencies. The method and the numbers are in [docs/RUST_PORT.md](docs/RUST_PORT.md);
+the real-guest tests are the `scripts/integration-*.sh` runs that [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) section 12
+describes.
 
 ```
 (cd rust && cargo build --release --locked)  # rust/target/release/limbo-rs is limbo (the package installs it as /usr/bin/limbo)

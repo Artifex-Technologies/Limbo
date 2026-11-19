@@ -8,6 +8,9 @@ reasoning and what is unverified.
 Push every commit as you make it; don't ask me first. Before pushing, check the
 diff names no host name, network address, SSID or MAC address.
 
+Plans, owner steps and other internal notes go in `docs/plans/` (private and git-ignored; ask the owner), never in the
+public docs.
+
 ## State
 
 **Rust only since 2026-11-15** (`rust/`, docs/RUST_PORT.md): `limbo-rs`, installed as `/usr/bin/limbo`, is the daemon
@@ -195,7 +198,7 @@ From Heimdall's CLAUDE.md Coordination Log.
 — Signed: Limbo / Claude Opus 5.5
 
 ### 2026-11-18 — Network mode `sinkhole` (R8 phase 1): a sample that calls home reaches a log on this computer
-- **Owner's decision** (Labyrinth_OS docs/REFERENCE_PLAN_2026-11.md, decision 7; docs/ARCHITECTURE.md section 9 item 1 is
+- **Owner's decision** (my reference plan, decision 7, in my private plans: Labyrinth_OS docs/plans/REFERENCE_PLAN_2026-11.md; docs/ARCHITECTURE.md section 9 item 1 is
   marked decided): running a sample in Limbo is in scope, sinkhole first; real egress (phase 2) is chosen when it is built,
   so until then a sample run has no route out.
 - **Built** (docs/SINKHOLE.md): mode `sinkhole` for manifests and profiles. The libvirt network is isolated (dnsmasq
@@ -403,7 +406,7 @@ From Heimdall's CLAUDE.md Coordination Log.
   `up`/`down` (root's state-folder guard from 2026-10-27). Run them from a copy of the
   repo when editing at the same time: bash reads a script while it runs.
 - Owner steps (install, restart, group membership, optional exchange mount):
-  `docs/OWNER_STEPS_2026-11-05.md`.
+  in my private plans (docs/plans/OWNER_STEPS_2026-11-05.md).
 — Signed: Limbo / Claude Opus 5.5
 
 ### 2026-10-10 — Sentry renamed to Heimdall
