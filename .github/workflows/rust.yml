@@ -13,12 +13,14 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0, pinned by commit
         with:
+          persist-credentials: false
           fetch-depth: 0 # the pinned commit the Go limbo is built from
       # only to build the Go limbo of the pinned commit, the differential runs' referee
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0, pinned by commit
         with:
           go-version: "1.27"
           cache: false
@@ -52,7 +54,10 @@ jobs:
         run: python3 -I rust/parity/cli-differential.py --go /tmp/limbo-go --rs rust/target/release/limbo-rs --out /tmp/lcd --require-all
   audit:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0, pinned by commit
+        with:
+          persist-credentials: false
       - run: cargo install --locked cargo-audit
       - run: cargo audit --file rust/Cargo.lock --deny warnings
