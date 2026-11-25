@@ -338,6 +338,8 @@ pub fn run(args: &[String]) -> Result<(), String> {
     check_host_policy(hostpolicy::DEFAULT_CONFIG)?;
 
     let agg = Arc::new(Mutex::new(Aggregator::new(Some(log.clone() as Arc<dyn Emitter>), Time::now)));
+    // the flows each guest was seen making before a restart are not new now (LIM-6; only for the same guest instances)
+    crate::flowmem::load(&f.state_dir, &mut agg.lock().unwrap_or_else(|e| e.into_inner()));
     {
         let state = f.state_dir.clone();
         agg.lock().unwrap_or_else(|e| e.into_inner()).gateway =
@@ -441,7 +443,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
             None
         }
     };
-    let r = serve_loop(&srv, &listeners, nflog.as_ref(), &sigfd, &agg);
+    let r = serve_loop(&srv, &listeners, nflog.as_ref(), &sigfd, &agg, &f.state_dir);
     for (_, _, p) in &listeners {
         let _ = std::fs::remove_file(p);
     }
@@ -454,18 +456,33 @@ fn serve_loop(
     nflog_fd: Option<&OwnedFd>,
     sigfd: &OwnedFd,
     agg: &Arc<Mutex<Aggregator>>,
+    state_dir: &str,
 ) -> Result<(), String> {
     use rustix::event::{poll, PollFd, PollFlags};
     let mut buf = vec![0u8; 1 << 16];
     let mut last_trim = std::time::Instant::now();
     let mut nflog = nflog_fd;
+    // the flows' "first time" memory, written at most every 30 s while it changes, and at the stop (LIM-6)
+    const KEEP_EVERY: Duration = Duration::from_secs(30);
+    let mut unsaved = false;
+    let mut last_save = std::time::Instant::now();
+    let keep = |agg: &Arc<Mutex<Aggregator>>| {
+        if let Err(e) = crate::flowmem::save(state_dir, &agg.lock().unwrap_or_else(|e| e.into_inner())) {
+            eprintln!("limbo serve: the flows seen could not be kept for a restart: {}", sys::go_err(&e));
+        }
+    };
     loop {
         let mut fds: Vec<PollFd> = listeners.iter().map(|(l, _, _)| PollFd::new(l, PollFlags::IN)).collect();
         fds.push(PollFd::new(sigfd, PollFlags::IN));
         if let Some(n) = nflog {
             fds.push(PollFd::new(n, PollFlags::IN));
         }
-        match poll(&mut fds, None) {
+        // waiting forever unless the flows' memory has something to write later
+        let wait = unsaved.then(|| {
+            let d = KEEP_EVERY.saturating_sub(last_save.elapsed());
+            rustix::event::Timespec { tv_sec: d.as_secs() as i64, tv_nsec: i64::from(d.subsec_nanos()) }
+        });
+        match poll(&mut fds, wait.as_ref()) {
             Ok(_) => {}
             Err(rustix::io::Errno::INTR) => continue,
             Err(e) => return Err(format!("serve: poll: {}", sys::go_err(&e.into()))),
@@ -473,6 +490,9 @@ fn serve_loop(
         let ready: Vec<bool> = fds.iter().map(|p| !p.revents().is_empty()).collect();
         drop(fds);
         if ready[listeners.len()] {
+            if unsaved || agg.lock().unwrap_or_else(|e| e.into_inner()).take_changed() {
+                keep(agg);
+            }
             return Ok(());
         }
         for (i, (l, who, _)) in listeners.iter().enumerate() {
@@ -523,6 +543,12 @@ fn serve_loop(
                     }
                 }
             }
+        }
+        unsaved |= agg.lock().unwrap_or_else(|e| e.into_inner()).take_changed();
+        if unsaved && last_save.elapsed() >= KEEP_EVERY {
+            keep(agg);
+            unsaved = false;
+            last_save = std::time::Instant::now();
         }
         // freed heap goes back to the system at most once a minute (a burst of requests or a run leaves none behind)
         if last_trim.elapsed() > Duration::from_secs(60) && CONNS.load(Ordering::SeqCst) == 0 {

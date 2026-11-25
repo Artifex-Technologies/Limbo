@@ -872,7 +872,10 @@ Known weaknesses:
 - Heimdall restarting mid-sequence can report a later `guest.start` as unfiltered if
   it never saw the `policy.apply`; a persisted offset avoids it in normal use.
 - Flow events are only written while `limbo serve` runs (one reader per kernel log
-  group), and their "first time" memory is lost when serve restarts.
+  group). Their "first time" memory is kept across restarts in `flows-seen.json` in the
+  state directory (since 2026-11-24, LIM-6), written at most every 30 seconds and at
+  the stop, so a crash can forget the last half minute; each guest's entry names its
+  manifest's SHA-256, so a guest made again under the same name starts afresh.
 - A guest started with an older Limbo got its subnet from the name hash; the
   allocator skips any subnet a host interface already uses, so they do not collide,
   but such a guest has no record in `subnets.json` (`limbo address` cannot find it).

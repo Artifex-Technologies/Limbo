@@ -198,17 +198,52 @@ struct GuestState {
     touched: Time,
 }
 
+/// What a guest's "first time" memory holds: the flows it was seen making and whether it reached the cap. Kept across
+/// restarts of `limbo serve` (LIM-6, `flowmem`), so a restart does not report known flows again.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Memory {
+    pub capped: bool,
+    /// Sorted.
+    pub seen: Vec<String>,
+}
+
 /// Decides which packets become events.
 pub struct Aggregator {
     pub events: Option<std::sync::Arc<dyn Emitter>>,
     pub now: fn() -> Time,
     pub gateway: Option<Box<dyn Fn(&str) -> Option<Ip> + Send + Sync>>,
     guests: BTreeMap<String, GuestState>,
+    /// The memory changed since `take_changed` last said so.
+    changed: bool,
 }
 
 impl Aggregator {
     pub fn new(events: Option<std::sync::Arc<dyn Emitter>>, now: fn() -> Time) -> Aggregator {
-        Aggregator { events, now, gateway: None, guests: BTreeMap::new() }
+        Aggregator { events, now, gateway: None, guests: BTreeMap::new(), changed: false }
+    }
+
+    /// Every guest's "first time" memory, by name.
+    pub fn memory(&self) -> BTreeMap<String, Memory> {
+        self.guests
+            .iter()
+            .map(|(g, st)| {
+                let mut seen: Vec<String> = st.seen.iter().cloned().collect();
+                seen.sort();
+                (g.clone(), Memory { capped: st.capped, seen })
+            })
+            .collect()
+    }
+
+    /// Takes back a guest's memory from before a restart (at most the cap's worth of flows).
+    pub fn remember(&mut self, guest: &str, m: Memory) {
+        let st = self.state(guest);
+        st.seen = m.seen.into_iter().take(MAX_KEYS_PER_GUEST).collect();
+        st.capped = m.capped;
+    }
+
+    /// Whether the memory changed since the last time this was asked.
+    pub fn take_changed(&mut self) -> bool {
+        std::mem::take(&mut self.changed)
     }
 
     fn state(&mut self, g: &str) -> &mut GuestState {
@@ -230,7 +265,9 @@ impl Aggregator {
 
     /// Drops what is remembered of a guest (torn down; the name may be reused).
     pub fn forget(&mut self, guest: &str) {
-        self.guests.remove(guest);
+        if self.guests.remove(guest).is_some() {
+            self.changed = true;
+        }
     }
 
     fn emit(&self, kind: &str, guest: &str, d: Detail) {
@@ -250,15 +287,18 @@ impl Aggregator {
         let mut out: Vec<(&'static str, Detail)> = vec![];
         let st = self.state(&p.guest);
         let fresh = !st.seen.contains(&key);
+        let mut changed = false;
         if fresh {
             if st.seen.len() >= MAX_KEYS_PER_GUEST {
                 if !st.capped {
                     st.capped = true;
+                    changed = true;
                     out.push((KIND_CAPPED, crate::detail([("limit", &MAX_KEYS_PER_GUEST.to_string())])));
                 }
                 st.suppressed += 1;
             } else {
                 st.seen.insert(key);
+                changed = true;
                 let mut d = crate::detail([("proto", &p.proto), ("dst", &p.dst.to_string()), ("verdict", verdict), ("scope", sc)]);
                 if p.dport > 0 {
                     d.insert("dport".into(), p.dport.to_string());
@@ -269,6 +309,7 @@ impl Aggregator {
                 out.push((kind, d));
             }
         }
+        self.changed |= changed;
         for (k, d) in out.drain(..) {
             self.emit(k, &p.guest, d);
         }

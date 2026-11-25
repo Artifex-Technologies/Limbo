@@ -31,6 +31,7 @@ pub mod license;
 pub mod runs;
 pub mod sinkhole;
 
+pub mod flowmem;
 pub mod flows;
 pub mod usbcap;
 pub mod wine;

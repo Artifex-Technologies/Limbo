@@ -87,6 +87,10 @@ the guest chose: data, not names to look up.
 | `net.anomaly` | a guest's refusals look like probing | `reason` (below), `proto`, `dst`, `dport`, `count` (times since the last report); for `scan` also `window_seconds`, `threshold` |
 | `net.capped` | a guest used its budget of 256 distinct `net.flow`/`net.blocked` events; further ones are not written (anomalies still are) | `limit` |
 
+"The first time" outlasts a restart of `limbo serve` for the same guest (`flows-seen.json` in the state folder, keyed by the
+guest's manifest): a restarted daemon does not report a guest's known destinations again; a guest made again under the same
+name starts afresh.
+
 `net.anomaly` reasons, each reported at most once per guest per 10 minutes:
 
 - `host_probe`: TCP or UDP to the host itself, except DNS to the guest's own gateway (a guest

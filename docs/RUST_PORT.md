@@ -290,6 +290,9 @@ an answer) needs no entry when no fixture or case reaches it.
 - 2026-11-18, network mode `sinkhole` (docs/SINKHOLE.md): the manifest's mode list in its error, the Settings page's
   refusal and `limbo instance`'s usage and flag help name `sinkhole`; a sealed sample profile may be `none` or `sinkhole`,
   and the refusal's remedy says so.
+- 2026-11-24, the flows' "first time" memory outlasts a restart (`flows-seen.json` in the state folder, keyed by each
+  guest's manifest): the daemon differential leaves that file out of its comparison of the state folder (Go never wrote
+  it); the events are compared as before.
 
 ## The switch: why not a week of shadow mode
 

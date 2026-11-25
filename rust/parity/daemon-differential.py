@@ -584,7 +584,9 @@ def inner(args):
         dn.sort()
         for n in sorted(fn):
             full = os.path.join(dp, n)
-            if n.endswith(".lock") or "exchange-scratch" in full:
+            # flows-seen.json: the flows' memory across restarts, which only the Rust limbo keeps (LIM-6, docs/RUST_PORT.md
+            # "Changed since the Go build left"; rust/limbo/src/flowmem.rs tests it)
+            if n.endswith(".lock") or "exchange-scratch" in full or n == "flows-seen.json":
                 continue
             rel = os.path.relpath(full, root)
             data = open(full, "rb").read()
