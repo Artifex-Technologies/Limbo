@@ -660,16 +660,8 @@ impl Manager {
         } else {
             ("done", None)
         };
-        let mut d = detail([("status", status)]);
-        if status == "done" {
-            d.insert("exit_code".into(), out.2.to_string());
-        }
-        if let Some(n) = &note {
-            d.insert("code".into(), n.code.clone());
-        }
-        if leaked {
-            d.insert("teardown".into(), "failed".into());
-        }
+        let sample = matches!(stdin, Some((_, true)));
+        let d = end_detail(status, &out, note.as_ref().map(|n| n.code.as_str()), leaked, sample);
         let _ = self.events.emit(events::RUN_END, id, d);
         if let Some(n) = &note {
             if n.code != CODE_OUTPUT_TRUNC {
@@ -1166,11 +1158,59 @@ impl Executor for Ssh {
     }
 }
 
+/// `run.end`'s detail: the status, the exit code of a run that ran, the code of a failure, a teardown that did not finish,
+/// and for a sample run that ran the ATT&CK techniques names in its output suggest (LIM-7: Limbo's own table's IDs, never the
+/// output's text).
+fn end_detail(status: &str, out: &Output, code: Option<&str>, leaked: bool, sample: bool) -> crate::Detail {
+    let mut d = detail([("status", status)]);
+    if status == "done" {
+        d.insert("exit_code".into(), out.2.to_string());
+    }
+    if let Some(c) = code {
+        d.insert("code".into(), c.to_string());
+    }
+    if leaked {
+        d.insert("teardown".into(), "failed".into());
+    }
+    if sample && status == "done" {
+        let ids = crate::attackhints::ids(&out.0);
+        if !ids.is_empty() {
+            d.insert("suggested".into(), ids);
+        }
+    }
+    d
+}
+
 /// The run's command for the executor: a bundle is unpacked first, a sample stored read-only first.
 pub fn wrap(command: &str, stdin: Option<&(Vec<u8>, bool)>) -> String {
     match stdin {
         Some((_, true)) => sample_wrap(command),
         Some((_, false)) => bundle_wrap(command),
         None => command.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// LIM-7: a sample run that ran says which techniques names in its output suggest; a validation run, a failed run and
+    /// an output without such names do not.
+    #[test]
+    fn run_end_names_a_sample_runs_suggested_techniques() {
+        let out: Output = ("== imports\nKERNEL32.dll!CreateRemoteThread\nptrace@GLIBC_2.2.5\n".into(), String::new(), 0, false);
+        let d = end_detail("done", &out, None, false, true);
+        assert_eq!(d.get("suggested").map(String::as_str), Some("T1055,T1055.008"));
+        assert_eq!(d.get("exit_code").map(String::as_str), Some("0"));
+        assert!(!end_detail("done", &out, None, false, false).contains_key("suggested"));
+        assert!(!end_detail("timeout", &out, Some(CODE_COMMAND_TIMEOUT), false, true).contains_key("suggested"));
+        let plain: Output = ("PE32 executable\n".into(), String::new(), 0, false);
+        assert!(!end_detail("done", &plain, None, false, true).contains_key("suggested"));
+        // the rest as before
+        let d = end_detail("failed", &plain, Some("boot_failed"), true, false);
+        assert_eq!(
+            d.into_iter().collect::<Vec<_>>(),
+            [("code".into(), "boot_failed".into()), ("status".into(), "failed".into()), ("teardown".into(), "failed".into())]
+        );
     }
 }

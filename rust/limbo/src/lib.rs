@@ -37,6 +37,7 @@ pub mod usbcap;
 pub mod wine;
 
 pub mod api;
+pub mod attackhints;
 pub mod cli;
 pub mod http;
 pub mod serve;

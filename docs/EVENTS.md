@@ -65,7 +65,7 @@ fields are the evidence of who used them.
 | `policy.release` | the manifest's firewall was restored (a `safe` verdict) | `table` |
 | `link.down` / `link.up` | the guest's virtual link was cut / restored | `interface` |
 | `run.start` | a validation run began (guest name is the run id) | `profile`, `command_sha256`, `command` (first 200 bytes) |
-| `run.end` | a validation run finished | `status`, `exit_code`, `code` (when not a plain result), `teardown` (`failed` if cleanup did not finish) |
+| `run.end` | a validation run finished | `status`, `exit_code`, `code` (when not a plain result), `teardown` (`failed` if cleanup did not finish), `suggested` (a sample run that ran: the ATT&CK technique IDs that names in its output are typical of, comma-separated, from Limbo's own table and never the output's text; not verified) |
 | `run.error` | a run was refused, failed, timed out, or an orphan was reaped at startup (guest is the run id, or the profile name for a refusal) | `code` (a stable code from docs/INTEGRATION-FAILURES.md), `during` (`startup reap` only) |
 
 **Heimdall treats `policy.restrict` / `policy.release` as informational.** In

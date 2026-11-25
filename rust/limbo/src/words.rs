@@ -60,11 +60,16 @@ pub fn sentence(e: &Event) -> Option<String> {
         // validation runs
         "run.start" => format!("A test run ({}) started with the profile {}.", e.guest, or("profile", "(none)")),
         "run.end" => format!(
-            "The test run {} ended: {}{}{}.",
+            "The test run {} ended: {}{}{}{}.",
             e.guest,
             or("status", "no status"),
             if d("exit_code").is_empty() { String::new() } else { format!(", exit code {}", d("exit_code")) },
-            if d("teardown") == "failed" { "; its guest was not fully cleaned away" } else { "" }
+            if d("teardown") == "failed" { "; its guest was not fully cleaned away" } else { "" },
+            if d("suggested").is_empty() {
+                String::new()
+            } else {
+                format!("; names in its output suggest the ATT&CK techniques {} (not verified)", d("suggested").replace(',', ", "))
+            }
         ),
         "run.error" if d("during") == "startup reap" => {
             format!("A test run left over from before ({}) was cleaned away when Limbo started.", e.guest)
@@ -239,6 +244,11 @@ mod tests {
         assert_eq!(
             sentence(&ev("run.end", "r1234abcd", &[("status", "finished"), ("exit_code", "0"), ("teardown", "failed")])).unwrap(),
             "The test run r1234abcd ended: finished, exit code 0; its guest was not fully cleaned away."
+        );
+        assert_eq!(
+            sentence(&ev("run.end", "r1234abcd", &[("status", "done"), ("exit_code", "0"), ("suggested", "T1055,T1055.008")])).unwrap(),
+            "The test run r1234abcd ended: done, exit code 0; names in its output suggest the ATT&CK techniques T1055, \
+             T1055.008 (not verified)."
         );
         assert_eq!(
             sentence(&ev("image.rejected", "", &[("during", "weekly check"), ("reason", "base.qcow2 changed")])).unwrap(),

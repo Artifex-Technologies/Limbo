@@ -438,4 +438,24 @@ mod tests {
         assert!(r.contains("made.up x=1"), "{r}");
         assert!(!r.contains("| Time | Guest | Event | Detail |"));
     }
+
+    /// LIM-7: a sample run's suggested ATT&CK techniques, in the timeline's details and in plain words.
+    #[test]
+    fn a_sample_runs_suggested_techniques() {
+        let end = ev("run.end", &[("status", "done"), ("exit_code", "0"), ("suggested", "T1055,T1055.008")]);
+        let mut inp = Input {
+            events: vec![end],
+            skipped: 0,
+            records: vec![],
+            guest: String::new(),
+            since: Time::default(),
+            now: Time::default(),
+            words: false,
+        };
+        let r = render(&inp);
+        assert!(r.contains("suggested=T1055,T1055.008"), "{r}");
+        inp.words = true;
+        let r = render(&inp);
+        assert!(r.contains("suggest the ATT&CK techniques T1055, T1055.008 (not verified)"), "{r}");
+    }
 }

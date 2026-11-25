@@ -186,7 +186,10 @@ fn ask(io: &mut Io, sock: &str, profile: &str, command: &str, name: &str, sum: &
             let _ = io.out.write_all(&raw);
             let _ = io.out.write_all(b"\n");
         } else {
-            let _ = io.out.write_all(map_get(&res, "stdout").map_or("<nil>".to_string(), go_v).as_bytes());
+            let stdout = map_get(&res, "stdout").map_or("<nil>".to_string(), go_v);
+            let _ = io.out.write_all(stdout.as_bytes());
+            // techniques the output's names are typical of, marked suggested (LIM-7); nothing when none
+            let _ = io.out.write_all(crate::attackhints::text(&stdout).as_bytes());
             if let Some(Value::String(e)) = map_get(&res, "stderr") {
                 if !e.is_empty() {
                     let _ = io.err.write_all(e.as_bytes());

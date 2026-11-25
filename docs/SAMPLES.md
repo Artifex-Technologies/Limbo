@@ -19,6 +19,12 @@ the host, so a parser bug in the analysis tools (radare2, Ghidra, binutils) expl
   matches (YARA-X's `yr` since 2026-11-18; the image installs it from Labyrinth's package repository, Sarina's
   `packaging/limbo/decompile/README.md`), and the function list. Output is capped at the profile's limit and is untrusted (it
   comes from a hostile file).
+- Suggested ATT&CK techniques: names in the output that are typical of a technique (imports such as `CreateRemoteThread`
+  or `ptrace`, a `CurrentVersion\Run` key; the table is `rust/limbo/src/attackhints.rs`) give a line each after the
+  output of `limbo analyze` ("suggested: T1055 Process Injection (seen: CreateRemoteThread)"), and their IDs go into the
+  run's `run.end` event (`suggested`), which `limbo report` shows. A name in the output says the file mentions it, not that
+  it uses it, and a hostile file can plant names: these are leads for a person, not findings. Names nearly every Windows
+  program imports (`IsDebuggerPresent`, `GetProcAddress`) are left out of the table.
 
 Why not the decompile profile's shared folder: a virtiofs share is writable by the guest into a host directory and has not been
 exercised (ARCHITECTURE.md, known weaknesses). A sample run needs no share at all.
