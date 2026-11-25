@@ -166,6 +166,8 @@ replaced, 200 bytes), `via` (`cli`, or `path` for Limbo's `wine` on PATH) and, f
 
 The run record (`record`) is JSON with the run's whole story: profile and its SHA-256, program,
 arguments, the program file's SHA-256, times, status, exit status and what the sandbox was
-allowed. Heimdall's `limbo-guest` detector ignores these kinds today.
+allowed. Heimdall's `limbo-guest` detector, when its `limbo_event_log` names this log, looks up
+`wine.start`'s `sha256` in its immunity store: a program whose content it holds as malware (or
+as a suspect) is an alert (Heimdall docs/CONTRACTS.md, HEI-10). The other kinds are not alerts.
 
 There is no guest agent, so no guest-agent health events.
