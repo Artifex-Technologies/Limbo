@@ -91,7 +91,8 @@ The page shows figures (instances, states, disk use, memory) even with the switc
   none|internet-only|sinkhole|allowlist [--allow ADDRESS:tcp|udp:PORT,...]` (`sinkhole` since 2026-11-18, docs/SINKHOLE.md),
   root only (Settings: a selector on each guest's row, which asks for the password every time), never for a held guest, in
   force from the guest's next start. The address lists are set on the command line only.
-- A one-click `limbo report` (2026-11-07: Settings > Limbo, "Save a report…", Yggdrasil b735099).
+- A one-click `limbo report` (2026-11-07: Settings > Limbo, "Save a report…", Yggdrasil b735099). Since 2026-11-25
+  `limbo report --plain` writes its timeline in plain words, one sentence an event, for the page to ask for.
 
 ## Known limitations
 

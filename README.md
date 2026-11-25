@@ -97,7 +97,9 @@ nobody trusts go to `limbo analyze` (a sealed VM), not here.
   update or install before the real system is touched, using a profile a human
   wrote. A passing run is evidence, never permission.
 - **Reports.** `limbo report` turns the audit log and quarantine records into a
-  Markdown document, with everything from a guest escaped.
+  Markdown document, with everything from a guest escaped. With `--plain` its timeline says each event in a sentence
+  ("Guest lab was refused 192.0.2.10 port 22 (tcp, lan).") instead of its name and details: one sentence for every kind
+  in docs/EVENTS.md (`rust/limbo/src/words.rs`, a test reads the list).
 
 ## Windows license
 

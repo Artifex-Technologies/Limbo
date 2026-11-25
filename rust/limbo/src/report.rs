@@ -20,6 +20,8 @@ pub struct Input {
     /// Only what happened on or after this, when not zero.
     pub since: Time,
     pub now: Time,
+    /// `--plain` (LIM-23): the timeline in plain words (words.rs) instead of each event's name and details.
+    pub words: bool,
 }
 
 /// The report as Markdown.
@@ -185,10 +187,19 @@ pub fn render(inp: &Input) -> String {
         w!("No events in this period.");
     } else {
         w!("");
-        w!("| Time | Guest | Event | Detail |");
-        w!("| --- | --- | --- | --- |");
-        for e in &evs {
-            w!("| {} | {} | {} | {} |", e.time.utc().rfc3339(), md(&e.guest), md(&e.kind), md(&clip(&detail(e), 160)));
+        if inp.words {
+            w!("| Time | What happened |");
+            w!("| --- | --- |");
+            for e in &evs {
+                let said = crate::words::sentence(e).unwrap_or_else(|| format!("{} {}", e.kind, String::from_utf8_lossy(&detail(e))));
+                w!("| {} | {} |", e.time.utc().rfc3339(), md(&clip(said.as_bytes(), 240)));
+            }
+        } else {
+            w!("| Time | Guest | Event | Detail |");
+            w!("| --- | --- | --- | --- |");
+            for e in &evs {
+                w!("| {} | {} | {} | {} |", e.time.utc().rfc3339(), md(&e.guest), md(&e.kind), md(&clip(&detail(e), 160)));
+            }
         }
     }
     b
@@ -390,6 +401,7 @@ mod tests {
             guest: String::new(),
             since: Time::default(),
             now: Time::default(),
+            words: false,
         };
         assert!(!render(&inp).contains("## Sinkhole"));
         inp.events.push(ev("sinkhole.dns", &[("name", "callhome.example"), ("type", "A"), ("proto", "udp")]));
@@ -401,5 +413,29 @@ mod tests {
         assert!(r.contains("## Sinkhole"));
         assert!(r.contains("| DNS A callhome.example (udp) |"));
         assert!(r.contains("tcp 198.51.100.7:80 | HTTP: GET /\\|x HTTP/1.1; first bytes: \\`\\</td\\> |"), "{r}");
+    }
+
+    /// LIM-23: with --plain the timeline says each event in a sentence, the guest's own words escaped as everywhere.
+    #[test]
+    fn the_timeline_in_plain_words() {
+        let inp = Input {
+            events: vec![
+                ev("guest.start", &[]),
+                ev("sinkhole.dns", &[("name", "call|home*.example"), ("type", "A"), ("proto", "udp")]),
+                ev("made.up", &[("x", "1")]),
+            ],
+            skipped: 0,
+            records: vec![],
+            guest: String::new(),
+            since: Time::default(),
+            now: Time::default(),
+            words: true,
+        };
+        let r = render(&inp);
+        assert!(r.contains("| Time | What happened |"), "{r}");
+        assert!(r.contains("Guest r0000beef started."), "{r}");
+        assert!(r.contains("asked for the name call\\|home\\*.example (A); the guest's own words."), "{r}");
+        assert!(r.contains("made.up x=1"), "{r}");
+        assert!(!r.contains("| Time | Guest | Event | Detail |"));
     }
 }

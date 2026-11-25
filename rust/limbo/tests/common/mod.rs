@@ -32,6 +32,11 @@ pub const INTENDED: &[(&str, &str)] = &[
         "set (root): none, internet-only, sinkhole, or allowlist (with --allow)",
     ),
     ("use a sealed profile with allow_sample (no network,", "use a sealed profile with allow_sample (network none or sinkhole,"),
+    // limbo report --plain (LIM-23, 2026-11-25): the report's flag list names it
+    (
+        "    \twrite to this file instead of stdout\n  -since string",
+        "    \twrite to this file instead of stdout\n  -plain\n    \tthe timeline in plain words, one sentence an event\n  -since string",
+    ),
 ];
 
 impl Diffs {

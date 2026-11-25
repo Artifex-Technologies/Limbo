@@ -211,14 +211,22 @@ fn report(args: &[String], io: &mut Io) -> Result<(), Fail> {
     fs.string("guest", "", "only this guest");
     fs.string("since", "", "only this period: a duration like 24h or 7d, or a date like 2026-10-01");
     fs.string("out", "", "write to this file instead of stdout");
+    fs.bool("plain", false, "the timeline in plain words, one sentence an event");
     let mut stderr = vec![];
     let r = super::flags::parse_interspersed(&mut fs, args.to_vec(), &mut stderr);
     let _ = io.err.write_all(&stderr);
     r.map_err(Fail::Msg)?;
     let (state, since, out) = (fs.str("state-dir"), fs.str("since"), fs.str("out"));
     let now = crate::gotime::Time::now().utc();
-    let mut inp =
-        crate::report::Input { events: vec![], skipped: 0, records: vec![], guest: fs.str("guest"), since: Default::default(), now };
+    let mut inp = crate::report::Input {
+        events: vec![],
+        skipped: 0,
+        records: vec![],
+        guest: fs.str("guest"),
+        since: Default::default(),
+        now,
+        words: fs.is_true("plain"),
+    };
     if !since.is_empty() {
         inp.since = parse_since(&since, now)?;
     }

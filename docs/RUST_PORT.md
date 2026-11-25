@@ -296,6 +296,8 @@ an answer) needs no entry when no fixture or case reaches it.
 - 2026-11-25, an Instance in the settings answers carries `allow`, the effective allow list (docs/SETTINGS_PAGE.md): the
   daemon differential removes that key, right after `network`, before comparing (Go never had it); its content is checked
   by `instances.rs`'s test.
+- 2026-11-25, `limbo report --plain` (the timeline in plain words, `words.rs`): the report's flag list names it, so its
+  usage text (help, a bad flag, a flag with no value) is read with the new lines; without the flag the report is Go's.
 
 ## The switch: why not a week of shadow mode
 

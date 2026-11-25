@@ -40,6 +40,7 @@ pub mod api;
 pub mod cli;
 pub mod http;
 pub mod serve;
+pub mod words;
 
 pub mod fuzzing;
 

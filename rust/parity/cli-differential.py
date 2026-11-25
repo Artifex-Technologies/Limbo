@@ -1917,6 +1917,8 @@ INTENDED = [
     ("--network none|internet-only|allowlist ", "--network none|internet-only|sinkhole|allowlist "),
     ("set (root): none, internet-only, or allowlist (with --allow)", "set (root): none, internet-only, sinkhole, or allowlist (with --allow)"),
     ("use a sealed profile with allow_sample (no network,", "use a sealed profile with allow_sample (network none or sinkhole,"),
+    # limbo report --plain (LIM-23, 2026-11-25, docs/RUST_PORT.md): the report's flag list names it
+    ("    \twrite to this file instead of stdout\n  -since string", "    \twrite to this file instead of stdout\n  -plain\n    \tthe timeline in plain words, one sentence an event\n  -since string"),
 ]
 
 
