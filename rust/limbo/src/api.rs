@@ -212,6 +212,12 @@ mod proofs {
 /// The side effects the API may trigger on guests (Go: api.Actions).
 pub trait Actions: Send + Sync {
     fn guest(&self, name: &str) -> Result<Manifest, String>;
+    /// The guest for a hold, which only restricts (LIM-5): its manifest copy, or when that is gone a guest the hypervisor
+    /// still has, by name alone. A hold needs only what the name gives (its firewall table, bridge, tap and domain); a
+    /// release needs the copy (the network it had), so it keeps asking `guest`.
+    fn guest_to_hold(&self, name: &str) -> Result<Manifest, String> {
+        self.guest(name)
+    }
     fn defined(&self, m: &Manifest) -> bool;
     fn hold(&self, m: &Manifest, level: &str) -> Result<(), String>;
     fn release(&self, m: &Manifest) -> Result<(), String>;
@@ -236,6 +242,18 @@ pub struct EngineActions(pub Arc<crate::engine::Engine>);
 impl Actions for EngineActions {
     fn guest(&self, name: &str) -> Result<Manifest, String> {
         crate::engine::load_guest(&self.0.state_dir, name)
+    }
+    fn guest_to_hold(&self, name: &str) -> Result<Manifest, String> {
+        let no_copy = match crate::engine::load_guest(&self.0.state_dir, name) {
+            Ok(m) => return Ok(m),
+            Err(e) => e,
+        };
+        let m = Manifest { name: name.to_string(), ..Manifest::default() };
+        if m.validate_name().is_ok() && self.defined(&m) {
+            Ok(m)
+        } else {
+            Err(no_copy)
+        }
     }
     fn defined(&self, m: &Manifest) -> bool {
         self.0.defined(&crate::engine::Ctx::background(), m)
@@ -765,7 +783,7 @@ impl Server {
         }
         let probe = Manifest { name: r.guest.clone(), ..Manifest::default() };
         probe.validate_name().map_err(|e| plain(400, e))?;
-        let m = self.actions.guest(&r.guest).map_err(|e| plain(404, e))?;
+        let m = self.actions.guest_to_hold(&r.guest).map_err(|e| plain(404, e))?;
         if r.source.is_empty() {
             r.source = cx.p.as_str().into();
         }
@@ -784,7 +802,7 @@ impl Server {
         let r = decode(cx.req, LevelReq::default(), "struct { Level quarantine.Level \"json:\\\"level\\\"\" }")?;
         let rec = self.store.raise(&cx.val("id"), &r.level).map_err(state_err)?;
         let _ = self.audit(cx, events::QUARANTINE_RAISE, &rec.guest, detail([("id", &rec.id), ("level", &rec.level)]));
-        match self.actions.guest(&rec.guest) {
+        match self.actions.guest_to_hold(&rec.guest) {
             Err(e) => Ok((200, result_json(&rec, false, false, &e))),
             Ok(m) => Ok((200, self.apply(&m, &rec, false))),
         }
@@ -822,7 +840,8 @@ impl Server {
         ) {
             return Err(plain(500, format!("cannot record verdict in the audit log: {}", sys::go_err(&e))));
         }
-        let g = self.actions.guest(&rec.guest);
+        // a release needs the manifest copy (the network the guest had); isolating needs only the name
+        let g = if r.verdict == quarantine::STATUS_SAFE { self.actions.guest(&rec.guest) } else { self.actions.guest_to_hold(&rec.guest) };
         let defined = g.as_ref().is_ok_and(|m| self.actions.defined(m));
         let (mut applied, mut error) = (false, String::new());
         if defined {
@@ -848,7 +867,7 @@ impl Server {
         let by = format!("{} (peer {})", gotext::trim_space(&r.by), cx.peer.text());
         let id = cx.val("id");
         if let Ok(cur) = self.store.get(&id) {
-            if let Ok(m) = self.actions.guest(&cur.guest) {
+            if let Ok(m) = self.actions.guest_to_hold(&cur.guest) {
                 if self.actions.defined(&m) {
                     return Err(plain(
                         409,
@@ -863,7 +882,8 @@ impl Server {
     }
 
     fn guest_exists(&self, cx: &Ctx) -> (u16, String) {
-        match self.actions.guest(&cx.val("name")) {
+        // Heimdall asks this just before a hold and skips the hold for a guest that does not exist: it is the same lookup
+        match self.actions.guest_to_hold(&cx.val("name")) {
             Ok(m) => (200, Obj::new().bool("exists", true).str("name", &m.name).end()),
             Err(_) => (404, Obj::new().bool("exists", false).end()),
         }

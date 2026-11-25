@@ -298,6 +298,13 @@ an answer) needs no entry when no fixture or case reaches it.
   by `instances.rs`'s test.
 - 2026-11-25, `limbo report --plain` (the timeline in plain words, `words.rs`): the report's flag list names it, so its
   usage text (help, a bad flag, a flag with no value) is read with the new lines; without the flag the report is Go's.
+- 2026-11-25, sample runs suggest ATT&CK techniques from names in their output (docs/SAMPLES.md): `limbo analyze` prints
+  them after the output and `run.end` gets `suggested`; neither differential's output holds such a name, so nothing there
+  changes.
+- 2026-11-25, a hold by name without the manifest copy (docs/QUARANTINE.md): when a guest's copy is gone, a hold and the
+  question whether the guest exists ask the hypervisor (`virsh dominfo`) whether it still has the guest. For a name it
+  does not have the answer is Go's (404), but the Rust limbo has asked once more: the daemon differential drops that one
+  command for its name that never existed (`ghost`) before comparing.
 
 ## The switch: why not a week of shadow mode
 

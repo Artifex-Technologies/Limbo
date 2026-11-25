@@ -740,6 +740,9 @@ def normalise(rep, root, images):
     # the events log as one line per event, its keys parsed (Go and Rust both write sorted detail keys)
     out["events"] = [l for l in out["events"].split("\n") if l]
     out["tools"] = out["tools"].split("\n")
+    # a hold by name without the manifest copy (LIM-5, docs/RUST_PORT.md "Changed since the Go build left"): for a guest with
+    # no copy the Rust limbo asks the hypervisor whether it still has it; the script's one name that never existed is ghost
+    out["tools"] = [l for l in out["tools"] if l != "virsh -c qemu:///system dominfo limbo-ghost"]
     return out
 
 

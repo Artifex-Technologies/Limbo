@@ -867,8 +867,9 @@ Not built or not verified:
 
 Known weaknesses:
 
-- A guest can only be quarantined by name through the manifest copy `up` leaves in
-  the state directory; if that file is removed, holds cannot be applied by name.
+- A guest whose manifest copy (the one `up` leaves in the state directory) was removed can
+  still be held by name, from what the hypervisor has (docs/QUARANTINE.md), but not
+  released: it stays held until it is torn down.
 - Heimdall restarting mid-sequence can report a later `guest.start` as unfiltered if
   it never saw the `policy.apply`; a persisted offset avoids it in normal use.
 - Flow events are only written while `limbo serve` runs (one reader per kernel log
