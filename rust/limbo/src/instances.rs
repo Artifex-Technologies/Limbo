@@ -7,7 +7,7 @@ use crate::engine::{Ctx, Engine};
 use crate::events::Emitter;
 use crate::gojson::{self, Obj};
 use crate::gotime::Time;
-use crate::manifest::{self, Manifest, Network};
+use crate::manifest::{self, Allow, Manifest, Network};
 use crate::quarantine::Holder;
 use crate::{detail, disk, go_struct, gotext, sys, virt, Detail, Refusal};
 use std::collections::{HashMap, HashSet};
@@ -133,6 +133,8 @@ pub struct View {
     pub cpus: i64,
     pub memory_mb: i64,
     pub network: String,
+    /// The effective allow list (manifest or override; LIM-33): empty unless `network` is allowlist.
+    pub allow: Vec<Allow>,
     pub disk: DiskFig,
     pub shared_folder: String,
     pub clipboard: String,
@@ -169,6 +171,16 @@ impl View {
             .int("cpus", self.cpus)
             .int("memory_mb", self.memory_mb)
             .str("network", &self.network)
+            .raw(
+                "allow",
+                &gojson::list(
+                    &self
+                        .allow
+                        .iter()
+                        .map(|x| Obj::new().str("addr", &x.addr).int("port", x.port).str("proto", &x.proto).end())
+                        .collect::<Vec<_>>(),
+                ),
+            )
             .raw(
                 "disk",
                 &Obj::new()
@@ -410,6 +422,7 @@ impl Service {
             cpus: m.cpus,
             memory_mb: m.memory_mb,
             network: m.network.mode.clone(),
+            allow: if m.network.mode == manifest::NET_ALLOWLIST { m.network.allow.clone().unwrap_or_default() } else { vec![] },
             disk: DiskFig::default(),
             shared_folder: shared(m).into(),
             clipboard: m.clipboard.clone(),
@@ -872,4 +885,54 @@ pub fn host_limits() -> (i64, i64) {
     // Go's runtime.NumCPU: the CPUs this process may run on (no cgroup quota, unlike available_parallelism)
     let cpus = rustix::thread::sched_getaffinity(None).map(|s| s.count() as i64).unwrap_or(1);
     (cpus, mem)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::engine::FakeRunner;
+    use crate::events::Recorder;
+
+    fn allow(v: &View) -> String {
+        v.allow.iter().map(|a| format!("{}:{}:{}", a.addr, a.proto, a.port)).collect::<Vec<_>>().join(",")
+    }
+
+    /// LIM-33: the view carries the effective allow list, from the manifest or from root's override, and none outside
+    /// allowlist mode, so Settings can show and edit the list without losing the manifest's entries.
+    #[test]
+    fn the_view_gives_the_effective_allow_list() {
+        let dir = std::env::temp_dir().join(format!("limbo-view-allow-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let d = dir.to_string_lossy().into_owned();
+        let eng = Arc::new(Engine::new(Arc::new(FakeRunner::default()), Arc::new(Recorder::default()), &format!("{d}/state")));
+        let svc = Service::new(&format!("{d}/instances"), &format!("{d}/state"), &d, &format!("{d}/exchange"), eng);
+        let root = Caller { admin: true, uid: 0, user: "root".into() };
+        let m = |name: &str, net: &str| {
+            manifest::parse(
+                format!(
+                    r#"{{"name":"{name}","os":"linux","image":{{"path":"/images/base.qcow2","sha256":"{}"}},"access":{{"user":"analyst"}},"app":{{"name":"Office","exec":"soffice"}},"network":{net}}}"#,
+                    "a".repeat(64)
+                )
+                .as_bytes(),
+            )
+            .unwrap()
+        };
+        let v = svc.add(&m("lab", r#"{"mode":"allowlist","allow":[{"addr":"1.1.1.1","proto":"udp","port":53}]}"#), "", &root).unwrap();
+        assert_eq!((v.network.as_str(), allow(&v)), ("allowlist", "1.1.1.1:udp:53".to_string()));
+        assert!(v.json().contains(r#""network":"allowlist","allow":[{"addr":"1.1.1.1","port":53,"proto":"udp"}],"disk":"#), "{}", v.json());
+        let v = svc.add(&m("plain", r#"{"mode":"none"}"#), "", &root).unwrap();
+        assert!(v.allow.is_empty() && v.json().contains(r#""network":"none","allow":[],"#), "{}", v.json());
+
+        let net =
+            |mode: &str, allow: Option<Vec<Allow>>| Change { network: Some(Network { mode: mode.into(), allow }), ..Default::default() };
+        let v = svc.configure("lab", &net("internet-only", None), &root).unwrap();
+        assert_eq!((v.network.as_str(), allow(&v)), ("internet-only", String::new()));
+        let v = svc
+            .configure("lab", &net("allowlist", Some(vec![Allow { addr: "9.9.9.9".into(), port: 853, proto: "tcp".into() }])), &root)
+            .unwrap();
+        assert_eq!((v.network.as_str(), allow(&v)), ("allowlist", "9.9.9.9:tcp:853".to_string()));
+        let listed = svc.list(&root);
+        assert_eq!(listed.iter().map(|v| format!("{} {}", v.name, allow(v))).collect::<Vec<_>>(), ["lab 9.9.9.9:tcp:853", "plain "]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

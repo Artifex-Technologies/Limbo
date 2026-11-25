@@ -183,7 +183,7 @@ registered instances kept elsewhere; the other figures are parts of it.
 
 ```json
 {"name": "lab", "kind": "instance", "os": "linux", "state": "running", "running": true, "address": "10.213.3.2",
- "cpus": 2, "memory_mb": 4096, "network": "none",
+ "cpus": 2, "memory_mb": 4096, "network": "none", "allow": [],
  "disk": {"base_bytes": 2147483648, "own_bytes": 52428800, "virtual_bytes": 21474836480, "disk_gb": 0},
  "shared_folder": "off", "clipboard": "off", "devices": [], "disposable": false,
  "owner": "ada", "mine": true,
@@ -198,8 +198,12 @@ registered instances kept elsewhere; the other figures are parts of it.
 - `state`: `running`, `stopped` or `held`. `held` wins: a held guest may be running or stopped (see `running`).
 - `hold`: null, or `{"id": "q-...", "status": "open"|"dangerous", "level": "restrict"|"isolate", "by": "heimdall"|"person",
   "since": "RFC 3339 time"}`. Show "held by Heimdall" (`held_by_heimdall` is `by == "heimdall"`) and link to Heimdall's page.
-- `network`: what the manifest gives (`none`, `allowlist`, `internet-only`, `sinkhole`); a hold cuts it whatever this says. Changing it is not
-  offered: it is root's manifest.
+- `network`: what the manifest gives (`none`, `allowlist`, `internet-only`, `sinkhole`), or root's override of it; a hold cuts it whatever
+  this says. Only root changes it (`{"network": {"mode": ..., "allow": [...]}}` in `POST .../settings` on admin.sock: `pkexec limbo
+  instance set NAME --network allowlist --allow 1.1.1.1:udp:53,...`).
+- `allow`: the addresses an `allowlist` guest may reach, as it will start: `[{"addr": "1.1.1.1", "port": 53, "proto": "udp"}]`, the
+  manifest's list or root's override of it; `[]` in every other mode. To add or remove one entry, send this list back changed (a
+  `network` change replaces the whole list).
 - `disk`: `base_bytes` is the base image (shared by every guest built from it, so do not add it up across rows), `own_bytes` the
   guest's own changes (what "Free space" deletes), `virtual_bytes` the size the guest sees (0 if unknown), `disk_gb` the size asked for
   (0: the image's own).

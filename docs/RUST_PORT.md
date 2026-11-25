@@ -293,6 +293,9 @@ an answer) needs no entry when no fixture or case reaches it.
 - 2026-11-24, the flows' "first time" memory outlasts a restart (`flows-seen.json` in the state folder, keyed by each
   guest's manifest): the daemon differential leaves that file out of its comparison of the state folder (Go never wrote
   it); the events are compared as before.
+- 2026-11-25, an Instance in the settings answers carries `allow`, the effective allow list (docs/SETTINGS_PAGE.md): the
+  daemon differential removes that key, right after `network`, before comparing (Go never had it); its content is checked
+  by `instances.rs`'s test.
 
 ## The switch: why not a week of shadow mode
 

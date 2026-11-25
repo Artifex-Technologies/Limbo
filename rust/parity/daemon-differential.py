@@ -721,6 +721,9 @@ def normalise(rep, root, images):
         s = re.sub(r'"(mtime_ns|ctime_ns|dev|ino)": \d+', r'"\1": N', s)
         s = re.sub(r"\.(lic|image-proofs|settings)-[0-9a-f]+", r".\1-X", s)
         s = re.sub(r"take-[0-9a-f]+", "take-X", s)
+        # an instance's effective allow list (LIM-33, docs/RUST_PORT.md "Changed since the Go build left"): only the Rust
+        # limbo's view has it, right after the network mode; rust/limbo/src/instances.rs's tests check its content
+        s = re.sub(r'("network": ?"[a-z-]*"), ?"allow": ?\[[^\]]*\]', r"\1", s)
         return s
 
     def walk(x):

@@ -21,6 +21,10 @@ field is backwards compatible; renaming or removing one, or changing a route, mo
   (`user.sock`, `pkexec limbo` for root routes). Specs: [QUARANTINE.md](QUARANTINE.md), [SETTINGS_PAGE.md](SETTINGS_PAGE.md),
   [INTEGRATION-FAILURES.md](INTEGRATION-FAILURES.md) (Sarina's error codes), [SAMPLES.md](SAMPLES.md).
 - **Where:** `rust/limbo/src/api.rs` (`routes`; tests pin every table), `serve.rs`.
+- **An Instance** (`GET /v1/instances`, `limbo settings show --json`; shape in [SETTINGS_PAGE.md](SETTINGS_PAGE.md)) carries
+  `network` and, since 2026-11-25, `allow`: the effective allow list (`[{"addr","port","proto"}]`, the manifest's or root's
+  override, never null; empty unless `network` is `allowlist`), so Settings edits the list without losing the manifest's
+  entries.
 
 ## The event log: `events.jsonl`
 
