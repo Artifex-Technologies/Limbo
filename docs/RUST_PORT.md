@@ -70,11 +70,9 @@ None of them ships or runs on a user's machine; each is a referee or a test, kep
 | `rust/scripts/nicecargo.sh` | 4 | cargo at nice 15 |
 
 The packaging's shell is the recipe format itself (`PKGBUILD`, `limbo.install`, run by makepkg and pacman), not a
-program of ours. One shell file does ship: **`packaging/wine/wine`**, the 4-line shim installed as
-`/usr/lib/limbo/bin/wine` (and Wine's other command names as links to it), which only `exec`s `/usr/bin/limbo wine
---shim -- ...` by the name it was called with. It is left as shell for now: porting it means a second Rust binary (or a
-multi-call limbo) for one `exec`, and the work goes first to what decides behaviour. It is next in line if the rule is
-read strictly.
+program of ours. The last shell program, the 4-line `wine` shim, went on 2026-11-25: `/usr/lib/limbo/bin/wine` is a
+link to `/usr/bin/limbo`, which started under one of Wine's names runs `limbo wine --shim -- [NAME] ARGS`
+(`cli::wine::shim_args`; tests/dispatch.rs starts it through links and compares).
 
 ## Layout
 

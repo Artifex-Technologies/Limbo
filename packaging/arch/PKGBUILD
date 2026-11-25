@@ -137,9 +137,10 @@ package() {
 	# Limbo's wine: programs that run `wine` from PATH land in Limbo's sandbox. Not on PATH by itself (nothing here
 	# changes what /usr/bin/wine is); a person links it from a folder before /usr/bin:
 	#   sudo ln -s /usr/lib/limbo/bin/wine /usr/local/bin/wine
-	# Wine's other command names (the ones Wine installs as links to its loader) are links to the shim, which runs
-	# the matching program inside the sandbox.
-	install -Dm755 packaging/wine/wine "$pkgdir/usr/lib/limbo/bin/wine"
+	# It is limbo itself, which started as wine runs `limbo wine --shim`; Wine's other command names (the ones Wine
+	# installs as links to its loader) are links to it, and run the matching program inside the sandbox.
+	install -dm755 "$pkgdir/usr/lib/limbo/bin"
+	ln -s /usr/bin/limbo "$pkgdir/usr/lib/limbo/bin/wine"
 	for name in wineboot winecfg wineconsole winedbg winefile winemine winepath msiexec notepad regedit regsvr32; do
 		ln -s wine "$pkgdir/usr/lib/limbo/bin/$name"
 	done

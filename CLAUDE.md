@@ -103,9 +103,10 @@ docs/plans/BACKLOG.md and docs/plans/LOG.md (private; ask the owner).
 - Layout: `rust/limbo/src/` (one module per former Go package: `policy.rs`, `virt.rs`, `engine.rs`, `api.rs`, `runs.rs`,
   `quarantine.rs`, `flows.rs`, `exchange.rs`, `hostpolicy.rs`, `sinkhole/`, `wine/`, `cli/`), `rust/parity/` (the
   differential harnesses and `go-limbo.sh`), `testdata/parity/` (what the Go tests of 86a479f wrote; the Go limbo stays the
-  referee of every proof), `packaging/arch/` (PKGBUILD, unit, sysusers, the weekly image check), `packaging/wine/wine` (the
-  `wine` on PATH that hands to `limbo wine`), `examples/` (profiles and manifests), `scripts/` (real-guest tests). The Go
-  package names in older docs (`internal/policy`, ...) are the Rust modules of the same names.
+  referee of every proof), `packaging/arch/` (PKGBUILD, unit, sysusers, the weekly image check; the `wine` on PATH is a
+  link to limbo, which answers to Wine's names: `cli/wine.rs` `shim_args`), `examples/` (profiles and manifests),
+  `scripts/` (real-guest tests). The Go package names in older docs (`internal/policy`, ...) are the Rust modules of the
+  same names.
 - UFW drops by default on Labyrinth OS and Limbo's table cannot override someone else's drop: `hostfw.rs` adds the rules
   a guest needs. UFW's route rules are deleted with `ufw route delete ...`, not `ufw delete route ...`.
 - `RuntimeDirectory=limbo` empties /run/limbo at every stop: state that must survive a restart lives in the state folder

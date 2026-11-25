@@ -65,3 +65,42 @@ fn ported_commands_and_rs_version_run_here() {
         assert!(String::from_utf8_lossy(&out.stderr).starts_with(want), "{args:?}");
     }
 }
+
+/// LIM-25: started as wine (or another of Wine's names) through a link, limbo is Limbo's wine on PATH: the same as
+/// `limbo wine --shim -- [NAME] ARGS`. A WINEPREFIX outside Limbo's prefixes is refused, so nothing runs here.
+#[test]
+fn as_wine_through_a_link_it_is_the_shim() {
+    let dir = std::env::temp_dir().join(format!("limbo-shim-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("home")).unwrap();
+    let bin = env!("CARGO_BIN_EXE_limbo-rs");
+    let run = |cmd: &std::path::Path, args: &[&str]| {
+        let out = Command::new(cmd)
+            .args(args)
+            .env_clear()
+            .env("HOME", dir.join("home"))
+            .env("PATH", "/usr/bin")
+            .env("WINEPREFIX", "/tmp/somewhere-else")
+            .output()
+            .unwrap();
+        (out.status.code(), String::from_utf8_lossy(&out.stdout).into_owned(), String::from_utf8_lossy(&out.stderr).into_owned())
+    };
+    for (name, args, direct) in [
+        ("wine", vec!["setup.exe", "/S"], vec!["wine", "--shim", "--", "setup.exe", "/S"]),
+        ("wine64", vec!["x.exe"], vec!["wine", "--shim", "--", "x.exe"]),
+        ("winecfg", vec![], vec!["wine", "--shim", "--", "winecfg"]),
+        ("regedit", vec!["/s", "a.reg"], vec!["wine", "--shim", "--", "regedit", "/s", "a.reg"]),
+    ] {
+        let link = dir.join(name);
+        std::os::unix::fs::symlink(bin, &link).unwrap();
+        let (via_link, via_limbo) = (run(&link, &args), run(std::path::Path::new(bin), &direct));
+        assert_eq!(via_link, via_limbo, "{name} {args:?}");
+        assert_ne!(via_link.0, Some(0), "{name}: refused, nothing ran: {via_link:?}");
+        assert!(via_link.2.contains("WINEPREFIX"), "{name}: {via_link:?}");
+    }
+    // under another name it is limbo as usual
+    let other = dir.join("limbo-other");
+    std::os::unix::fs::symlink(bin, &other).unwrap();
+    assert_eq!(run(&other, &["version", "--bogus"]), run(std::path::Path::new(bin), &["version", "--bogus"]));
+    let _ = std::fs::remove_dir_all(&dir);
+}

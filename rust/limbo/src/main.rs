@@ -49,6 +49,8 @@ fn main() {
         eprintln!("limbo: argument {n} is not UTF-8 ({:?}); limbo reads its command line as UTF-8", os_args[n]);
         std::process::exit(2);
     };
+    // started under one of Wine's names: Limbo's wine on PATH (LIM-25)
+    let args = limbo::cli::wine::shim_args(args);
     let first = args.get(1).map(String::as_str);
     match first {
         Some("serve") => {

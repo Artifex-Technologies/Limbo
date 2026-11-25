@@ -26,6 +26,12 @@ const LIBVIRT_SOCKETS: [&str; 5] =
     ["virtlogd.socket", "virtqemud.socket", "virtnetworkd.socket", "virtstoraged.socket", "virtnodedevd.socket"];
 const WINE_SHIM: &str = "/usr/lib/limbo/bin/wine";
 
+/// Whether `wine` on PATH, followed to the file it ends at (`real`), is Limbo's: limbo itself, which started as wine is
+/// the shim (LIM-25: /usr/lib/limbo/bin/wine is a link to /usr/bin/limbo), or the shell shim an older package installed.
+fn is_limbos_wine(real: &str, limbo: Option<&str>) -> bool {
+    real == WINE_SHIM || limbo == Some(real)
+}
+
 /// deps.Missing: the required commands not on PATH.
 pub fn missing() -> Vec<(&'static str, &'static str, &'static str)> {
     REQUIRED.iter().copied().filter(|(c, _, _)| goexec::look_path(c).is_err()).collect()
@@ -89,7 +95,8 @@ fn doctor_wine(io: &mut Io) {
     match goexec::look_path("wine") {
         Ok(p) => {
             let real = std::fs::canonicalize(&p).map(|r| r.to_string_lossy().into_owned()).unwrap_or_else(|_| p.clone());
-            if real == WINE_SHIM {
+            let limbo = std::fs::canonicalize("/usr/bin/limbo").ok().map(|r| r.to_string_lossy().into_owned());
+            if is_limbos_wine(&real, limbo.as_deref()) {
                 line(io, true, &format!("`wine` on PATH is Limbo's ({p}): programs that run wine land in the sandbox"), "");
             } else {
                 line(
@@ -269,4 +276,20 @@ pub fn setup_cmd(args: &[String], io: &mut Io) -> Result<(), Fail> {
         return Err(Fail::Msg("setup: finished, but `limbo doctor` still reports problems (above)".into()));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// LIM-25: `wine` on PATH that ends at limbo (through /usr/lib/limbo/bin/wine, now a link) is Limbo's; so is an older
+    /// package's shell shim; Wine's own loader is not.
+    #[test]
+    fn wine_on_path_that_ends_at_limbo_is_limbos() {
+        let limbo = Some("/usr/bin/limbo");
+        assert!(is_limbos_wine("/usr/bin/limbo", limbo));
+        assert!(is_limbos_wine(WINE_SHIM, limbo));
+        assert!(!is_limbos_wine("/usr/bin/wine", limbo));
+        assert!(!is_limbos_wine("/usr/bin/limbo", None));
+    }
 }

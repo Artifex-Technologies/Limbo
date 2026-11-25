@@ -12,6 +12,40 @@ use crate::{sys, Detail};
 use std::collections::BTreeMap;
 use std::os::unix::fs::MetadataExt;
 
+/// Wine's command names (the ones Wine installs as links to its loader, and wine64): started as one of them, through a
+/// link to /usr/bin/limbo in /usr/lib/limbo/bin, limbo is Limbo's `wine` on PATH (LIM-25; until then a shell script,
+/// packaging/wine/wine) and runs `limbo wine --shim -- [NAME] ARGS` (main.rs). The package links every one but wine64.
+pub const SHIM_NAMES: [&str; 13] = [
+    "wine",
+    "wine64",
+    "wineboot",
+    "winecfg",
+    "wineconsole",
+    "winedbg",
+    "winefile",
+    "winemine",
+    "winepath",
+    "msiexec",
+    "notepad",
+    "regedit",
+    "regsvr32",
+];
+
+/// The command line limbo runs when started under one of Wine's names: `wine` and `wine64` run what they are given,
+/// another name runs that program (`winecfg ARGS` is `wine winecfg ARGS`); under any other name, the command line as given.
+pub fn shim_args(args: Vec<String>) -> Vec<String> {
+    let name = args.first().map(|a| a.rsplit('/').next().unwrap_or(a)).unwrap_or_default();
+    if !SHIM_NAMES.contains(&name) {
+        return args;
+    }
+    let mut v = vec![args[0].clone(), "wine".into(), "--shim".into(), "--".into()];
+    if name != "wine" && name != "wine64" {
+        v.push(name.to_string());
+    }
+    v.extend(args.into_iter().skip(1));
+    v
+}
+
 const USAGE: &str = "usage: limbo wine [options] [--] PROGRAM [ARGS]   (Windows programs with Wine, inside a sandbox)";
 
 /// The command.

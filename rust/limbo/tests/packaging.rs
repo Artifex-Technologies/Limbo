@@ -22,3 +22,18 @@ fn pkgbuild_optdepends_cover_every_required_package() {
         "the PKGBUILD still builds or installs the Go limbo"
     );
 }
+
+/// LIM-25: Limbo's wine on PATH is limbo itself, linked; every command name the package links is one it answers to.
+#[test]
+fn the_wine_on_path_is_a_link_to_limbo() {
+    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../packaging");
+    let text = std::fs::read_to_string(format!("{dir}/arch/PKGBUILD")).unwrap();
+    assert!(text.contains("ln -s /usr/bin/limbo \"$pkgdir/usr/lib/limbo/bin/wine\""), "no link to limbo as wine");
+    assert!(!std::path::Path::new(&format!("{dir}/wine/wine")).exists(), "the shell shim is back");
+    let line = text.lines().find(|l| l.trim_start().starts_with("for name in wineboot")).expect("the links' loop");
+    let names: Vec<&str> = line.trim_start().trim_start_matches("for name in ").trim_end_matches("; do").split(' ').collect();
+    for n in &names {
+        assert!(limbo::cli::wine::SHIM_NAMES.contains(n), "{n} is linked but limbo does not answer to it");
+    }
+    assert_eq!(names.len() + 2, limbo::cli::wine::SHIM_NAMES.len(), "linked: {names:?} (with wine; wine64 is not linked)");
+}

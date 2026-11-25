@@ -704,7 +704,8 @@ should treat it as untrusted. The account's login name is visible inside (as `US
 ### Limbo's `wine` on PATH
 
 The package installs `/usr/lib/limbo/bin/wine` (with Wine's other command names, the ones Wine itself installs as links
-to its loader: `wineboot`, `winecfg`, `msiexec`, `regedit`, `notepad`, ...), which runs `limbo wine --shim`. It is not
+to its loader: `wineboot`, `winecfg`, `msiexec`, `regedit`, `notepad`, ...), a link to `/usr/bin/limbo`, which started
+under one of those names runs `limbo wine --shim`. It is not
 on PATH by itself. A person puts it there with a link in a folder before `/usr/bin`, such as `/usr/local/bin` (it comes
 first in Arch's default PATH):
 
