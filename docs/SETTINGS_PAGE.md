@@ -96,8 +96,8 @@ The page shows figures (instances, states, disk use, memory) even with the switc
 
 ## Known limitations
 
-No snapshots ("go back to how it was yesterday"), no default memory and processor limit for new guests, and the audit log is
-shown as recorded, not in plain words.
+No snapshots ("go back to how it was yesterday"), and a new guest's default processors and memory are set in
+`/etc/limbo/settings.json` by hand: the page has no control for them yet.
 
 ## Decided
 
@@ -258,6 +258,11 @@ loosening a held guest, and group membership.
 The switch is the file `/etc/limbo/settings.json` (`{"ask_password": false}`, root's, mode 0644). A missing file means on. A file that
 is malformed, not root's, writable by others or a link means on. Changing it is logged before it is saved, and not saved if it cannot
 be logged. Turning it on or off always goes through `pkexec`.
+
+The same file may give a new instance's processors and memory when its manifest names none (since 2026-11-25):
+`"default_cpus": 4, "default_memory_mb": 8192` (1 to 64, and at least 512; leaving them out, or 0, is Limbo's own 2 and
+4096). They apply when an instance is registered; a value outside those ranges makes the whole file read as missing (the
+switch on, no defaults). Turning the switch on or off keeps them. No route sets them yet: root edits the file.
 
 A license key is never put on a command line (the process table is readable by every account): the page pipes it to
 `pkexec limbo license add --name NAME` on stdin. It is stored in `/etc/limbo/licenses/<id>.json` (folder 0700, file 0600), shown

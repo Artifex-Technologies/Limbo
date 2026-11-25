@@ -1044,7 +1044,10 @@ impl Server {
         if let Err(e) = self.audit(cx, "settings.change", "", detail([("ask_password", v)])) {
             return Err(plain(500, format!("cannot record the change in the audit log: {}", sys::go_err(&e))));
         }
-        f.save(crate::settings::Settings { ask_password: ask }).map_err(|e| plain(500, sys::go_err(&e)))?;
+        // the rest of the file as it is (a new instance's defaults, LIM-22)
+        let (mut cur, _) = f.load();
+        cur.ask_password = ask;
+        f.save(cur).map_err(|e| plain(500, sys::go_err(&e)))?;
         Ok((200, Obj::new().bool("ask_password", ask).end()))
     }
 

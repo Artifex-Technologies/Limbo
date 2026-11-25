@@ -380,6 +380,12 @@ pub fn run(args: &[String]) -> Result<(), String> {
     inst.holds = Some(store.clone());
     inst.events = Some(log.clone());
     inst.host_limits = Some(instances::host_limits);
+    // a new instance's processors and memory when its manifest names none (LIM-22): read at each registration
+    let settings_path = f.settings.clone();
+    inst.defaults = Some(Box::new(move || {
+        let (s, _) = crate::settings::load(&settings_path, true);
+        (s.default_cpus, s.default_memory_mb)
+    }));
     let licenses: Option<Arc<license::Store>> = match license::Store::open(&f.licenses_dir, true) {
         Ok(l) => Some(Arc::new(l)),
         Err(e) => {

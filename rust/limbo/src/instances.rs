@@ -236,6 +236,9 @@ pub struct Service {
     pub events: Option<Arc<dyn Emitter>>,
     pub license_of: Option<Box<dyn Fn(&str) -> String + Send + Sync>>,
     pub host_limits: Option<fn() -> (i64, i64)>,
+    /// The processors and memory (MiB) a new instance gets when its manifest names none (settings.json, LIM-22); 0: Limbo's
+    /// own. None: Limbo's own.
+    pub defaults: Option<Box<dyn Fn() -> (i64, i64) + Send + Sync>>,
     locks: Mutex<HashMap<String, Arc<Mutex<()>>>>,
 }
 
@@ -275,6 +278,7 @@ impl Service {
             events: None,
             license_of: None,
             host_limits: None,
+            defaults: None,
             locks: Mutex::new(HashMap::new()),
         }
     }
@@ -791,6 +795,17 @@ impl Service {
         if !c.admin {
             return Err(refuse(403, CODE_BAD_REQUEST, "use the password (sudo or pkexec)", "only root registers instances".into()));
         }
+        // what the manifest leaves out (0) comes from the settings' defaults, before Limbo's own fill it in
+        let mut m = m.clone();
+        if let Some(d) = &self.defaults {
+            let (cpus, mem) = d();
+            if m.cpus == 0 {
+                m.cpus = cpus;
+            }
+            if m.memory_mb == 0 {
+                m.memory_mb = mem;
+            }
+        }
         let pm = manifest::parse(m.json().as_bytes())
             .map_err(|e| refuse(400, CODE_BAD_REQUEST, "fix the manifest ('limbo validate FILE')", e))?;
         if pm.disposable {
@@ -895,6 +910,37 @@ mod tests {
 
     fn allow(v: &View) -> String {
         v.allow.iter().map(|a| format!("{}:{}:{}", a.addr, a.proto, a.port)).collect::<Vec<_>>().join(",")
+    }
+
+    /// LIM-22: a new instance whose manifest names no processors or memory gets the settings' defaults; one that names
+    /// them keeps its own; without defaults, Limbo's own (2 and 4096).
+    #[test]
+    fn a_new_instance_takes_the_settings_defaults() {
+        let dir = std::env::temp_dir().join(format!("limbo-defaults-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let d = dir.to_string_lossy().into_owned();
+        let eng = Arc::new(Engine::new(Arc::new(FakeRunner::default()), Arc::new(Recorder::default()), &format!("{d}/state")));
+        let mut svc = Service::new(&format!("{d}/instances"), &format!("{d}/state"), &d, &format!("{d}/exchange"), eng);
+        svc.defaults = Some(Box::new(|| (4, 8192)));
+        let root = Caller { admin: true, uid: 0, user: "root".into() };
+        // as the API decodes it: what the caller left out is 0
+        let m = |name: &str, extra: &str| {
+            let doc = format!(
+                r#"{{"name":"{name}","os":"linux","image":{{"path":"/images/base.qcow2","sha256":"{}"}},"access":{{"user":"analyst"}},"app":{{"name":"Office","exec":"soffice"}}{extra}}}"#,
+                "a".repeat(64)
+            );
+            let (m, r) = crate::gojson::decode(doc.as_bytes(), Manifest::default(), "manifest.Manifest", true);
+            r.unwrap();
+            m
+        };
+        let v = svc.add(&m("plain", ""), "", &root).unwrap();
+        assert_eq!((v.cpus, v.memory_mb), (4, 8192));
+        let v = svc.add(&m("own", r#","cpus":1,"memory_mb":2048"#), "", &root).unwrap();
+        assert_eq!((v.cpus, v.memory_mb), (1, 2048));
+        svc.defaults = Some(Box::new(|| (0, 0)));
+        let v = svc.add(&m("builtin", ""), "", &root).unwrap();
+        assert_eq!((v.cpus, v.memory_mb), (2, 4096));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// LIM-33: the view carries the effective allow list, from the manifest or from root's override, and none outside

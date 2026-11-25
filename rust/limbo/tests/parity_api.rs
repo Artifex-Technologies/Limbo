@@ -248,7 +248,7 @@ fn api_matches_go() {
             instances: Some(Arc::new(inst)),
             licenses: Some(Arc::new(NoLicenses)),
             settings: Some(Arc::new(PSettings {
-                s: Mutex::new(Settings { ask_password: sc["ask"].as_bool().unwrap() }),
+                s: Mutex::new(Settings { ask_password: sc["ask"].as_bool().unwrap(), ..Default::default() }),
                 err: s(&sc["settings_err"]),
             })),
             exchange: Some(Arc::new(limbo::exchange::Service {
