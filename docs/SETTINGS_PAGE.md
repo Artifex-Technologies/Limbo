@@ -96,8 +96,7 @@ The page shows figures (instances, states, disk use, memory) even with the switc
 
 ## Known limitations
 
-No snapshots ("go back to how it was yesterday"), and a new guest's default processors and memory are set in
-`/etc/limbo/settings.json` by hand: the page has no control for them yet.
+No snapshots ("go back to how it was yesterday").
 
 ## Decided
 
