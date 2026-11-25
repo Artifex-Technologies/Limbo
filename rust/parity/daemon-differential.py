@@ -741,8 +741,10 @@ def normalise(rep, root, images):
     out["events"] = [l for l in out["events"].split("\n") if l]
     out["tools"] = out["tools"].split("\n")
     # a hold by name without the manifest copy (LIM-5, docs/RUST_PORT.md "Changed since the Go build left"): for a guest with
-    # no copy the Rust limbo asks the hypervisor whether it still has it; the script's one name that never existed is ghost
-    out["tools"] = [l for l in out["tools"] if l != "virsh -c qemu:///system dominfo limbo-ghost"]
+    # no copy the Rust limbo asks the hypervisor whether it still has it, which Go never did (here: ghost, and office where
+    # there is no /dev/kvm to start it, as in CI). `dominfo` only asks; it is left out on both sides, and every command
+    # that changes something, and every answer, is still compared.
+    out["tools"] = [l for l in out["tools"] if not l.startswith("virsh -c qemu:///system dominfo ")]
     return out
 
 

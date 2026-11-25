@@ -301,8 +301,9 @@ an answer) needs no entry when no fixture or case reaches it.
   changes.
 - 2026-11-25, a hold by name without the manifest copy (docs/QUARANTINE.md): when a guest's copy is gone, a hold and the
   question whether the guest exists ask the hypervisor (`virsh dominfo`) whether it still has the guest. For a name it
-  does not have the answer is Go's (404), but the Rust limbo has asked once more: the daemon differential drops that one
-  command for its name that never existed (`ghost`) before comparing.
+  does not have the answer is Go's (404), but the Rust limbo has asked once more: the daemon differential leaves
+  `dominfo`, which only asks, out of its comparison of the host commands on both sides (the answers and every command
+  that changes something are compared as before).
 
 ## The switch: why not a week of shadow mode
 
