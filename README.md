@@ -105,6 +105,45 @@ Nothing in this repo downloads, bundles or installs Windows. The Windows
 backend is written to require a user-supplied ISO and license; without them it
 does nothing, and its code is marked unverified until it has run for real.
 
+## Why Rust: measured
+
+Old: the Go limbo of `86a479f`, the last commit with the Go sources (`rust/parity/go-limbo.sh` builds it, `CGO_ENABLED=0`).
+New: the Rust release build. Same computer, measured 2026-11-25; change is new against old, so a minus is a gain.
+
+**The daemon** (`limbo serve`), both in the daemon differential's namespaces with the same fake tools, the same 109
+requests (validation and sample runs among them) and the same NFLOG traffic (`rust/parity/daemon-differential.py`; it
+compares every answer, event, host command and state file, and found no difference):
+
+| | Go | Rust | Change |
+| --- | --- | --- | --- |
+| memory after start (RSS / PSS) | 13.5 / 13.5 MB | 3.7 / 1.6 MB | −73 % / −88 % |
+| memory after the requests (RSS / PSS) | 19.5 / 19.4 MB | 4.6 / 2.4 MB | −76 % / −88 % |
+| threads | 9 | 1 | |
+| idle (5 s here, 60 s on 2026-11-10): CPU, context switches | 0, 0 | 0, 0 | both sleep until a socket or NFLOG wakes them |
+
+On my PC the installed daemon has stayed at about 4 MB resident and one thread after hours of use (the Go one grew to 18.8 MB).
+
+**The command line**, on commands that need no daemon and no root (`rust/parity/measure-cli.py`: a small C launcher reports
+wall time, CPU and peak RSS from `wait4`; 30 runs each, alternating, at nice 19; the median, p10-p90 in brackets; the floor,
+`/usr/bin/true`, is 0.43 ms and 1.7 MB; the outputs are the same):
+
+| Command | Go | Rust | Change | peak RSS Go → Rust |
+| --- | --- | --- | --- | --- |
+| no arguments (the usage) | 1.94 ms (1.71-2.09) | 0.60 ms (0.57-0.68) | −69 % | 10.7 → 2.8 MB |
+| `validate` a manifest | 2.16 ms (1.99-2.40) | 0.71 ms (0.67-0.75) | −67 % | 10.9 → 3.8 MB |
+| `plan` a manifest (domain XML, firewall rules) | 2.25 ms (1.90-2.41) | 0.75 ms (0.69-0.78) | −67 % | 10.9 → 4.0 MB |
+| `doctor` (starts the tools it checks) | 5.16 ms (4.88-5.44) | 3.52 ms (3.36-3.66) | −32 % | 10.7 → 3.8 MB |
+
+Most of a short Go command's time is starting the Go runtime. **Size:** 9.0 MB stripped for Go, 2.6 MB for Rust, the one
+binary with the daemon and every command (Wine's sandbox, the network capture and the passthrough checks included).
+
+**What the port found in the old code** (docs/RUST_PORT.md): `license.Check` and `limbo seed` depended on Go's map order
+(which file a failed check named, what a failed write left behind), and a restart of the daemon lifted the passthrough
+block (`RuntimeDirectory=limbo` empties /run/limbo; the marker now lives in the state folder and names its boot). Each was
+fixed in Go and Rust alike. The differential runs also caught the port's own first-build mistakes before the switch (runs
+of bad bytes in guest output, a killed command's exit, a command's end noticed only every 25 ms, now a pidfd). What
+differs on purpose, and every proof: [docs/RUST_PORT.md](docs/RUST_PORT.md).
+
 ## References
 
 Each is a design reference, not a dependency. Limbo borrows ideas and writes its
