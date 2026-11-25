@@ -37,6 +37,8 @@ pub const INTENDED: &[(&str, &str)] = &[
         "    \twrite to this file instead of stdout\n  -since string",
         "    \twrite to this file instead of stdout\n  -plain\n    \tthe timeline in plain words, one sentence an event\n  -since string",
     ),
+    // limbo settings defaults (LIM-22 and YGG-139, 2026-11-25): the settings command's usage names it
+    ("limbo settings password on|off (root)\n", "limbo settings password on|off (root) | limbo settings defaults CPUS MEMORY_MB (root)\n"),
 ];
 
 impl Diffs {

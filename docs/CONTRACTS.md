@@ -15,7 +15,7 @@ field is backwards compatible; renaming or removing one, or changing a route, mo
   | `control.sock` | 0660, group `limbo-heimdall` | Heimdall: open a quarantine, raise its level, attach an advisory, list, `GET /v1/guests/{name}` (200 `{"name","exists":true}` or 404 `{"exists":false}`; a guest whose manifest copy is gone exists while the hypervisor has it, as for a hold, 2026-11-25). No route releases a guest, lifts a hold, lowers a level, tears a guest down or gives a verdict. |
   | `agent.sock` | 0660, group `limbo-agent` | Sarina: `GET /v1/profiles`, `POST /v1/runs`, `GET /v1/runs/{id}` (validation runs in disposable guests). Never quarantines, never a guest it did not create, never a manifest of its choosing. |
   | `user.sock` | 0660, group `limbo-users` | the person and Yggdrasil Settings > Security > Limbo: the figures always; changes to their own guests only while the password switch is off ([SETTINGS_PAGE.md](SETTINGS_PAGE.md)) |
-  | `admin.sock` | 0600 root | `sudo limbo ...`, `pkexec limbo ...`: everything, verdicts, licences, `POST /v1/sample-runs` (Heimdall's immunity analysis, run as root), `POST /v1/agent-runs/stop` (Heimdall's containment) |
+  | `admin.sock` | 0600 root | `sudo limbo ...`, `pkexec limbo ...`: everything, verdicts, licences, `POST /v1/sample-runs` (Heimdall's immunity analysis, run as root), `POST /v1/agent-runs/stop` (Heimdall's containment), `POST /v1/settings/defaults` (a new instance's processors and memory, 2026-11-25; Settings through `pkexec limbo settings defaults`) |
 
 - **Who:** Heimdall (`control.sock`, `admin.sock` from its root units), Sarina (`agent.sock`), Yggdrasil Settings
   (`user.sock`, `pkexec limbo` for root routes). Specs: [QUARANTINE.md](QUARANTINE.md), [SETTINGS_PAGE.md](SETTINGS_PAGE.md),

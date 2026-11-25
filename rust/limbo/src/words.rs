@@ -121,6 +121,14 @@ pub fn sentence(e: &Event) -> Option<String> {
             format!("{} was registered{}.", cap(&guest), if d("owner").is_empty() { String::new() } else { format!(" for {}", d("owner")) })
         }
         "instance.remove" => format!("{} was removed{}.", cap(&guest), if d("delete_disk") == "true" { ", with its disk" } else { "" }),
+        "settings.change" if !d("default_cpus").is_empty() => {
+            let own = |v: &str, unit: &str| if v == "0" { "Limbo's own".to_string() } else { format!("{v}{unit}") };
+            format!(
+                "A new guest's defaults were set: processors {}, memory {}.",
+                own(d("default_cpus"), ""),
+                own(d("default_memory_mb"), " MiB")
+            )
+        }
         "settings.change" => {
             format!("The password switch for Limbo changes was turned {}.", if d("ask_password") == "true" { "on" } else { "off" })
         }
@@ -257,6 +265,10 @@ mod tests {
         assert_eq!(
             sentence(&ev("settings.change", "", &[("ask_password", "true")])).unwrap(),
             "The password switch for Limbo changes was turned on."
+        );
+        assert_eq!(
+            sentence(&ev("settings.change", "", &[("default_cpus", "4"), ("default_memory_mb", "0")])).unwrap(),
+            "A new guest's defaults were set: processors 4, memory Limbo's own."
         );
     }
 }

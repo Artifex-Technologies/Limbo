@@ -42,6 +42,7 @@ fn user_sock_never_has_verdicts_or_root_routes_exhaustively() {
                     | R::QClose
                     | R::GuestDown
                     | R::PutSettings
+                    | R::PutDefaults
                     | R::AddInstance
                     | R::RemoveInstance
                     | R::AddLicense

@@ -690,6 +690,8 @@ INTENDED = [
     ("use a sealed profile with allow_sample (no network,", "use a sealed profile with allow_sample (network none or sinkhole,"),
     # limbo report --plain (LIM-23, 2026-11-25, docs/RUST_PORT.md): the report's flag list names it
     ("    \twrite to this file instead of stdout\n  -since string", "    \twrite to this file instead of stdout\n  -plain\n    \tthe timeline in plain words, one sentence an event\n  -since string"),
+    # limbo settings defaults (LIM-22 and YGG-139, 2026-11-25, docs/RUST_PORT.md): the settings command's usage names it
+    ("limbo settings password on|off (root)\n", "limbo settings password on|off (root) | limbo settings defaults CPUS MEMORY_MB (root)\n"),
 ]
 
 

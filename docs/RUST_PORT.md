@@ -304,6 +304,8 @@ an answer) needs no entry when no fixture or case reaches it.
   does not have the answer is Go's (404), but the Rust limbo has asked once more: the daemon differential leaves
   `dominfo`, which only asks, out of its comparison of the host commands on both sides (the answers and every command
   that changes something are compared as before).
+- 2026-11-25, `limbo settings defaults CPUS MEMORY_MB` (a new instance's processors and memory, docs/SETTINGS_PAGE.md):
+  the settings command's usage names it, so that usage text is read with the new part.
 
 ## The switch: why not a week of shadow mode
 

@@ -494,7 +494,10 @@ fn settings(args: &[String], io: &mut Io) -> Result<(), Fail> {
     let pos = parse_flags(&mut fs, args, io)?;
     let c = Cli::from(&fs);
     if pos.is_empty() {
-        return Err("usage: limbo settings show [--json] | limbo settings password on|off (root)".into());
+        return Err(
+            "usage: limbo settings show [--json] | limbo settings password on|off (root) | limbo settings defaults CPUS MEMORY_MB (root)"
+                .into(),
+        );
     }
     match pos[0].as_str() {
         "show" => {
@@ -567,6 +570,28 @@ fn settings(args: &[String], io: &mut Io) -> Result<(), Fail> {
                 c.emit_json(io, &raw);
             } else {
                 w(io.out, format!("Ask for my password for Limbo changes: {}\n", pos[1]).as_bytes());
+            }
+            Ok(())
+        }
+        // a new instance's processors and memory when its manifest names none (LIM-22, YGG-139); 0 is Limbo's own
+        "defaults" => {
+            let n = |i: usize| pos.get(i).and_then(|v| v.parse::<i64>().ok());
+            let (Some(cpus), Some(mem), 3) = (n(1), n(2), pos.len()) else {
+                return Err("usage: limbo settings defaults CPUS MEMORY_MB (0 0: Limbo's own; needs root: sudo or pkexec)".into());
+            };
+            if c.sock == USER_SOCK {
+                return Err("settings defaults: needs root (sudo or pkexec)".into());
+            }
+            let body = Obj::new().int("default_cpus", cpus).int("default_memory_mb", mem).end();
+            let raw = match c.do_("POST", "/v1/settings/defaults", Some(body)) {
+                Ok(r) => r,
+                Err(e) => return Err(c.finish(io, e)),
+            };
+            if c.as_json {
+                c.emit_json(io, &raw);
+            } else {
+                let own = |v: i64, unit: &str| if v == 0 { "Limbo's own".to_string() } else { format!("{v}{unit}") };
+                w(io.out, format!("A new guest gets: processors {}, memory {}\n", own(cpus, ""), own(mem, " MiB")).as_bytes());
             }
             Ok(())
         }

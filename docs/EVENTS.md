@@ -138,7 +138,7 @@ requests are refused before anything is written).
 | `instance.request` | a person asked to start or stop a registered instance (engine events follow) | `action` |
 | `instance.change` | a person changed an instance's settings, or freed its disk | `changed` (comma-separated keys, or `free_space`) |
 | `instance.add` / `instance.remove` | root registered or removed an instance | `owner` / `delete_disk` |
-| `settings.change` | root turned the password switch on or off (written before it takes effect; not saved if it cannot be written) | `ask_password` |
+| `settings.change` | root turned the password switch on or off, or set a new instance's defaults (written before it takes effect; not saved if it cannot be written) | `ask_password`; or `default_cpus` and `default_memory_mb` (0: Limbo's own) |
 | `license.add` / `license.remove` / `license.reveal` / `license.assign` / `license.unassign` | a Windows license was stored, removed, shown in full, or (un)assigned | `id` (never the key) |
 
 ## Files leaving a guest (package exchange)

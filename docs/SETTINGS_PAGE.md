@@ -246,6 +246,7 @@ space is refused for a held guest whoever asks (its disk is evidence). Licenses 
 | Route | Body | Answer | CLI |
 | --- | --- | --- | --- |
 | `POST /v1/settings` | `{"ask_password": true\|false}` | `{"ask_password": ...}` | `limbo settings password on\|off` |
+| `POST /v1/settings/defaults` | `{"default_cpus": N, "default_memory_mb": N}` (both; 0 is Limbo's own) | the same | `limbo settings defaults CPUS MEMORY_MB` |
 | `POST /v1/instances` | `{"manifest": {...}, "owner": "account"}` | Instance | `limbo instance add MANIFEST [--owner USER]` (owner defaults to the sudo/pkexec user) |
 | `DELETE /v1/instances/{name}` | `{"delete_disk": false}` | `{"removed": "name"}` | `limbo instance remove NAME [--delete-disk]` |
 | `POST /v1/licenses` | `{"name": "...", "key": "XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"}` | License (masked) | `limbo license add --name NAME`, key on stdin |
@@ -262,7 +263,9 @@ be logged. Turning it on or off always goes through `pkexec`.
 The same file may give a new instance's processors and memory when its manifest names none (since 2026-11-25):
 `"default_cpus": 4, "default_memory_mb": 8192` (1 to 64, and at least 512; leaving them out, or 0, is Limbo's own 2 and
 4096). They apply when an instance is registered; a value outside those ranges makes the whole file read as missing (the
-switch on, no defaults). Turning the switch on or off keeps them. No route sets them yet: root edits the file.
+switch on, no defaults). Turning the switch on or off keeps them. Root sets them with `POST /v1/settings/defaults`
+(`limbo settings defaults CPUS MEMORY_MB`, logged as `settings.change` before it is saved), and `GET /v1/status` gives
+them when set (`default_cpus`, `default_memory_mb`).
 
 A license key is never put on a command line (the process table is readable by every account): the page pipes it to
 `pkexec limbo license add --name NAME` on stdin. It is stored in `/etc/limbo/licenses/<id>.json` (folder 0700, file 0600), shown

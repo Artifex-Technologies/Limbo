@@ -68,6 +68,7 @@ pub enum R {
     AssignLicense,
     UnassignLicense,
     PutSettings,
+    PutDefaults,
     AddInstance,
     RemoveInstance,
     AddLicense,
@@ -133,6 +134,8 @@ pub fn routes(p: Principal, s: Present) -> Vec<Route<R>> {
         }
         if p == Admin {
             v.push(rt("POST", "/v1/settings", R::PutSettings));
+            // a new instance's processors and memory (LIM-22, YGG-139): root's, like the switch
+            v.push(rt("POST", "/v1/settings/defaults", R::PutDefaults));
             if s.instances {
                 v.push(rt("POST", "/v1/instances", R::AddInstance));
                 v.push(rt("DELETE", "/v1/instances/{name}", R::RemoveInstance));
@@ -193,6 +196,7 @@ mod proofs {
                     | R::QClose
                     | R::GuestDown
                     | R::PutSettings
+                    | R::PutDefaults
                     | R::AddInstance
                     | R::RemoveInstance
                     | R::AddLicense
@@ -573,6 +577,13 @@ struct AskReq {
 go_struct!(AskReq as "" { ask_password: "ask_password" => "*bool" });
 
 #[derive(Default)]
+struct DefaultsReq {
+    default_cpus: Option<i64>,
+    default_memory_mb: Option<i64>,
+}
+go_struct!(DefaultsReq as "" { default_cpus: "default_cpus" => "*int", default_memory_mb: "default_memory_mb" => "*int" });
+
+#[derive(Default)]
 struct ConfirmReq {
     confirm: bool,
 }
@@ -712,6 +723,7 @@ impl Server {
             R::Status => Ok(self.status(&cx)),
             R::GetSettings => Ok((200, Obj::new().bool("ask_password", self.ask_password()).end())),
             R::PutSettings => self.put_settings(&cx),
+            R::PutDefaults => self.put_defaults(&cx),
             R::ListInstances => {
                 let c = self.caller(&cx).0;
                 let list = self.inst().list(&c);
@@ -977,6 +989,17 @@ impl Server {
         }
     }
 
+    /// A new instance's processors and memory from the settings (0: Limbo's own; a file that does not read: none).
+    fn defaults(&self) -> (i64, i64) {
+        match &self.settings {
+            Some(f) => match f.load() {
+                (s, None) => (s.default_cpus, s.default_memory_mb),
+                _ => (0, 0),
+            },
+            None => (0, 0),
+        }
+    }
+
     fn ask_password(&self) -> bool {
         match &self.settings {
             None => true,
@@ -1026,6 +1049,9 @@ impl Server {
                 .bool("running", true)
                 .bool("kvm", (self.kvm)())
                 .bool("ask_password", self.ask_password())
+                // a new instance's defaults, only when set (LIM-22): without them the answer is Go's
+                .int_omit("default_cpus", self.defaults().0)
+                .int_omit("default_memory_mb", self.defaults().1)
                 .raw("space", &i.space().json())
                 .raw("instances", &inst)
                 .end(),
@@ -1049,6 +1075,36 @@ impl Server {
         cur.ask_password = ask;
         f.save(cur).map_err(|e| plain(500, sys::go_err(&e)))?;
         Ok((200, Obj::new().bool("ask_password", ask).end()))
+    }
+
+    /// A new instance's processors and memory (root only): both given, each 0 (Limbo's own) or in the manifest's range;
+    /// logged before it is saved, as the switch is.
+    fn put_defaults(&self, cx: &Ctx) -> Out {
+        let want = r#"{"default_cpus": N, "default_memory_mb": N} (0: Limbo's own)"#;
+        let r = decode_strict(cx.req, DefaultsReq::default(), "api.defaultsReq", want)?;
+        let (Some(cpus), Some(mem)) = (r.default_cpus, r.default_memory_mb) else {
+            return Err(coded(400, "bad_request", &format!("send {want}"), "default_cpus and default_memory_mb are both needed".into()));
+        };
+        if (cpus != 0 && !crate::settings::CPUS.contains(&cpus)) || (mem != 0 && !crate::settings::MEMORY_MB.contains(&mem)) {
+            return Err(coded(
+                400,
+                "out_of_range",
+                "processors 1 to 64 and memory 512 MiB or more, or 0 for Limbo's own",
+                format!("default_cpus {cpus} or default_memory_mb {mem} is out of range"),
+            ));
+        }
+        let Some(f) = &self.settings else {
+            return Err(coded(500, "internal", "see the Limbo log", "no settings file is configured".into()));
+        };
+        let (c, m) = (cpus.to_string(), mem.to_string());
+        if let Err(e) = self.audit(cx, "settings.change", "", detail([("default_cpus", c.as_str()), ("default_memory_mb", m.as_str())])) {
+            return Err(plain(500, format!("cannot record the change in the audit log: {}", sys::go_err(&e))));
+        }
+        let (mut cur, _) = f.load();
+        cur.default_cpus = cpus;
+        cur.default_memory_mb = mem;
+        f.save(cur).map_err(|e| plain(500, sys::go_err(&e)))?;
+        Ok((200, Obj::new().int("default_cpus", cpus).int("default_memory_mb", mem).end()))
     }
 
     fn configure(&self, cx: &Ctx) -> Out {
